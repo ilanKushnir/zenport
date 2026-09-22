@@ -3,7 +3,10 @@ import type { ScanStateDto, UserInfo } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { useAuth } from '../App.tsx';
-import { ErrorNote, Sheet } from '../components/ui.tsx';
+import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
+import { Onboarding } from '../onboarding/Onboarding.tsx';
+import { playBell } from '../player/bell.ts';
+import { ErrorNote, Icon, Sheet } from '../components/ui.tsx';
 
 const COMMON_TIMEZONES = [
   'UTC',
@@ -48,7 +51,13 @@ export function SettingsPage() {
     <>
       <div className="page-head">
         <h1>Settings</h1>
+        <p className="lede">
+          Everything here is per-account, so a change you make does not follow anyone else in the
+          household.
+        </p>
       </div>
+
+      <PreferencesSection />
 
       <section className="section" aria-labelledby="s-profile">
         <div className="section-head">
@@ -243,5 +252,211 @@ function AddUserSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         </button>
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * The same controls the welcome flow offers, in their permanent home. Each
+ * writes through immediately — there is no Save button to forget to press.
+ */
+function PreferencesSection() {
+  const { prefs, save } = usePrefs();
+  const [replay, setReplay] = useState(false);
+  const GOALS = [5, 10, 15, 20, 30, 45];
+  const TIMERS = [3, 5, 10, 15, 20, 30, 45, 60];
+  const INTERVALS: (number | null)[] = [null, 3, 5, 10, 15];
+
+  return (
+    <section className="section" aria-labelledby="s-prefs">
+      <div className="section-head">
+        <h2 id="s-prefs">Preferences</h2>
+      </div>
+      <div className="card" style={{ maxWidth: 640 }}>
+        <div className="ob-field" style={{ marginTop: 0 }}>
+          <label>Accent</label>
+          <div className="accent-row">
+            {ACCENT_OPTIONS.map((a) => (
+              <button
+                key={a.key}
+                className={`accent-swatch accent-${a.key}`}
+                aria-pressed={prefs.accent === a.key}
+                aria-label={`${a.label} — ${a.note}`}
+                title={`${a.label} — ${a.note}`}
+                onClick={() => void save({ accent: a.key })}
+              >
+                <span className="sw" />
+                <span className="nm">{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ob-field">
+          <label>Open ZenPort on</label>
+          <div className="chip-row">
+            <button
+              className="chip"
+              aria-pressed={prefs.startPage === 'today'}
+              onClick={() => void save({ startPage: 'today' })}
+            >
+              Today
+            </button>
+            <button
+              className="chip"
+              aria-pressed={prefs.startPage === 'library'}
+              onClick={() => void save({ startPage: 'library' })}
+            >
+              Library
+            </button>
+          </div>
+        </div>
+
+        <div className="ob-field">
+          <label>Daily target</label>
+          <div className="chip-row">
+            {GOALS.map((m) => (
+              <button
+                key={m}
+                className="chip"
+                aria-pressed={prefs.dailyGoalMinutes === m}
+                onClick={() => void save({ dailyGoalMinutes: m })}
+              >
+                {m}m
+              </button>
+            ))}
+            <button
+              className="chip"
+              aria-pressed={prefs.dailyGoalMinutes === null}
+              onClick={() => void save({ dailyGoalMinutes: null })}
+            >
+              No target
+            </button>
+          </div>
+        </div>
+
+        <div className="ob-field">
+          <label>Default sit length</label>
+          <div className="chip-row">
+            {TIMERS.map((m) => (
+              <button
+                key={m}
+                className="chip"
+                aria-pressed={prefs.defaultTimerMinutes === m}
+                onClick={() => void save({ defaultTimerMinutes: m })}
+              >
+                {m}m
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ob-field">
+          <label>Bell along the way</label>
+          <div className="chip-row">
+            {INTERVALS.map((v) => (
+              <button
+                key={String(v)}
+                className="chip"
+                aria-pressed={prefs.intervalBellMinutes === v}
+                onClick={() => void save({ intervalBellMinutes: v })}
+              >
+                {v === null ? 'None' : `Every ${v}m`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ob-field">
+          <label>Bell</label>
+          <div className="chip-row">
+            <button
+              className="chip"
+              aria-pressed={prefs.bellEnabled}
+              onClick={() => void save({ bellEnabled: !prefs.bellEnabled })}
+            >
+              <Icon name="bell" size={15} />
+              {prefs.bellEnabled ? 'On' : 'Off'}
+            </button>
+            <button
+              className="chip"
+              disabled={!prefs.bellEnabled}
+              onClick={() => playBell(prefs.bellVolume)}
+            >
+              Hear it
+            </button>
+          </div>
+          {prefs.bellEnabled && (
+            <input
+              className="ob-range"
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={prefs.bellVolume}
+              aria-label="Bell volume"
+              onChange={(e) => void save({ bellVolume: Number(e.target.value) })}
+              onMouseUp={() => playBell(prefs.bellVolume)}
+            />
+          )}
+        </div>
+
+        <div className="ob-field">
+          <label>Playback</label>
+          <div className="chip-row">
+            <button
+              className="chip"
+              aria-pressed={prefs.autoplayNext}
+              onClick={() => void save({ autoplayNext: !prefs.autoplayNext })}
+            >
+              Continue to the next track
+            </button>
+          </div>
+        </div>
+
+        <div className="ob-field">
+          <label>Motion and background</label>
+          <div className="chip-row">
+            <button
+              className="chip"
+              aria-pressed={!prefs.calmMotion}
+              onClick={() => void save({ calmMotion: !prefs.calmMotion })}
+            >
+              {prefs.calmMotion ? 'Stillness' : 'Gentle motion'}
+            </button>
+            <button
+              className="chip"
+              aria-pressed={prefs.ambientBackground}
+              onClick={() => void save({ ambientBackground: !prefs.ambientBackground })}
+            >
+              Ambient background
+            </button>
+          </div>
+          <p style={{ color: 'var(--faint)', fontSize: 13, marginTop: 8 }}>
+            A system-level “reduce motion” setting is always honoured, whatever is chosen here.
+          </p>
+        </div>
+
+        <div className="ob-field">
+          <label>Welcome tour</label>
+          <div className="chip-row">
+            <button className="chip" onClick={() => setReplay(true)}>
+              Show it again
+            </button>
+            <span className="hint">
+              {prefs.onboardedAt
+                ? `First completed ${prefs.onboardedAt.slice(0, 10)}`
+                : 'Not yet completed'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/*
+        Replaying is purely local: onboarded_at is a latch on the server, so
+        running the flow again re-offers the settings without rewriting when
+        this account actually started.
+      */}
+      {replay && <Onboarding onDone={() => setReplay(false)} />}
+    </section>
   );
 }

@@ -114,6 +114,15 @@ export interface ResumeStateDto {
 
 // --- Practice sessions ---
 
+/**
+ * Reserved meditation id for an unguided sit on the timer, which has no
+ * library item behind it. Real item ids are 20-char hex digests, so this can
+ * never collide with one. The server recognises it and skips the items
+ * lookup; the API renders it as "Unguided sit" rather than as a removed item.
+ */
+export const TIMER_ITEM_ID = 'zenport:timer';
+export const TIMER_ITEM_TITLE = 'Unguided sit';
+
 export type PracticeStatus = 'active' | 'completed' | 'abandoned';
 
 export interface PracticeSessionDto {
@@ -267,4 +276,34 @@ export interface ServerCapabilitiesDto {
   transcriptionEnabled: boolean;
   /** Redacted transcription endpoint host for the privacy notice, if enabled. */
   transcriptionHost: string | null;
+}
+
+// --- Preferences ---
+
+/** Accent treatment applied across the UI; 'spectrum' uses the full logo sweep. */
+export type AccentKey = 'spectrum' | 'amber' | 'rose' | 'violet';
+
+export type StartPage = 'today' | 'library';
+
+export interface UserPrefsDto {
+  /** ISO timestamp of when this account finished onboarding; null = never. */
+  onboardedAt: string | null;
+  accent: AccentKey;
+  startPage: StartPage;
+  /** Minutes/day the practice ring fills toward. Null = no goal shown. */
+  dailyGoalMinutes: number | null;
+  defaultTimerMinutes: number;
+  bellEnabled: boolean;
+  bellVolume: number;
+  /** Bell every N minutes during an unguided sit. Null = opening/closing only. */
+  intervalBellMinutes: number | null;
+  autoplayNext: boolean;
+  /** Opt out of decorative motion independently of the OS setting. */
+  calmMotion: boolean;
+  ambientBackground: boolean;
+}
+
+export interface FavoriteDto {
+  itemId: string;
+  createdAt: string;
 }

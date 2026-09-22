@@ -10,6 +10,7 @@ import {
 } from 'react';
 import type { MeditationDetailDto, TrackDto } from '@zenport/shared';
 import { api } from '../api.ts';
+import { usePrefs } from '../prefs.tsx';
 import { playBell } from './bell.ts';
 
 export interface ReflectPrompt {
@@ -81,6 +82,7 @@ function loadSettings(): PlayerSettings {
 }
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
+  const { prefs } = usePrefs();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [item, setItem] = useState<MeditationDetailDto | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -101,6 +103,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const lastBellMinRef = useRef(0);
   const startedAtRef = useRef<number | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  // Read inside the long-lived 'ended' listener, which must not be torn down
+  // and rebuilt every time a preference changes mid-playback.
+  const autoplayRef = useRef(prefs.autoplayNext);
+  autoplayRef.current = prefs.autoplayNext;
   const leadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadingRef = useRef(false);
   const itemRef = useRef<MeditationDetailDto | null>(null);
@@ -395,6 +401,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (!it) return;
       const idx = trackIndexRef.current;
       if (idx < it.tracks.length - 1) {
+        if (!autoplayRef.current) {
+          // "Continue to the next track" is off: stop here rather than rolling
+          // on. The session stays open so Next or Play resumes it — ending the
+          // practice would throw away a multi-part sit the person paused in
+          // the middle of on purpose.
+          setPlaying(false);
+          return;
+        }
         loadTrack(it, idx + 1, 0, true);
       } else {
         finishInternal('completed', 'finished');

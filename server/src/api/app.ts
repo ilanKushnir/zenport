@@ -11,6 +11,7 @@ import { registerPlanRoutes } from './routes/plans.js';
 import { registerStatsRoutes } from './routes/stats.js';
 import { registerJournalRoutes } from './routes/journal.js';
 import { registerYouTubeRoutes } from './routes/youtube.js';
+import { registerPrefsRoutes } from './routes/prefs.js';
 import { registerMiscRoutes } from './routes/misc.js';
 
 declare module 'fastify' {
@@ -85,6 +86,7 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   registerStatsRoutes(app, ctx);
   registerJournalRoutes(app, ctx);
   registerYouTubeRoutes(app, ctx);
+  registerPrefsRoutes(app, ctx);
   registerMiscRoutes(app, ctx);
 
   // Static frontend + SPA fallback (production only; dev uses Vite).

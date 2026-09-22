@@ -1,13 +1,27 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  BrowserRouter,
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import type { SetupStatusDto, UserInfo } from '@zenport/shared';
 import { api } from './api.ts';
 import { Icon } from './components/ui.tsx';
+import { Lockup, Logo, Wordmark } from './components/Brand.tsx';
+import { CommandPalette } from './components/CommandPalette.tsx';
+import { PrefsProvider, usePrefs } from './prefs.tsx';
+import { Onboarding } from './onboarding/Onboarding.tsx';
 import { PlayerProvider } from './player/PlayerProvider.tsx';
 import { FocusMode, PlayerBar } from './player/PlayerUi.tsx';
 import { ReflectionSheet } from './components/Reflection.tsx';
 import { LoginPage, SetupPage } from './pages/AuthPages.tsx';
+import { TodayPage } from './pages/TodayPage.tsx';
 import { LibraryPage } from './pages/LibraryPage.tsx';
+import { TimerPage } from './pages/TimerPage.tsx';
 import { CreatorPage } from './pages/CreatorPage.tsx';
 import { ItemPage } from './pages/ItemPage.tsx';
 import { PlansPage } from './pages/PlansPage.tsx';
@@ -32,7 +46,9 @@ export function useAuth(): AuthState {
 }
 
 const NAV = [
-  { to: '/', label: 'Library', icon: 'library', end: true },
+  { to: '/', label: 'Today', icon: 'sun', end: true },
+  { to: '/library', label: 'Library', icon: 'library' },
+  { to: '/timer', label: 'Sit', icon: 'timer' },
   { to: '/plans', label: 'Plans', icon: 'plans' },
   { to: '/journal', label: 'Journal', icon: 'journal' },
   { to: '/stats', label: 'Practice', icon: 'stats' },
@@ -41,23 +57,44 @@ const NAV = [
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
-const MOBILE_NAV = NAV.slice(0, 4).concat(NAV[6]!);
+/** Phone tab bar: the five things people actually reach for. */
+const MOBILE_NAV = [NAV[0]!, NAV[1]!, NAV[2]!, NAV[4]!, NAV[8]!];
+
+/**
+ * Honour the "open ZenPort on" preference exactly once per load. Done as a
+ * redirect rather than by swapping what "/" renders, so Today and Library keep
+ * stable, linkable URLs either way.
+ */
+function StartPageRedirect() {
+  const { prefs, ready } = usePrefs();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const done = useRef(false);
+
+  useEffect(() => {
+    if (!ready || done.current) return;
+    done.current = true;
+    if (prefs.startPage === 'library' && location.pathname === '/') {
+      navigate('/library', { replace: true });
+    }
+  }, [ready, prefs.startPage, location.pathname, navigate]);
+
+  return null;
+}
 
 function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
   useEffect(() => {
-    // New page: move focus context to top for screen readers.
+    // New page: move the reading position back to the top.
     document.getElementById('main')?.scrollTo?.(0, 0);
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
   return (
     <div className="shell">
+      <div className="app-aurora" aria-hidden="true" />
       <header className="sidebar">
-        <div className="wordmark">
-          ZenPort
-          <small>practice companion</small>
-        </div>
+        <Lockup size={30} tagline="practice companion" />
         <nav className="nav" aria-label="Main">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end}>
@@ -66,12 +103,23 @@ function Shell({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
         </nav>
+        <button
+          className="cmdk-hint"
+          onClick={() =>
+            window.dispatchEvent(
+              new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
+            )
+          }
+        >
+          <Icon name="search" size={15} />
+          Search
+          <kbd>⌘K</kbd>
+        </button>
       </header>
       <main className="main" id="main">
         <div className="mobile-top">
-          <span className="wordmark" style={{ padding: 0, fontSize: 19 }}>
-            ZenPort
-          </span>
+          <Logo size={24} bloom={false} />
+          <Wordmark size={17} />
         </div>
         {children}
       </main>
@@ -86,6 +134,54 @@ function Shell({ children }: { children: ReactNode }) {
       <PlayerBar />
       <FocusMode />
       <ReflectionSheet />
+      <CommandPalette />
+    </div>
+  );
+}
+
+/** Everything behind a session: preferences, onboarding gate, then the app. */
+function SignedInApp() {
+  const { prefs, ready } = usePrefs();
+  const [dismissed, setDismissed] = useState(false);
+
+  // Hold the app back until preferences are known, so someone who has already
+  // onboarded never sees the welcome flow flash past on a slow connection.
+  if (!ready) {
+    return <Splash />;
+  }
+  if (prefs.onboardedAt === null && !dismissed) {
+    return <Onboarding onDone={() => setDismissed(true)} />;
+  }
+
+  return (
+    <BrowserRouter>
+      <StartPageRedirect />
+      <PlayerProvider>
+        <Shell>
+          <Routes>
+            <Route path="/" element={<TodayPage />} />
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/timer" element={<TimerPage />} />
+            <Route path="/creators/:name" element={<CreatorPage />} />
+            <Route path="/m/:id" element={<ItemPage />} />
+            <Route path="/plans" element={<PlansPage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/journal" element={<JournalPage />} />
+            <Route path="/sources" element={<SourcesPage />} />
+            <Route path="/integrations" element={<IntegrationsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Shell>
+      </PlayerProvider>
+    </BrowserRouter>
+  );
+}
+
+function Splash() {
+  return (
+    <div className="auth-page splash" aria-busy="true">
+      <Lockup size={56} stacked spin tagline="opening…" />
     </div>
   );
 }
@@ -119,37 +215,18 @@ export default function App() {
     setPhase('login');
   };
 
-  if (phase === 'checking') {
-    return (
-      <div className="auth-page" aria-busy="true">
-        <p style={{ color: 'var(--faint)' }}>Opening ZenPort…</p>
-      </div>
-    );
-  }
+  if (phase === 'checking') return <Splash />;
 
   return (
     <AuthContext.Provider value={{ user, refresh, signOut }}>
       {phase === 'setup' && <SetupPage onDone={() => void refresh()} />}
       {phase === 'login' && <LoginPage onDone={() => void refresh()} />}
       {phase === 'in' && (
-        <BrowserRouter>
-          <PlayerProvider>
-            <Shell>
-              <Routes>
-                <Route path="/" element={<LibraryPage />} />
-                <Route path="/creators/:name" element={<CreatorPage />} />
-                <Route path="/m/:id" element={<ItemPage />} />
-                <Route path="/plans" element={<PlansPage />} />
-                <Route path="/stats" element={<StatsPage />} />
-                <Route path="/journal" element={<JournalPage />} />
-                <Route path="/sources" element={<SourcesPage />} />
-                <Route path="/integrations" element={<IntegrationsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="*" element={<LibraryPage />} />
-              </Routes>
-            </Shell>
-          </PlayerProvider>
-        </BrowserRouter>
+        // Keyed on the account so switching users reloads preferences and
+        // favourites instead of inheriting the previous person's.
+        <PrefsProvider key={user?.id ?? 'anon'}>
+          <SignedInApp />
+        </PrefsProvider>
       )}
     </AuthContext.Provider>
   );

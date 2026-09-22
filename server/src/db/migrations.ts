@@ -296,6 +296,54 @@ const MIGRATIONS: string[] = [
   DROP TABLE yt_sources;
   ALTER TABLE yt_sources_v2 RENAME TO yt_sources;
   `,
+
+  // v3: per-account preferences and favourites.
+  //
+  // Preferences are one row per user rather than columns on `users`, so the
+  // set can grow without rebuilding the account table every release, and so
+  // an account deletion takes its preferences with it through the same
+  // cascade contract as the rest of the private data.
+  //
+  // `onboarded_at` is what gates the welcome flow. It is deliberately a
+  // timestamp and not a boolean: knowing WHEN someone first set the app up
+  // is what lets a later release show a "what's new since" pass without
+  // guessing, and NULL still reads as "never onboarded".
+  //
+  // Favourites carry no FOREIGN KEY to `items` on purpose. A library item
+  // disappears whenever the file behind it is unmounted, and a favourite must
+  // survive that — the same reasoning practice_sessions already uses for
+  // item_id. Rows for items that never come back are harmless; the API joins
+  // them away.
+  `
+  CREATE TABLE user_prefs (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    onboarded_at TEXT,
+    accent TEXT NOT NULL DEFAULT 'spectrum',
+    start_page TEXT NOT NULL DEFAULT 'today',
+    daily_goal_minutes INTEGER,
+    default_timer_minutes INTEGER NOT NULL DEFAULT 10,
+    bell_enabled INTEGER NOT NULL DEFAULT 1,
+    bell_volume REAL NOT NULL DEFAULT 0.5,
+    interval_bell_minutes INTEGER,
+    autoplay_next INTEGER NOT NULL DEFAULT 1,
+    calm_motion INTEGER NOT NULL DEFAULT 0,
+    ambient_background INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+
+  CREATE TABLE favorites (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    PRIMARY KEY (user_id, item_id)
+  );
+
+  -- Existing accounts predate onboarding. Giving them a non-NULL
+  -- onboarded_at means an upgrade does not ambush someone mid-practice with
+  -- a welcome tour for an app they already use.
+  INSERT INTO user_prefs (user_id, onboarded_at)
+    SELECT id, strftime('%Y-%m-%dT%H:%M:%SZ','now') FROM users;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

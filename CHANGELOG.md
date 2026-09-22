@@ -5,6 +5,25 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Brand**: the ZenPort mark — a ring of poured pigment sweeping amber → rose → violet with thrown droplets — as inline SVG, with `shared/src/brand.ts` as the single geometry source shared by the app logo, the PWA/apple-touch PNGs and `favicon.svg`. Wordmark sets **Zen** in the display serif's bold weight and *Port* in the ring's own gradient.
+- **Onboarding**: six-step first-run welcome (welcome → library → sit → rhythm → feel → ready) with illustrations drawn from the mark's vocabulary. Every control writes through to the real preference as you go, so the tour *is* the setup. Skippable from any step; replayable from Settings.
+- **Today page**, now the default landing page: greeting, daily-target ring with streak, one non-random suggestion, and one-tap routes into a sit, the library or the journal.
+- **Unguided timer** (`/timer`): presets to 60 minutes, optional interval bells, optional breath guide, wake lock, and a real practice session recorded under the reserved `zenport:timer` id (rendered as "Unguided sit", never as a removed item).
+- **Preferences** (`user_prefs`, migration v3): accent, landing page, daily target, default sit length, interval bell, bell on/off + volume, autoplay, calm motion, ambient background. Server-held so they follow the account to the phone.
+- **Favourites** (migration v3): star from any card, filter the library, and a Today shelf. Rows deliberately carry no FK to `items` so a favourite survives an unmounted library.
+- **Command palette** (⌘K / Ctrl-K) over meditations, pages and preferences.
+- **Generated cover art** for recordings without embedded artwork — deterministic abstract pieces seeded from the title.
+- Accent system: four choices derived from the logo sweep, with separate text and fill tokens so every pairing clears WCAG AA on the app ground.
+
+### Changed
+- Library is no longer the landing page and no longer repeats Today's "planned" and "pick up again" sections; it is now purely for browsing.
+- Settings gained a Preferences section mirroring the onboarding controls.
+- Nav, chips, badges, player controls, stat bars and mood pickers all follow the chosen accent instead of the fixed copper.
+
+### Removed
+- `hueIndex` and the flat typographic cover fallback, superseded by generated cover art.
+
 ## [0.1.0] — 2026-09-22
 
 Initial public release.

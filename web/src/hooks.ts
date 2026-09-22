@@ -39,10 +39,3 @@ export function useApi<T>(path: string | null): Loadable<T> {
   useEffect(load, [load]);
   return { data, loading, error, reload: load };
 }
-
-/** Deterministic small hash for typographic cover hues. */
-export function hueIndex(seed: string, buckets = 4): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  return Math.abs(h) % buckets;
-}

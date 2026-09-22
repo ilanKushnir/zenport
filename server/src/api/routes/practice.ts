@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { PracticeSessionDto } from '@zenport/shared';
+import { TIMER_ITEM_ID, TIMER_ITEM_TITLE, type PracticeSessionDto } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { activeSession, beatSession, finishSession, startSession } from '../../practice/service.js';
 
@@ -24,7 +24,8 @@ function toDto(row: SessionRow): PracticeSessionDto {
   return {
     id: row.id,
     meditationId: row.item_id,
-    meditationTitle: row.title ?? 'Removed meditation',
+    meditationTitle:
+      row.title ?? (row.item_id === TIMER_ITEM_ID ? TIMER_ITEM_TITLE : 'Removed meditation'),
     creator: row.creator ?? '',
     startedAt: row.started_at,
     endedAt: row.ended_at,
@@ -44,8 +45,12 @@ export function registerPracticeRoutes(app: FastifyInstance, ctx: AppContext): v
   app.post('/api/practice/start', async (req, reply) => {
     const body = z.object({ meditationId: z.string().min(1) }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'meditationId required' });
-    const item = db.prepare('SELECT id FROM items WHERE id = ?').get(body.data.meditationId);
-    if (!item) return reply.code(404).send({ error: 'meditation not found' });
+    // An unguided sit has no library item behind it; everything else must
+    // name one that exists, so a typo cannot create unreachable history.
+    if (body.data.meditationId !== TIMER_ITEM_ID) {
+      const item = db.prepare('SELECT id FROM items WHERE id = ?').get(body.data.meditationId);
+      if (!item) return reply.code(404).send({ error: 'meditation not found' });
+    }
     const id = startSession(db, req.user!.id, body.data.meditationId, new Date());
     return { id };
   });

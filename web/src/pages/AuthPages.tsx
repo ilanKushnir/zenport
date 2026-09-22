@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { SetupStatusDto } from '@zenport/shared';
 import { api, ApiError } from '../api.ts';
 import { useApi } from '../hooks.ts';
+import { Lockup } from '../components/Brand.tsx';
 
 function guessTimezone(): string {
   try {
@@ -46,10 +47,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
   return (
     <div className="auth-page">
       <div className="auth-card card">
-        <div className="wordmark">
-          ZenPort
-          <small>practice companion</small>
-        </div>
+        <Lockup size={32} tagline="practice companion" />
         <h1 style={{ fontSize: 22, marginBottom: 8 }}>Welcome. Let’s make this yours.</h1>
         <p style={{ color: 'var(--muted)', marginBottom: 24 }}>
           Create the one admin account for this server. There is no public signup and no default
@@ -124,10 +122,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
   return (
     <div className="auth-page">
       <div className="auth-card card">
-        <div className="wordmark">
-          ZenPort
-          <small>practice companion</small>
-        </div>
+        <Lockup size={32} tagline="practice companion" />
         <h1 style={{ fontSize: 22, marginBottom: 24 }}>Welcome back.</h1>
         <form onSubmit={(e) => void submit(e)}>
           <div className="field">

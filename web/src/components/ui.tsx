@@ -1,7 +1,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { hueIndex } from '../hooks.ts';
+import { GeneratedCover } from './CoverArt.tsx';
 
-/** Cover art with a deterministic typographic fallback (no fake imagery). */
+/**
+ * Cover art. Real embedded artwork wins when the scanner found any; otherwise
+ * a piece is generated from the title (see CoverArt.tsx) so a shelf of
+ * untagged recordings still reads as a shelf of distinct things.
+ */
 export function Cover({
   coverId,
   title,
@@ -20,13 +24,10 @@ export function Cover({
       </div>
     );
   }
-  const hue = hueIndex(`${creator ?? ''}/${title}`);
   return (
-    <div className={`cover cover-hue-${hue} ${className ?? ''}`} aria-hidden="true">
-      <div className="cover-fallback">
-        <span className="init">{[...title][0]?.toUpperCase() ?? '·'}</span>
-        <span className="name">{title}</span>
-      </div>
+    <div className={`cover cover-generated ${className ?? ''}`} aria-hidden="true">
+      <GeneratedCover seed={`${creator ?? ''}/${title}`} />
+      <span className="cover-title">{title}</span>
     </div>
   );
 }
@@ -178,8 +179,8 @@ const PATHS: Record<string, ReactNode> = {
   ),
   settings: (
     <>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 3.5v2.6M12 17.9v2.6M3.5 12h2.6M17.9 12h2.6M6 6l1.9 1.9M16.1 16.1 18 18M18 6l-1.9 1.9M7.9 16.1 6 18" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.1 14.4a1.5 1.5 0 0 0 .3 1.65l.05.06a1.8 1.8 0 1 1-2.55 2.55l-.06-.06a1.5 1.5 0 0 0-1.65-.3 1.5 1.5 0 0 0-.91 1.37v.17a1.8 1.8 0 1 1-3.6 0v-.09a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.65.3l-.06.06A1.8 1.8 0 1 1 4.44 16.3l.06-.06a1.5 1.5 0 0 0 .3-1.65 1.5 1.5 0 0 0-1.37-.91h-.17a1.8 1.8 0 1 1 0-3.6h.09a1.5 1.5 0 0 0 1.37-.98 1.5 1.5 0 0 0-.3-1.65l-.06-.06A1.8 1.8 0 1 1 6.91 4.84l.06.06a1.5 1.5 0 0 0 1.65.3h.07a1.5 1.5 0 0 0 .91-1.37v-.17a1.8 1.8 0 1 1 3.6 0v.09a1.5 1.5 0 0 0 .91 1.37 1.5 1.5 0 0 0 1.65-.3l.06-.06a1.8 1.8 0 1 1 2.55 2.55l-.06.06a1.5 1.5 0 0 0-.3 1.65v.07a1.5 1.5 0 0 0 1.37.91h.17a1.8 1.8 0 1 1 0 3.6h-.09a1.5 1.5 0 0 0-1.37.91z" />
     </>
   ),
   plug: (
@@ -223,6 +224,30 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   external: <path d="M9 5h10v10M19 5l-9.5 9.5M11 5H5v14h14v-6" />,
+  timer: (
+    <>
+      <circle cx="12" cy="13.5" r="7.5" />
+      <path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M19 6.5l1.5-1.5" />
+    </>
+  ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" />
+    </>
+  ),
+  heart: (
+    <path d="M12 20s-7.5-4.6-7.5-9.4A4.1 4.1 0 0 1 12 8a4.1 4.1 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z" />
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4.5 4.5" />
+    </>
+  ),
+  sparkle: (
+    <path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18.3 10.2 12.6 4.5 10.8 10.2 9zM18.5 4v3M20 5.5h-3" />
+  ),
 };
 
 export function Icon({ name, size = 18 }: { name: string; size?: number }) {

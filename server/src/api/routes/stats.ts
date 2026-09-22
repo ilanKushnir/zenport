@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { TIMER_ITEM_ID, TIMER_ITEM_TITLE } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { computeStats, type SessionForStats } from '../../stats/compute.js';
 
@@ -9,11 +10,12 @@ export function registerStatsRoutes(app: FastifyInstance, ctx: AppContext): void
     const rows = db
       .prepare(
         `SELECT s.started_at, s.listened_sec, s.status, s.item_id,
-                COALESCE(i.creator, '') AS creator, COALESCE(i.title, 'Removed meditation') AS title
+                COALESCE(i.creator, '') AS creator,
+                COALESCE(i.title, CASE s.item_id WHEN ? THEN ? ELSE 'Removed meditation' END) AS title
          FROM practice_sessions s LEFT JOIN items i ON i.id = s.item_id
          WHERE s.user_id = ? AND s.status != 'active'`,
       )
-      .all(req.user!.id) as {
+      .all(TIMER_ITEM_ID, TIMER_ITEM_TITLE, req.user!.id) as {
       started_at: string;
       listened_sec: number;
       status: string;

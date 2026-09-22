@@ -1,22 +1,35 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type {
-  LibraryDto,
-  MeditationSummaryDto,
-  PlanOccurrenceDto,
-  PracticeSessionDto,
-} from '@zenport/shared';
+import type { LibraryDto, MeditationSummaryDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
+import { usePrefs } from '../prefs.tsx';
 import { Cover, EmptyState, ErrorNote, Icon, SkeletonGrid } from '../components/ui.tsx';
 
 type SortKey = 'creator' | 'title' | 'recent' | 'duration';
 
 export function MedCard({ item }: { item: MeditationSummaryDto }) {
+  const { isFavorite, toggleFavorite } = usePrefs();
+  const starred = isFavorite(item.id);
   return (
     <Link className="med-card" to={`/m/${item.id}`}>
       <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
+      <button
+        className="fav-btn"
+        aria-pressed={starred}
+        aria-label={
+          starred ? `Remove ${item.title} from favourites` : `Add ${item.title} to favourites`
+        }
+        onClick={(e) => {
+          // The card is a link; starring must not navigate.
+          e.preventDefault();
+          e.stopPropagation();
+          void toggleFavorite(item.id);
+        }}
+      >
+        <Icon name="heart" size={16} />
+      </button>
       <div className="t">{item.title}</div>
       <div className="c">
         {item.creator}
@@ -27,22 +40,23 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
 }
 
 export function LibraryPage() {
+  const { favorites } = usePrefs();
   const lib = useApi<LibraryDto>('/api/library');
-  const history = useApi<PracticeSessionDto[]>('/api/practice/history?limit=12');
-  const upcoming = useApi<{ today: string; occurrences: PlanOccurrenceDto[] }>(
-    '/api/plans/occurrences?days=1',
-  );
-
   const [q, setQ] = useState('');
   const [creator, setCreator] = useState('');
   const [root, setRoot] = useState('');
   const [format, setFormat] = useState('');
   const [withDocs, setWithDocs] = useState(false);
+  // Deep-linked from Today's "All starred".
+  const [onlyFavs, setOnlyFavs] = useState(() =>
+    new URLSearchParams(window.location.search).has('favorites'),
+  );
   const [sort, setSort] = useState<SortKey>('creator');
   const [rescanning, setRescanning] = useState(false);
 
   const items = lib.data?.items ?? [];
-  const filtersActive = q !== '' || creator !== '' || root !== '' || format !== '' || withDocs;
+  const filtersActive =
+    q !== '' || creator !== '' || root !== '' || format !== '' || withDocs || onlyFavs;
 
   const filtered = useMemo(() => {
     let out = items.filter((i) => !i.missing);
@@ -59,6 +73,7 @@ export function LibraryPage() {
     if (root) out = out.filter((i) => String(i.rootId) === root);
     if (format) out = out.filter((i) => i.formats.includes(format));
     if (withDocs) out = out.filter((i) => i.documentCount > 0);
+    if (onlyFavs) out = out.filter((i) => favorites.has(i.id));
     switch (sort) {
       case 'title':
         out = [...out].sort((a, b) => a.title.localeCompare(b.title));
@@ -73,27 +88,10 @@ export function LibraryPage() {
         break; // server order is creator/title already
     }
     return out;
-  }, [items, q, creator, root, format, withDocs, sort]);
+  }, [items, q, creator, root, format, withDocs, onlyFavs, favorites, sort]);
 
   const missingCount = items.filter((i) => i.missing).length;
   const formats = useMemo(() => [...new Set(items.flatMap((i) => i.formats))].sort(), [items]);
-  const continueItems = useMemo(() => {
-    const seen = new Set<string>();
-    const out: { session: PracticeSessionDto; item: MeditationSummaryDto }[] = [];
-    for (const s of history.data ?? []) {
-      if (seen.has(s.meditationId)) continue;
-      const item = items.find((i) => i.id === s.meditationId && !i.missing);
-      if (item) {
-        seen.add(s.meditationId);
-        out.push({ session: s, item });
-      }
-      if (out.length >= 6) break;
-    }
-    return out;
-  }, [history.data, items]);
-
-  const todayOcc = (upcoming.data?.occurrences ?? []).filter((o) => o.status === 'today');
-
   const rescan = async () => {
     setRescanning(true);
     await api.post('/api/library/rescan').catch(() => {});
@@ -160,54 +158,6 @@ export function LibraryPage() {
         </EmptyState>
       ) : (
         <>
-          {todayOcc.length > 0 && (
-            <section className="section" aria-labelledby="sec-today">
-              <div className="section-head">
-                <h2 id="sec-today">Planned for today</h2>
-                <Link className="more" to="/plans">
-                  All plans
-                </Link>
-              </div>
-              <div className="rowlist card" style={{ padding: '4px 16px' }}>
-                {todayOcc.map((o) => {
-                  const first = items.find((i) => o.meditationIds.includes(i.id));
-                  return (
-                    <div className="row" key={`${o.planId}-${o.date}`}>
-                      <Icon name="plans" />
-                      <div className="grow">
-                        <div>{o.planName}</div>
-                        <div className="sub">
-                          {first ? first.title : 'Any meditation you choose'}
-                        </div>
-                      </div>
-                      {first && (
-                        <Link className="btn btn-sm btn-ghost" to={`/m/${first.id}`}>
-                          Begin
-                        </Link>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {continueItems.length > 0 && (
-            <section className="section" aria-labelledby="sec-continue">
-              <div className="section-head">
-                <h2 id="sec-continue">Pick up again</h2>
-                <Link className="more" to="/stats">
-                  Practice history
-                </Link>
-              </div>
-              <div className="card-grid">
-                {continueItems.map(({ item }) => (
-                  <MedCard key={item.id} item={item} />
-                ))}
-              </div>
-            </section>
-          )}
-
           <section className="section" aria-labelledby="sec-creators">
             <div className="section-head">
               <h2 id="sec-creators">Creators</h2>
@@ -295,6 +245,14 @@ export function LibraryPage() {
               >
                 Has notes
               </button>
+              <button
+                className="chip"
+                aria-pressed={onlyFavs}
+                onClick={() => setOnlyFavs((v) => !v)}
+              >
+                <Icon name="heart" size={14} />
+                Favourites
+              </button>
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
@@ -319,6 +277,7 @@ export function LibraryPage() {
                       setRoot('');
                       setFormat('');
                       setWithDocs(false);
+                      setOnlyFavs(false);
                     }}
                   >
                     Reset filters

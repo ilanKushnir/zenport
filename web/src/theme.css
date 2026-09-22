@@ -187,3 +187,116 @@ hr {
     scroll-behavior: auto !important;
   }
 }
+
+/* ===================================================================
+ * Brand spectrum (v0.2) — the logo's own sweep, promoted to a theme.
+ *
+ * The mark runs amber → flame → rose → orchid → violet. Those five are the
+ * decorative palette; the UI accent is derived from them per the person's
+ * choice in Settings.
+ *
+ * Two different jobs, two different tokens, because one colour cannot do
+ * both on a dark ground:
+ *   --accent       text, icons, borders, pressed states. Must clear 4.5:1
+ *                  against --bg, so the cool end is lightened.
+ *   --accent-fill  a filled surface with --ink-on-accent text on top. Must
+ *                  clear 4.5:1 against that ink, so it is kept light.
+ *
+ * --sweep is the full five-stop gradient. It is used ONLY where no text sits
+ * on top of it — rings, rules, progress, the wordmark's second half. A button
+ * label over the violet end would land at 2.4:1, so the spectrum accent's
+ * BUTTON gradient (--accent-fill-grad) stops at the light half instead.
+ * =================================================================== */
+
+:root {
+  --amber: #ffc04a;
+  --flame: #fb8c3a;
+  --rose: #f04c8a;
+  --orchid: #b44bd8;
+  --violet: #7c3aed;
+
+  /* Lightened for use as text on --bg. */
+  --rose-lit: #f98bb8;
+  --violet-lit: #b9a0ff;
+
+  --sweep: linear-gradient(
+    100deg,
+    var(--amber) 0%,
+    var(--flame) 22%,
+    var(--rose) 50%,
+    var(--orchid) 76%,
+    var(--violet) 100%
+  );
+  /* The light half only — safe under --ink-on-accent. */
+  --sweep-lit: linear-gradient(100deg, #ffc04a 0%, #f7746b 52%, #f04c8a 100%);
+
+  /* Default accent = spectrum. Overridden by [data-accent] below. */
+  --accent: var(--rose-lit);
+  --accent-fill: var(--rose);
+  --accent-fill-grad: var(--sweep-lit);
+  --accent-soft: rgba(240, 76, 138, 0.14);
+}
+
+:root[data-accent='amber'] {
+  --accent: var(--amber);
+  --accent-fill: var(--amber);
+  --accent-fill-grad: none;
+  --accent-soft: rgba(255, 192, 74, 0.14);
+}
+
+:root[data-accent='rose'] {
+  --accent: var(--rose-lit);
+  --accent-fill: var(--rose);
+  --accent-fill-grad: none;
+  --accent-soft: rgba(240, 76, 138, 0.14);
+}
+
+:root[data-accent='violet'] {
+  --accent: var(--violet-lit);
+  --accent-fill: #a78bfa;
+  --accent-fill-grad: none;
+  --accent-soft: rgba(167, 139, 250, 0.15);
+}
+
+/*
+ * Decorative motion is opt-out in two independent ways: the OS setting
+ * (handled by the prefers-reduced-motion block above, which wins over
+ * everything) and this preference, for people whose OS is fine but who want
+ * the app itself still.
+ */
+:root[data-calm='1'] .zp-logo-spin,
+:root[data-calm='1'] .ob-breathe,
+:root[data-calm='1'] .timer-orb-pulse,
+:root[data-calm='1'] .app-aurora,
+:root[data-calm='1'] .ob-aurora {
+  animation: none !important;
+}
+
+:root[data-ambient='0'] .app-aurora,
+:root[data-ambient='0'] .ob-aurora {
+  display: none;
+}
+
+/* Screen-reader-only text that still gets announced. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+kbd {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--raised);
+  color: var(--muted);
+}

@@ -43,7 +43,7 @@
     "format:check": "prettier --check .",
     "test": "npm run build --workspace @zenport/shared && npm run test --workspaces --if-present",
     "fixtures": "node scripts/generate-fixtures.mjs",
-    "icons": "node scripts/generate-icons.mjs",
+    "icons": "node --experimental-strip-types scripts/generate-icons.mjs",
     "qa": "node scripts/qa-browser.mjs"
   },
   "devDependencies": {
