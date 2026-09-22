@@ -1,0 +1,68 @@
+{
+  "name": "zenport",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Self-hosted meditation library and practice companion: a calm home for meditation media you already own, plans, practice history, and private reflection.",
+  "keywords": [
+    "self-hosted",
+    "selfhosted",
+    "meditation",
+    "mindfulness",
+    "audio-library",
+    "practice-tracker",
+    "journal",
+    "pwa",
+    "docker"
+  ],
+  "homepage": "https://github.com/ilanKushnir/zenport#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilanKushnir/zenport.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ilanKushnir/zenport/issues"
+  },
+  "author": "Ilan Kushnir",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @zenport/server",
+    "dev:web": "npm run dev --workspace @zenport/web",
+    "build": "npm run build --workspace @zenport/shared && npm run build --workspace @zenport/server && npm run build --workspace @zenport/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run build --workspace @zenport/shared && npm run test --workspaces --if-present",
+    "fixtures": "node scripts/generate-fixtures.mjs",
+    "icons": "node scripts/generate-icons.mjs",
+    "qa": "node scripts/qa-browser.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "eslint": "10.10.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0"
+  },
+  "optionalDependencies": {
+    "@esbuild/darwin-arm64": "0.28.2",
+    "@esbuild/darwin-x64": "0.28.2",
+    "@esbuild/linux-arm64": "0.28.2",
+    "@esbuild/linux-x64": "0.28.2",
+    "@esbuild/win32-x64": "0.28.2",
+    "@rollup/rollup-darwin-arm64": "4.63.1",
+    "@rollup/rollup-darwin-x64": "4.63.1",
+    "@rollup/rollup-linux-arm64-gnu": "4.63.1",
+    "@rollup/rollup-linux-x64-gnu": "4.63.1",
+    "@rollup/rollup-win32-x64-msvc": "4.63.1"
+  }
+}

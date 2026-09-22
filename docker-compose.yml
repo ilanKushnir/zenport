@@ -1,0 +1,57 @@
+# ZenPort self-hosting quick start.
+#
+#   1. cp .env.example .env   (set ZP_SESSION_SECRET: openssl rand -hex 32)
+#   2. In that same .env, point ZP_MEDITATION_PATH at your real meditation
+#      folder on the host. Nothing in this file needs editing, so
+#      `git pull` stays conflict-free.
+#   3. docker compose up -d --build
+#   4. Open http://<host>:8484 and create the admin account.
+#
+# Out of the box the mount points at the bundled sample library, so the
+# stack comes up with something to practice with before you have pointed
+# it anywhere.
+#
+# PWA installation (Add to Home Screen) requires HTTPS — put a reverse
+# proxy (Caddy, Traefik, nginx) with a certificate in front. See
+# docs/self-hosting.md.
+
+services:
+  zenport:
+    build: .
+    container_name: zenport
+    restart: unless-stopped
+    ports:
+      - '${ZP_HTTP_PORT:-8484}:8484'
+    # No healthcheck here on purpose: the image carries its own
+    # (GET /api/health), which Compose inherits.
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Etc/UTC}
+      ZP_SESSION_SECRET: ${ZP_SESSION_SECRET:?set ZP_SESSION_SECRET in .env}
+      ZP_SESSION_DAYS: ${ZP_SESSION_DAYS:-30}
+      # Optional lock on first-run setup. Empty (the default) means you just
+      # open the app and create your admin account. Set it if this will be
+      # reachable from somewhere hostile before you have done that.
+      ZP_SETUP_TOKEN: ${ZP_SETUP_TOKEN:-}
+      ZP_TRUST_HTTPS: ${ZP_TRUST_HTTPS:-0}
+      ZP_LIBRARY_DIRS: /library/meditations
+      ZP_SCAN_INTERVAL_MINUTES: ${ZP_SCAN_INTERVAL_MINUTES:-60}
+      ZP_LOG_LEVEL: ${ZP_LOG_LEVEL:-info}
+      # Optional integrations — both off unless you configure them.
+      ZP_YTDLP_PATH: ${ZP_YTDLP_PATH:-}
+      ZP_TRANSCRIBE_URL: ${ZP_TRANSCRIBE_URL:-}
+      ZP_TRANSCRIBE_API_KEY: ${ZP_TRANSCRIBE_API_KEY:-}
+      ZP_TRANSCRIBE_MODEL: ${ZP_TRANSCRIBE_MODEL:-whisper-1}
+    volumes:
+      # ZenPort-owned writable state (SQLite, voice notes). Local disk only —
+      # never SMB/NFS.
+      - zp-data:/data
+      # Your meditation library: ALWAYS read-only. Point this at your real
+      # folder in .env, not here. Default is the bundled sample library.
+      - ${ZP_MEDITATION_PATH:-./fixtures/library/meditations}:/library/meditations:ro
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  zp-data:

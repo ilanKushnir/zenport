@@ -1,0 +1,12 @@
+.git
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+qa-output
+data
+docs
+.env
+.env.local
+.github
+.tastemaker

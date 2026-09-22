@@ -1,0 +1,9 @@
+node_modules
+dist
+*.tsbuildinfo
+fixtures
+qa-output
+data
+package-lock.json
+CHANGELOG.md
+web/public/icons

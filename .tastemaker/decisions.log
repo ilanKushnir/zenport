@@ -1,0 +1,3 @@
+2026-09-22 pending-review | surface: whole app v0.1 | axis: theme | choice: single dark "warm twilight" theme, no light mode in v0.1 | reason: brief's contemplative twilight direction; one theme done well over two done half; light theme listed in roadmap
+2026-09-22 pending-review | surface: typography | axis: type | choice: system serif display stack (Iowan Old Style/Palatino/Georgia) instead of bundled webfont | reason: self-hosted zero-dependency honesty; editorial feel preserved
+2026-09-22 pending-review | surface: covers | axis: assets | choice: deterministic typographic duotone fallbacks, no generated imagery | reason: brief forbids fake art; user's own covers are the real imagery

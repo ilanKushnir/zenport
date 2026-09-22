@@ -1,0 +1,203 @@
+import { createHash } from 'node:crypto';
+import type { ScanStateDto } from '@zenport/shared';
+import type { Db } from '../db/index.js';
+import { inferLibrary } from '../library/infer.js';
+import { safeWalk } from './walk.js';
+
+export interface ScanRoot {
+  id: number;
+  path: string;
+  label: string;
+}
+
+const sid = (input: string) => createHash('sha1').update(input).digest('hex').slice(0, 20);
+const nowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+/**
+ * Scan every configured root, infer the library, and persist it idempotently.
+ * Item/track/asset identities are stable hashes of (rootId, source-relative
+ * path); files that vanish are marked missing rather than deleted, so user
+ * history, plans, and journals always survive a library hiccup.
+ */
+export async function runScan(db: Db, roots: ScanRoot[]): Promise<ScanStateDto> {
+  const startedAt = nowIso();
+  db.prepare(`UPDATE scan_state SET status = 'scanning', started_at = ? WHERE id = 1`).run(
+    startedAt,
+  );
+
+  const warnings: string[] = [];
+  let ignored = 0;
+  const rootResults: { id: number; label: string; ok: boolean; note: string | null }[] = [];
+  const seenItems = new Set<string>();
+  const seenTracks = new Set<string>();
+  const seenAssets = new Set<string>();
+
+  for (const root of roots) {
+    const walk = await safeWalk(root.path);
+    if (!walk.ok) {
+      rootResults.push({
+        id: root.id,
+        label: root.label,
+        ok: false,
+        note: 'not readable — check the mount and permissions',
+      });
+      continue;
+    }
+    rootResults.push({ id: root.id, label: root.label, ok: true, note: null });
+    ignored += walk.ignored;
+    for (const w of walk.warnings) warnings.push(`${root.label}: ${w}`);
+
+    const items = inferLibrary(walk.files);
+    db.exec('BEGIN');
+    try {
+      const upsertItem = db.prepare(
+        `INSERT INTO items (id, root_id, item_key, kind, title, creator, collection, breadcrumbs, evidence, missing, added_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+         ON CONFLICT(root_id, item_key) DO UPDATE SET
+           kind = excluded.kind, title = excluded.title, creator = excluded.creator,
+           collection = excluded.collection, breadcrumbs = excluded.breadcrumbs,
+           evidence = excluded.evidence, missing = 0`,
+      );
+      const upsertTrack = db.prepare(
+        `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+         ON CONFLICT(root_id, rel_path) DO UPDATE SET
+           item_id = excluded.item_id, ord = excluded.ord, title = excluded.title,
+           size_bytes = excluded.size_bytes, missing = 0`,
+      );
+      const upsertAsset = db.prepare(
+        `INSERT INTO assets (id, item_id, root_id, rel_path, name, ext, kind, size_bytes, missing)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+         ON CONFLICT(item_id, rel_path) DO UPDATE SET
+           kind = excluded.kind, size_bytes = excluded.size_bytes, missing = 0`,
+      );
+
+      for (const item of items) {
+        const itemId = sid(`item:${root.id}:${item.itemKey}`);
+        seenItems.add(itemId);
+        upsertItem.run(
+          itemId,
+          root.id,
+          item.itemKey,
+          item.kind,
+          item.title,
+          item.creator,
+          item.collection,
+          JSON.stringify(item.breadcrumbs),
+          JSON.stringify(item.decisions),
+          nowIso(),
+        );
+        for (const track of item.tracks) {
+          const trackId = sid(`track:${root.id}:${track.relPath}`);
+          seenTracks.add(trackId);
+          upsertTrack.run(
+            trackId,
+            itemId,
+            root.id,
+            track.relPath,
+            track.name,
+            track.ext,
+            track.ord,
+            track.title,
+            track.sizeBytes,
+          );
+        }
+        if (item.coverRelPath) {
+          const name = item.coverRelPath.split('/').at(-1) as string;
+          const ext = name.split('.').at(-1)?.toLowerCase() ?? '';
+          const assetId = sid(`asset:${root.id}:${itemId}:${item.coverRelPath}`);
+          seenAssets.add(assetId);
+          upsertAsset.run(assetId, itemId, root.id, item.coverRelPath, name, ext, 'cover', 0);
+        }
+        for (const doc of item.documents) {
+          const assetId = sid(`asset:${root.id}:${itemId}:${doc.relPath}`);
+          seenAssets.add(assetId);
+          upsertAsset.run(
+            assetId,
+            itemId,
+            root.id,
+            doc.relPath,
+            doc.name,
+            doc.ext,
+            'document',
+            doc.sizeBytes,
+          );
+        }
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+  }
+
+  // Mark anything not seen in this pass as missing — only for roots that
+  // scanned cleanly, so a temporarily unreadable mount never masks a library.
+  const okRootIds = rootResults.filter((r) => r.ok).map((r) => r.id);
+  db.exec('BEGIN');
+  try {
+    for (const rootId of okRootIds) {
+      for (const row of db.prepare('SELECT id FROM items WHERE root_id = ?').all(rootId) as {
+        id: string;
+      }[]) {
+        if (!seenItems.has(row.id)) {
+          db.prepare('UPDATE items SET missing = 1 WHERE id = ?').run(row.id);
+        }
+      }
+      for (const row of db.prepare('SELECT id FROM tracks WHERE root_id = ?').all(rootId) as {
+        id: string;
+      }[]) {
+        if (!seenTracks.has(row.id)) {
+          db.prepare('UPDATE tracks SET missing = 1 WHERE id = ?').run(row.id);
+        }
+      }
+      for (const row of db.prepare('SELECT id FROM assets WHERE root_id = ?').all(rootId) as {
+        id: string;
+      }[]) {
+        if (!seenAssets.has(row.id)) {
+          db.prepare('UPDATE assets SET missing = 1 WHERE id = ?').run(row.id);
+        }
+      }
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
+  const finishedAt = nowIso();
+  db.prepare(
+    `UPDATE scan_state SET status = 'idle', finished_at = ?, warnings = ?, ignored = ?, roots = ? WHERE id = 1`,
+  ).run(finishedAt, JSON.stringify(warnings), ignored, JSON.stringify(rootResults));
+
+  return readScanState(db);
+}
+
+export function readScanState(db: Db): ScanStateDto {
+  const row = db.prepare('SELECT * FROM scan_state WHERE id = 1').get() as {
+    status: string;
+    started_at: string | null;
+    finished_at: string | null;
+    warnings: string;
+    ignored: number;
+    roots: string;
+  };
+  const counts = db
+    .prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM items WHERE missing = 0) AS items,
+        (SELECT COUNT(*) FROM tracks WHERE missing = 0) AS tracks,
+        (SELECT COUNT(*) FROM assets WHERE kind = 'cover' AND missing = 0) AS covers,
+        (SELECT COUNT(*) FROM assets WHERE kind = 'document' AND missing = 0) AS documents,
+        (SELECT COUNT(*) FROM items WHERE missing = 1) AS missing`,
+    )
+    .get() as { items: number; tracks: number; covers: number; documents: number; missing: number };
+  return {
+    status: row.status as 'idle' | 'scanning',
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    roots: JSON.parse(row.roots),
+    counts: { ...counts, ignored: row.ignored },
+    warnings: JSON.parse(row.warnings),
+  };
+}
