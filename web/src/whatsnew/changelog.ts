@@ -25,6 +25,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.3.0',
+    items: [
+      {
+        emoji: '🗓️',
+        text: 'Plans are cards now - the days, how the window is going, what is next, one tap to begin - and a new plan starts from a shape instead of a blank form.',
+      },
+      {
+        emoji: '🫧',
+        text: 'The sit breathes with you: one orb rises on the in-breath and falls on the out-breath, with the phase word inside it.',
+      },
+      {
+        emoji: '🔎',
+        text: 'Rescan works from the phone again, and says what it found.',
+      },
+    ],
+  },
+  {
     version: '0.2.0',
     items: [
       {

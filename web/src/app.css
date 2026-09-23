@@ -768,83 +768,491 @@
 
 /* ===== Timeline (plans) ===== */
 
-.timeline-day {
+/* ===== Plans ===== */
+
+.plans-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--s4);
+}
+
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(135deg, var(--accent-soft), transparent 55%), var(--surface);
+}
+
+.plan-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  align-items: flex-start;
+}
+
+.plan-card__title h3 {
+  font-size: 18px;
+}
+
+.plan-card__intention {
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  margin-block-start: 2px;
+}
+
+.plan-card__ring {
+  position: relative;
+  inline-size: 44px;
+  block-size: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-card__ring svg {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.plan-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pip {
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--faint);
+  background: rgba(239, 231, 218, 0.05);
+}
+
+.pip.on {
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+.pip.now {
+  outline: 1.5px solid var(--text);
+  outline-offset: 1px;
+}
+
+.plan-card__pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+}
+
+.plan-card__meds {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cover-stack {
+  display: flex;
+}
+
+.cover-stack .cover {
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 8px;
+  outline: 2px solid var(--surface);
+  margin-inline-end: -10px;
+}
+
+.cover-stack .cover .cover-title {
+  display: none;
+}
+
+.plan-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  margin-block-start: auto;
+  padding-block-start: var(--s3);
+  border-block-start: 1px solid var(--hairline);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.plan-card__next strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.plan-card__actions {
+  display: flex;
+  gap: var(--s2);
+}
+
+/* the weeks */
+.week + .week {
+  margin-block-start: var(--s5);
+}
+
+.week-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-block: var(--s2);
+  border-block-end: 1px solid var(--hairline);
+  margin-block-end: var(--s2);
+}
+
+.week-count {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.day {
   display: grid;
   grid-template-columns: 92px 1fr;
   gap: var(--s4);
-  padding-block: var(--s4);
+  padding: var(--s3) 0;
 }
 
-.timeline-day + .timeline-day {
+.day + .day {
   border-block-start: 1px solid var(--hairline);
 }
 
-.timeline-date {
+.day-date {
+  display: flex;
+  flex-direction: column;
+  padding-block-start: 6px;
+  font-size: 12.5px;
   color: var(--faint);
-  font-size: 13px;
-  line-height: 1.4;
 }
 
-.timeline-date strong {
-  display: block;
+.day-date strong {
   color: var(--muted);
   font-size: 14px;
   font-weight: 500;
 }
 
-.timeline-day.is-today .timeline-date strong {
+.day.is-today .day-date strong {
   color: var(--accent);
+}
+
+.day-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
 }
 
 .occ {
   display: flex;
   align-items: center;
   gap: var(--s3);
-  padding: var(--s2) 0;
-  flex-wrap: wrap;
+  padding: 10px var(--s3);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid transparent;
 }
 
-.occ .dot {
-  inline-size: 9px;
-  block-size: 9px;
-  border-radius: 50%;
-  flex: none;
-  background: var(--faint);
+.occ[data-status='today'] {
+  border-color: var(--accent-soft);
+  background: linear-gradient(90deg, var(--accent-soft), transparent 40%), var(--surface);
 }
 
-.occ[data-status='completed'] .dot {
-  background: var(--ok);
-}
-
-.occ[data-status='today'] .dot {
-  background: var(--accent);
-}
-
-.occ[data-status='missed'] .dot,
-.occ[data-status='skipped'] .dot {
-  background: var(--border);
-}
-
-.occ[data-status='missed'] .occ-name,
+.occ[data-status='completed'] .occ-name,
 .occ[data-status='skipped'] .occ-name {
   color: var(--muted);
 }
 
 .occ[data-status='skipped'] .occ-name {
   text-decoration: line-through;
-  text-decoration-color: var(--faint);
+}
+
+.occ-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.occ-name {
+  font-size: 14.5px;
+}
+
+.occ-sub {
+  font-size: 12.5px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .occ-actions {
   display: flex;
-  gap: var(--s1);
-  margin-inline-start: auto;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  inline-size: 78px;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  background: rgba(239, 231, 218, 0.06);
+}
+
+.pill-today {
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+.pill-completed {
+  color: var(--ok);
+  background: rgba(201, 180, 88, 0.14);
+}
+
+.pill-missed {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.pill-skipped {
+  color: var(--faint);
 }
 
 @media (max-width: 560px) {
-  .timeline-day {
-    grid-template-columns: 72px 1fr;
+  .day {
+    grid-template-columns: 1fr;
+    gap: var(--s2);
   }
+  .day-date {
+    flex-direction: row;
+    gap: var(--s2);
+    align-items: baseline;
+    padding: 0;
+  }
+  .occ {
+    flex-wrap: wrap;
+  }
+  .occ-actions {
+    inline-size: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* the form */
+.template-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s2);
+}
+
+.template {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: start;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.template:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.template__label {
+  font-size: 14px;
+}
+
+.template__note {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.day-picker {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.day-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 0 6px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  transition:
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.day-chip__l {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.day-chip__n {
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.day-chip[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.day-chip[aria-pressed='true'] .day-chip__n {
+  color: var(--accent);
+}
+
+.plan-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 14px;
+  margin-block-end: var(--s4);
+}
+
+.plan-preview svg {
+  color: var(--accent);
+}
+
+.plan-preview__dates {
+  color: var(--muted);
+}
+
+.med-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--s2);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.med-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: start;
+  gap: 4px;
+  padding: 6px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.med-pick:hover {
+  background: var(--raised);
+}
+
+.med-pick[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.med-pick .cover {
+  border-radius: 8px;
+}
+
+.med-pick .cover .cover-title {
+  display: none;
+}
+
+.med-pick__t {
+  font-size: 13px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.med-pick__c {
+  font-size: 11.5px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.med-pick__check {
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-end: 10px;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+  color: var(--ink-on-accent);
+}
+
+@media (max-width: 560px) {
 }
 
 /* ===== Stats ===== */
@@ -1867,39 +2275,6 @@
   block-size: 100%;
 }
 
-/* The painted orb sits behind the ring while a sit is running; still, so it
-   is a glow to rest the eye on rather than a thing that moves. */
-.timer-stage::before {
-  content: '';
-  position: absolute;
-  inset: -22%;
-  background: url('/art/bg-orb.webp') center / cover no-repeat;
-  border-radius: 50%;
-  opacity: 0;
-  transition: opacity 900ms var(--ease);
-  pointer-events: none;
-  mask-image: radial-gradient(circle, #000 45%, transparent 70%);
-}
-
-.timer-live .timer-stage::before {
-  opacity: 0.85;
-}
-
-.timer-orb-pulse {
-  animation: orb-pulse 7s ease-in-out infinite;
-  transform-origin: center;
-}
-
-@keyframes orb-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 .timer-readout {
   position: relative;
   text-align: center;
@@ -1942,6 +2317,138 @@
 /* A live sit hides the surrounding furniture. */
 .timer-live ~ * {
   display: none;
+}
+
+/* ── the breathing orb ─────────────────────────────────────────────────── */
+
+.timer-ring__track {
+  stroke: rgba(240, 76, 138, 0.14);
+}
+
+/*
+ * One element, three layers of gradient, and a transform the timer steers:
+ * core light, a soft halo outside it, and a fine bright rim so the edge is
+ * readable at any size. The transition length is set inline per phase, so
+ * the same rule draws a 4s rise and a 6s fall. transform is the only thing
+ * that animates - it stays on the compositor, so a slow phone breathes at
+ * the same pace as a desk.
+ */
+.breath-orb {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  inline-size: 68%;
+  block-size: 68%;
+  border-radius: 50%;
+  transform: scale(0.58);
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.42, 0, 0.28, 1);
+  transition-duration: 0s;
+  will-change: transform;
+  filter: drop-shadow(0 0 28px rgba(240, 76, 138, 0.35));
+}
+
+.breath-orb__core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 42% 38%,
+      rgba(255, 214, 140, 0.95) 0%,
+      rgba(255, 192, 74, 0.7) 18%,
+      transparent 46%
+    ),
+    radial-gradient(circle at 50% 55%, #f04c8a 0%, #b44bd8 55%, #7c3aed 100%);
+  box-shadow:
+    inset 0 -18px 40px rgba(60, 20, 90, 0.45),
+    inset 0 10px 30px rgba(255, 220, 160, 0.35);
+}
+
+.breath-orb__rim {
+  position: absolute;
+  inset: -6%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 200, 220, 0.55);
+  box-shadow:
+    0 0 0 10px rgba(240, 76, 138, 0.09),
+    0 0 60px 18px rgba(180, 75, 216, 0.28);
+  mask-image: radial-gradient(circle, transparent 60%, #000 66%);
+}
+
+/* No guide: a slow idle swell so a running sit still feels alive. */
+.breath-orb--idle {
+  animation: orb-idle 9s ease-in-out infinite;
+}
+
+@keyframes orb-idle {
+  0%,
+  100% {
+    transform: scale(0.72);
+  }
+  50% {
+    transform: scale(0.8);
+  }
+}
+
+/* The idle swell is decorative and yields to calm/reduced motion; the guided
+   breath is the feature itself and keeps moving. */
+:root[data-calm='1'] .breath-orb--idle {
+  animation: none;
+  transform: scale(0.76);
+}
+
+/* Phase word inside the orb: the hero while the guide is on. */
+.t-phase {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 4.6vw, 30px);
+  letter-spacing: 0.01em;
+  color: #fff8f0;
+  text-shadow: 0 2px 18px rgba(60, 20, 90, 0.55);
+  animation: phase-in 600ms var(--ease);
+}
+
+@keyframes phase-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Time demoted beneath the ring while breathing. */
+.timer-under {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  color: var(--faint);
+  margin-block-start: calc(-1 * var(--s3));
+}
+
+.timer-under__time {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-under__label {
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Quieter aurora while a sit runs: the stage is the only bright thing. */
+.timer-live ~ .app-aurora,
+.shell:has(.timer-live) .app-aurora {
+  opacity: 0.45;
+}
+
+/* The phase tints the halo very slightly: warmer breathing in, cooler out. */
+.timer-stage[data-phase='in'] .breath-orb {
+  filter: drop-shadow(0 0 34px rgba(255, 160, 100, 0.4));
+}
+.timer-stage[data-phase='out'] .breath-orb {
+  filter: drop-shadow(0 0 26px rgba(124, 58, 237, 0.4));
 }
 
 /* ===================================================================

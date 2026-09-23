@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { LibraryDto, MeditationSummaryDto } from '@zenport/shared';
+import type { LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
@@ -92,11 +92,37 @@ export function LibraryPage() {
 
   const missingCount = items.filter((i) => i.missing).length;
   const formats = useMemo(() => [...new Set(items.flatMap((i) => i.formats))].sort(), [items]);
+  const [rescanNote, setRescanNote] = useState<string | null>(null);
   const rescan = async () => {
     setRescanning(true);
-    await api.post('/api/library/rescan').catch(() => {});
-    setTimeout(() => {
+    setRescanNote(null);
+    try {
+      await api.post('/api/library/rescan');
+    } catch (err) {
+      setRescanNote(
+        `Rescan could not start - ${err instanceof Error ? err.message : 'the server refused it'}.`,
+      );
+      setRescanning(false);
+      return;
+    }
+    // The scan runs in the background; give it a moment, then read the result
+    // back and SAY what it found, so an empty folder reads as "0 recordings"
+    // rather than as a button that did nothing.
+    setTimeout(async () => {
       lib.reload();
+      const state = await api.get<ScanStateDto>('/api/library/scan-state').catch(() => null);
+      if (state) {
+        const roots = state.roots
+          .map((r) => (r.ok ? r.label : `${r.label} (not readable)`))
+          .join(', ');
+        setRescanNote(
+          state.status === 'scanning'
+            ? 'Still scanning - this page will catch up on its next load.'
+            : `Scanned ${roots || 'the library'}: ${state.counts.items} ${
+                state.counts.items === 1 ? 'recording' : 'recordings'
+              }, ${state.counts.tracks} tracks.`,
+        );
+      }
       setRescanning(false);
     }, 1500);
   };
@@ -134,6 +160,11 @@ export function LibraryPage() {
         <p className="notice" style={{ marginBottom: 24 }}>
           The last scan had {scan.warnings.length} note{scan.warnings.length > 1 ? 's' : ''} - see
           Settings for details.
+        </p>
+      )}
+      {rescanNote && (
+        <p className="notice" style={{ marginBottom: 24 }} role="status">
+          {rescanNote}
         </p>
       )}
       {missingCount > 0 && (

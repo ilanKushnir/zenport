@@ -11,13 +11,20 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // A body-less POST is sent as `{}` rather than nothing: with no body some
+  // browsers (Safari) and some proxies attach a content-type of their own,
+  // and Fastify answers a type it has no parser for with 415 - which is how
+  // "Rescan" came to do nothing on the phone. An explicit JSON body always
+  // has a parser.
+  const mutation = method !== 'GET';
+  const payload = mutation && body === undefined ? {} : body;
   const res = await fetch(path, {
     method,
     headers: {
-      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...(method !== 'GET' ? { 'x-zenport-csrf': '1' } : {}),
+      ...(payload !== undefined ? { 'content-type': 'application/json' } : {}),
+      ...(mutation ? { 'x-zenport-csrf': '1' } : {}),
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: payload !== undefined ? JSON.stringify(payload) : undefined,
   });
   if (res.status === 401 && !location.pathname.startsWith('/login')) {
     window.dispatchEvent(new CustomEvent('zenport:signed-out'));

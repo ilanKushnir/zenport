@@ -35,6 +35,18 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   app.decorateRequest('user', null);
   void app.register(fastifyCookie);
 
+  // Any other declared type: accept an EMPTY body (a POST with nothing in it
+  // is a signal, not a payload - rescan, logout, favourites) and reject a
+  // non-empty one, since nothing here reads bodies in unknown encodings.
+  // Without this a proxy- or browser-supplied content-type on a body-less
+  // request was a 415 before the route ever ran.
+  app.addContentTypeParser('*', { parseAs: 'buffer' }, (_req, body, done) => {
+    if ((body as Buffer).length === 0) return done(null, undefined);
+    const err = new Error('unsupported media type') as Error & { statusCode?: number };
+    err.statusCode = 415;
+    done(err, undefined);
+  });
+
   // Raw-buffer parser for voice note uploads (route enforces its own limits).
   app.addContentTypeParser(
     ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'application/octet-stream'],

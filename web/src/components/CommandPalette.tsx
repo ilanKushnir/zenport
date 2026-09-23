@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { LibraryDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
+import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { Icon } from './ui.tsx';
@@ -100,10 +101,7 @@ export function CommandPalette() {
         icon: 'history',
         group: 'Do',
         run: () => {
-          void fetch('/api/library/rescan', {
-            method: 'POST',
-            headers: { 'x-zenport-csrf': '1' },
-          });
+          void api.post('/api/library/rescan').catch(() => {});
           setOpen(false);
         },
       },

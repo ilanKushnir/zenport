@@ -29,7 +29,7 @@ export const BREATH_LABEL: Record<BreathPhase, string> = {
 };
 
 /** Smallest and largest scale the orb reaches. */
-export const BREATH_MIN_SCALE = 0.82;
+export const BREATH_MIN_SCALE = 0.58;
 const RANGE = 1 - BREATH_MIN_SCALE;
 
 /**

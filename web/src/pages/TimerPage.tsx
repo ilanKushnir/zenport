@@ -19,8 +19,8 @@ import { playBell } from '../player/bell.ts';
 import {
   BREATH,
   BREATH_LABEL,
+  BREATH_MIN_SCALE,
   breathPhaseAt,
-  breathScaleAt,
   formatClock,
 } from '../player/breath.ts';
 import { Icon } from '../components/ui.tsx';
@@ -200,7 +200,13 @@ export function TimerPage() {
   useEffect(() => releaseWakeLock, [releaseWakeLock]);
 
   const running = phase === 'running' || phase === 'paused';
-  const breathLabel = BREATH_LABEL[breathPhaseAt(elapsed)];
+  const breathing = breathGuide && running;
+  const breathPhase = breathPhaseAt(elapsed);
+  const breathLabel = BREATH_LABEL[breathPhase];
+  // Where the orb is heading and how long it has to get there. On pause the
+  // transition length is zeroed, so it stops mid-breath instead of drifting.
+  const orbTarget = breathPhase === 'out' ? BREATH_MIN_SCALE : 1;
+  const orbSeconds = breathPhase === 'in' ? BREATH.in : breathPhase === 'out' ? BREATH.out : 0;
 
   return (
     <div className={`timer-page${running ? ' timer-live' : ''}`}>
@@ -214,13 +220,28 @@ export function TimerPage() {
         </div>
       )}
 
-      <div className="timer-stage">
-        <TimerRing
-          progress={progress}
-          live={phase === 'running'}
-          breathing={breathGuide && phase === 'running'}
-          breathScale={breathScaleAt(elapsed)}
-        />
+      <div className="timer-stage" data-phase={breathing ? breathPhase : undefined}>
+        <TimerRing progress={progress} />
+        {/* The orb is one element whose transform follows the breath: the
+            target scale and the transition length change at every phase
+            boundary, so the browser draws the 4s rise and the 6s fall as one
+            smooth movement each rather than the timer stepping it. Paused, it
+            holds wherever it was. */}
+        <div
+          className={`breath-orb${phase === 'running' && !breathing ? ' breath-orb--idle' : ''}`}
+          style={
+            breathing
+              ? {
+                  transform: `scale(${orbTarget})`,
+                  transitionDuration: `${phase === 'running' ? orbSeconds : 0}s`,
+                }
+              : undefined
+          }
+          aria-hidden="true"
+        >
+          <span className="breath-orb__core" />
+          <span className="breath-orb__rim" />
+        </div>
         <div className="timer-readout">
           {phase === 'done' ? (
             <>
@@ -229,24 +250,28 @@ export function TimerPage() {
                 {minutes} minute{minutes === 1 ? '' : 's'} sat
               </div>
             </>
+          ) : breathing ? (
+            <div className="t-phase" aria-live="polite" key={breathPhase}>
+              {phase === 'paused' ? 'Paused' : breathLabel}
+            </div>
           ) : (
             <>
               <div className="t-big" aria-live="off">
                 {formatClock(running ? remaining : total)}
               </div>
               <div className="t-sub">
-                {phase === 'paused'
-                  ? 'Paused'
-                  : breathGuide && phase === 'running'
-                    ? breathLabel
-                    : running
-                      ? 'Remaining'
-                      : `${minutes} minute sit`}
+                {phase === 'paused' ? 'Paused' : running ? 'Remaining' : `${minutes} minute sit`}
               </div>
             </>
           )}
         </div>
       </div>
+      {breathing && (
+        <div className="timer-under" aria-live="off">
+          <span className="timer-under__time">{formatClock(remaining)}</span>
+          <span className="timer-under__label">remaining</span>
+        </div>
+      )}
 
       {error && (
         <p className="notice" style={{ maxWidth: 460, margin: '0 auto 16px' }}>
@@ -366,18 +391,8 @@ export function TimerPage() {
   );
 }
 
-function TimerRing({
-  progress,
-  live,
-  breathing,
-  breathScale,
-}: {
-  progress: number;
-  live: boolean;
-  breathing: boolean;
-  breathScale: number;
-}) {
-  const r = 104;
+function TimerRing({ progress }: { progress: number }) {
+  const r = 108;
   const c = 2 * Math.PI * r;
   return (
     <svg className="timer-ring" viewBox="0 0 240 240" aria-hidden="true">
@@ -394,28 +409,14 @@ function TimerRing({
           <stop offset="46%" stopColor="#F04C8A" />
           <stop offset="100%" stopColor="#7C3AED" />
         </linearGradient>
-        <radialGradient id="tm-orb">
-          <stop offset="0%" stopColor="#F04C8A" stopOpacity="0.30" />
-          <stop offset="70%" stopColor="#B44BD8" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="#7C3AED" stopOpacity="0" />
-        </radialGradient>
       </defs>
-
-      <circle
-        cx="120"
-        cy="120"
-        r={r * (breathing ? breathScale : 1)}
-        fill="url(#tm-orb)"
-        className={live && !breathing ? 'timer-orb-pulse' : undefined}
-        style={breathing ? { transition: 'r 240ms linear' } : undefined}
-      />
-      <circle cx="120" cy="120" r={r} stroke="var(--hairline)" strokeWidth="10" fill="none" />
+      <circle cx="120" cy="120" r={r} className="timer-ring__track" strokeWidth="6" fill="none" />
       <circle
         cx="120"
         cy="120"
         r={r}
         stroke="url(#tm-sweep)"
-        strokeWidth="10"
+        strokeWidth="6"
         strokeLinecap="round"
         fill="none"
         strokeDasharray={`${c * progress} ${c}`}
