@@ -1203,7 +1203,8 @@
   z-index: 60;
   display: flex;
   flex-direction: column;
-  block-size: 100dvh;
+  /* Height comes from inset: 0 alone. 100dvh is shorter than the screen in
+     an installed iOS app, which left a dead band under the player. */
   padding: calc(env(safe-area-inset-top) + var(--s3)) var(--s5)
     calc(env(safe-area-inset-bottom) + var(--s4));
   background: var(--bg);
@@ -1307,34 +1308,45 @@
   color: var(--accent);
 }
 
+/* The controls take the height they need; the cover gets what is left, as a
+   square as large as fits. Nothing is sized from the viewport, so nothing can
+   overflow into the header or the footer on any phone. */
 .fp-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: clamp(12px, 2.6dvh, 26px);
+  gap: clamp(10px, 2.2vh, 22px);
   inline-size: 100%;
   max-inline-size: 460px;
   margin-inline: auto;
+  padding-block: var(--s3) var(--s2);
+}
+
+.fp-body > :not(.fp-art) {
+  flex: none;
 }
 
 .fp-art {
-  align-self: center;
-  inline-size: min(78vw, 40dvh, 400px);
-  transition: transform 1.2s var(--ease);
-  transform: scale(0.94);
-}
-
-.fp-art.is-playing {
-  transform: scale(1);
+  flex: 1 1 0;
+  min-height: 0;
+  container-type: size;
+  display: grid;
+  place-items: center;
 }
 
 .fp-art .cover {
+  inline-size: min(100cqw, 100cqh, 420px);
+  transform: scale(0.94);
+  transition: transform 1.2s var(--ease);
   border-radius: 22px;
   box-shadow:
     0 30px 60px rgba(6, 4, 12, 0.6),
     0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.fp-art.is-playing .cover {
+  transform: none;
 }
 
 .fp-info {
@@ -1517,9 +1529,6 @@
 
 /* Short phones (SE, landscape): tighten so it still fits without scrolling. */
 @media (max-height: 700px) {
-  .fp-art {
-    inline-size: min(64vw, 34dvh);
-  }
   .fp-play {
     inline-size: 64px;
     block-size: 64px;
@@ -1550,8 +1559,12 @@
   }
   .fp-art {
     grid-row: 1 / 5;
-    inline-size: min(100%, 440px, 60dvh);
+    container-type: normal;
     justify-self: end;
+    align-self: center;
+  }
+  .fp-art .cover {
+    inline-size: min(440px, 60vh, 42vw);
   }
   .fp-info {
     text-align: start;

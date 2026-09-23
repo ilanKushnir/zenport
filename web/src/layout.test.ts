@@ -60,6 +60,15 @@ describe('layout invariants', () => {
     }
   });
 
+  it('the full player takes its height from the screen edges, never a viewport unit', () => {
+    // 100dvh is shorter than the screen in an installed iOS app: the player
+    // ended above the bottom and its content spilled over its own header.
+    for (const r of rules()) {
+      if (!r.selectors.includes('.fp')) continue;
+      expect(r.body).not.toMatch(/(^|[;\s])(block-size|height|min-height)\s*:[^;]*v[hw]/);
+    }
+  });
+
   it('every flexible grid column can shrink', () => {
     const bad: string[] = [];
     for (const m of css.matchAll(/grid-template-columns\s*:([^;]+);/g)) {

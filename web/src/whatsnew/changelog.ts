@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.5.1',
+    items: [
+      {
+        emoji: '🎧',
+        text: 'The player fits every phone: the cover takes only the room left, so nothing overlaps the controls or the header.',
+      },
+    ],
+  },
+  {
     version: '0.5.0',
     items: [
       {

@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-09-23
+
+### Fixed
+
+- **The full player overlapped itself on an iPhone.** It was sized `100dvh`, which in an installed iOS app is shorter than the screen, and its cover was sized from the viewport too, so on a tall phone the content spilled over its own header and footer and left a dead band beneath. The player now takes its height from `inset: 0` alone; the controls keep their natural height and the cover is a container-query square that fills only what remains (`min(100cqw, 100cqh)`), shrinking on short phones and hiding in landscape. Checked for overlaps at twelve sizes from 320×568 to 1440×900, and a stylesheet test keeps viewport units off the player's height.
+
 ## [0.5.0] — 2026-09-23
 
 ### Added
