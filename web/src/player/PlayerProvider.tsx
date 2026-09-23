@@ -115,7 +115,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const completedRef = useRef<Set<string>>(new Set());
   // Marks a track done once, tells the server, and tells any open page to
   // refresh its progress.
+  // Where each lesson of the item in hand was left, so starting any lesson of
+  // a course or talk - from the list, Next, or the lesson sheet - picks up
+  // there. Kept here too because the item the player holds does not refetch.
+  const placesRef = useRef<Map<string, number>>(new Map());
+  // A seek waiting for the media to know its length. Until it lands nothing is
+  // saved or marked done: on iOS, setting currentTime before metadata is
+  // ignored, and saving the 0:01 that plays instead would erase the real place.
+  const pendingSeekRef = useRef<number | null>(null);
   const markDone = useCallback((trackId: string) => {
+    placesRef.current.delete(trackId);
     if (completedRef.current.has(trackId)) return;
     completedRef.current.add(trackId);
     setCompletedIds(new Set(completedRef.current));
@@ -224,9 +233,52 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const el = audioRef.current;
     const it = itemRef.current;
     const tr = it?.tracks[trackIndexRef.current];
+    if (pendingSeekRef.current !== null) return;
     if (el && tr && el.currentTime > 0) {
+      if (!completedRef.current.has(tr.id)) placesRef.current.set(tr.id, el.currentTime);
       void api.put(`/api/progress/${tr.id}`, { positionSec: el.currentTime }).catch(() => {});
     }
+  }, []);
+
+  /** Where a track should start: its saved place in a course or talk, else the top. */
+  const placeFor = useCallback((it: MeditationDetailDto, index: number): number => {
+    if (it.type !== 'course' && it.type !== 'talk') return 0;
+    const tr = it.tracks[index];
+    if (!tr || completedRef.current.has(tr.id)) return 0;
+    const at = placesRef.current.get(tr.id) ?? 0;
+    const d = tr.durationSec;
+    if (at < 10 || (d && (at >= d * 0.95 || at >= d - 15))) return 0;
+    return at;
+  }, []);
+
+  /**
+   * Seek once the media knows its length. Setting currentTime straight after a
+   * new src is dropped by iOS Safari (video especially), which then plays from
+   * 0:00; waiting for loadedmetadata makes the resume stick everywhere.
+   */
+  const seekWhenReady = useCallback((el: HTMLMediaElement, at: number) => {
+    if (at <= 0) {
+      pendingSeekRef.current = null;
+      return;
+    }
+    pendingSeekRef.current = at;
+    const src = el.src;
+    const apply = () => {
+      // Another track took this element before its metadata came: not ours.
+      if (el.src !== src) return;
+      const max = Number.isFinite(el.duration) && el.duration > 0 ? el.duration - 3 : at;
+      el.currentTime = Math.max(0, Math.min(at, max));
+      setPosition(el.currentTime);
+      lastGoodPosRef.current = el.currentTime;
+      pendingSeekRef.current = null;
+    };
+    if (el.readyState >= 1) {
+      apply();
+      return;
+    }
+    el.currentTime = at; // Where browsers honour it early, no flash of 0:00.
+    setPosition(at);
+    el.addEventListener('loadedmetadata', apply, { once: true });
   }, []);
 
   const loadTrack = useCallback(
@@ -244,7 +296,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audioRef.current = el;
       setIsVideo(kind === 'video');
       el.src = `/api/media/track/${tr.id}`;
-      el.currentTime = startAt;
+      seekWhenReady(el, startAt);
       el.volume = settings.volume;
       el.playbackRate = settings.speed;
       setTrackIndex(index);
@@ -260,7 +312,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [settings.volume, settings.speed],
+    [settings.volume, settings.speed, seekWhenReady],
   );
 
   const finishInternal = useCallback(
@@ -322,6 +374,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (sessionRef.current) finishInternal('abandoned', 'switched meditation');
       setItem(it);
       completedRef.current = new Set(it.tracks.filter((t) => t.completed).map((t) => t.id));
+      placesRef.current = new Map(
+        it.tracks.filter((t) => t.positionSec !== null).map((t) => [t.id, t.positionSec!]),
+      );
       setCompletedIds(new Set(completedRef.current));
       // Beginning a practice opens the full player; it can be minimised to
       // the bar and keeps playing while the rest of the app is used.
@@ -338,7 +393,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             it.tracks.findIndex((t) => t.id === opts.trackId),
           )
         : 0;
-      const startAt = opts?.resumeSec ?? 0;
+      const startAt = opts?.resumeSec ?? placeFor(it, index);
 
       void api
         .post<{ id: number }>('/api/practice/start', { meditationId: it.id })
@@ -373,7 +428,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         loadTrack(it, index, startAt, true);
       }
     },
-    [finishInternal, loadTrack, settings.leadInSec],
+    [finishInternal, loadTrack, settings.leadInSec, placeFor],
   );
 
   const stop = useCallback(
@@ -431,9 +486,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const it = itemRef.current;
       if (!it || index < 0 || index >= it.tracks.length) return;
       saveProgress();
-      loadTrack(it, index, 0, true);
+      loadTrack(it, index, placeFor(it, index), true);
     },
-    [loadTrack, saveProgress],
+    [loadTrack, saveProgress, placeFor],
   );
 
   const nextTrack = useCallback(() => {
@@ -442,9 +497,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const idx = trackIndexRef.current;
     if (idx < it.tracks.length - 1) {
       saveProgress();
-      loadTrack(it, idx + 1, 0, true);
+      loadTrack(it, idx + 1, placeFor(it, idx + 1), true);
     }
-  }, [loadTrack, saveProgress]);
+  }, [loadTrack, saveProgress, placeFor]);
 
   const prevTrack = useCallback(() => {
     const it = itemRef.current;
@@ -454,9 +509,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (el && el.currentTime > 5) {
       el.currentTime = 0;
     } else if (idx > 0) {
-      loadTrack(it, idx - 1, 0, true);
+      saveProgress();
+      loadTrack(it, idx - 1, placeFor(it, idx - 1), true);
     }
-  }, [loadTrack]);
+  }, [loadTrack, saveProgress, placeFor]);
 
   const releaseWakeLock = useCallback(() => {
     if (wakeLockRef.current) {
@@ -520,6 +576,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const active = () => el === audioRef.current;
       const onTime = () => {
         if (!active()) return;
+        // The 0:00 that plays before a pending resume lands is not a place.
+        if (pendingSeekRef.current !== null) return;
         const now = performance.now();
         if (!el.paused && lastTickRef.current !== null) {
           const dt = (now - lastTickRef.current) / 1000;
@@ -569,7 +627,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             setPlaying(false);
             return;
           }
-          loadTrack(it, idx + 1, 0, true);
+          loadTrack(it, idx + 1, placeFor(it, idx + 1), true);
         } else {
           finishInternal('completed', 'finished');
         }
@@ -610,7 +668,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             if (!tr || !wantPlayRef.current) return;
             const at = lastGoodPosRef.current;
             el.src = `/api/media/track/${tr.id}`;
-            el.currentTime = at;
+            seekWhenReady(el, at);
             void el.play().catch(() => {});
           },
           Math.min(15000, 1000 * 2 ** (attempt - 1)),
@@ -654,7 +712,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       offAudio();
       offVideo();
     };
-  }, [loadTrack, finishInternal, markDone]);
+  }, [loadTrack, finishInternal, markDone, placeFor, seekWhenReady]);
 
   // Periodic work: heartbeats, progress saves, bells, end timer, elapsed.
   useEffect(() => {

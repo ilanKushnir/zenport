@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.1',
+    items: [
+      {
+        emoji: '⏯️',
+        text: 'Course videos keep their place on an iPhone, and every lesson picks up where you left it - from any play button.',
+      },
+    ],
+  },
+  {
     version: '0.9.0',
     items: [
       {

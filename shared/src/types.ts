@@ -87,6 +87,8 @@ export interface TrackDto {
    */
   role: 'lesson' | 'practice';
   roleSource: 'auto' | 'manual';
+  /** Where this account left off in it, when that place is worth returning to. */
+  positionSec: number | null;
 }
 
 export type DocumentKind = 'pdf' | 'text' | 'markdown' | 'html';

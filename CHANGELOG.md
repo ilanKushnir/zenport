@@ -5,6 +5,14 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-09-23
+
+### Fixed
+
+- **Course videos lost their place on an iPhone.** Resuming set the start time the instant a new video was loaded; iOS Safari ignores that until the video knows its length, so the lesson began at 0:00 - and the next autosave replaced the real place with a second or two. The player now seeks once the metadata arrives, and saves nothing (and marks nothing done) until that seek has landed. The dropout-recovery reload uses the same path.
+- **Starting a lesson from its play button, the player's lesson list, Next or Previous began at 0:00.** In courses and talks every lesson now picks up its own saved place (meditations still begin at the top, with Resume beside them).
+- **Continue could miss a half-watched lesson** when a different lesson had been finished more recently; it now resumes the most recent unfinished lesson with a place worth returning to.
+
 ## [0.9.0] — 2026-09-23
 
 ### Added

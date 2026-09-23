@@ -716,6 +716,43 @@ describe('content types, lessons and AI planning', () => {
     expect(fresh.tracks.some((t: { completed: boolean }) => t.completed)).toBe(false);
   });
 
+  it('a lesson finished later does not hide one left half-watched, and each lesson keeps its place', async () => {
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const course = lib.items.find((i: { title: string }) => i.title === 'The Long Road');
+    const url = `/api/items/${course.id}`;
+    const detail = (await app.inject({ method: 'GET', url, headers: auth() })).json();
+    const [t1, t2, t3] = detail.tracks as { id: string }[];
+    for (const t of detail.tracks as { id: string }[]) {
+      db.prepare('UPDATE tracks SET duration_sec = 2400 WHERE id = ?').run(t.id);
+    }
+    const at = (trackId: string, positionSec: number) =>
+      app.inject({
+        method: 'PUT',
+        url: `/api/progress/${trackId}`,
+        headers: auth(),
+        payload: { positionSec },
+      });
+    await at(t1!.id, 900);
+    await new Promise((r) => setTimeout(r, 5));
+    await at(t3!.id, 300);
+    await new Promise((r) => setTimeout(r, 5));
+    await at(t2!.id, 2390);
+    await app.inject({
+      method: 'PUT',
+      url: `/api/tracks/${t2!.id}/completed`,
+      headers: auth(),
+      payload: { completed: true },
+    });
+    const after = (await app.inject({ method: 'GET', url, headers: auth() })).json();
+    expect(after.resume).toMatchObject({ trackId: t3!.id, positionSec: 300 });
+    expect(after.tracks.map((t: { positionSec: number | null }) => t.positionSec)).toEqual([
+      900,
+      null,
+      300,
+    ]);
+  });
+
   it('keeps the AI key secret and plans only with real library items', async () => {
     await setupAndLogin();
     const bad = await app.inject({

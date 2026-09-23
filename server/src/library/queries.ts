@@ -36,33 +36,41 @@ function rootLabel(config: Config, rootId: number): string {
  * not ticked done and the place is past the opening seconds and short of the
  * end. A lesson played to its last seconds is finished, not "in progress".
  */
+/** A saved place is worth returning to: past the opening seconds, short of the end. */
+export function worthResuming(positionSec: number, durationSec: number | null): boolean {
+  if (positionSec < 10) return false;
+  return !(durationSec && (positionSec >= durationSec * 0.95 || positionSec >= durationSec - 15));
+}
+
+/**
+ * Where to pick an item up: the most recently played track that is not ticked
+ * done and holds a place worth returning to. (Not simply the last row - a
+ * lesson just finished must not hide the one left half-watched before it.)
+ */
 export function resumePoint(
   db: Db,
   userId: number,
   itemId: string,
 ): { trackId: string; positionSec: number; updatedAt: string } | null {
-  const row = db
+  const rows = db
     .prepare(
-      `SELECT p.track_id, p.position_sec, p.updated_at, t.duration_sec,
-              EXISTS (SELECT 1 FROM track_completions c
-                      WHERE c.user_id = p.user_id AND c.track_id = p.track_id) AS done
+      `SELECT p.track_id, p.position_sec, p.updated_at, t.duration_sec
        FROM playback_positions p JOIN tracks t ON t.id = p.track_id
        WHERE p.user_id = ? AND p.item_id = ? AND t.missing = 0
-       ORDER BY p.updated_at DESC LIMIT 1`,
+         AND NOT EXISTS (SELECT 1 FROM track_completions c
+                         WHERE c.user_id = p.user_id AND c.track_id = p.track_id)
+       ORDER BY p.updated_at DESC`,
     )
-    .get(userId, itemId) as
-    | {
-        track_id: string;
-        position_sec: number;
-        updated_at: string;
-        duration_sec: number | null;
-        done: number;
-      }
-    | undefined;
-  if (!row || row.done || row.position_sec < 10) return null;
-  const d = row.duration_sec;
-  if (d && (row.position_sec >= d * 0.95 || row.position_sec >= d - 15)) return null;
-  return { trackId: row.track_id, positionSec: row.position_sec, updatedAt: row.updated_at };
+    .all(userId, itemId) as {
+    track_id: string;
+    position_sec: number;
+    updated_at: string;
+    duration_sec: number | null;
+  }[];
+  const row = rows.find((r) => worthResuming(r.position_sec, r.duration_sec));
+  return row
+    ? { trackId: row.track_id, positionSec: row.position_sec, updatedAt: row.updated_at }
+    : null;
 }
 
 function summarize(db: Db, config: Config, row: ItemRow, userId: number): MeditationSummaryDto {
@@ -174,6 +182,15 @@ export function itemDetail(
         .all(userId, itemId) as { track_id: string }[]
     ).map((r) => r.track_id),
   );
+  const positions = new Map(
+    (
+      db
+        .prepare(
+          'SELECT track_id, position_sec FROM playback_positions WHERE user_id = ? AND item_id = ?',
+        )
+        .all(userId, itemId) as { track_id: string; position_sec: number }[]
+    ).map((r) => [r.track_id, r.position_sec]),
+  );
   const tracks = (
     db
       .prepare(
@@ -212,6 +229,10 @@ export function itemDetail(
           ? ('practice' as const)
           : ('lesson' as const),
     roleSource: t.manual_role ? ('manual' as const) : ('auto' as const),
+    positionSec:
+      !done.has(t.id) && worthResuming(positions.get(t.id) ?? 0, t.duration_sec)
+        ? (positions.get(t.id) ?? null)
+        : null,
   }));
   const documents = (
     db
