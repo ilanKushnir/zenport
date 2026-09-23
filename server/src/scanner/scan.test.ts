@@ -1,9 +1,9 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, renameSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from '../db/index.js';
-import { runScan } from './scan.js';
+import { EMBEDDED_ROOT_ID, runScan } from './scan.js';
 
 let libRoot: string;
 let db: Db;
@@ -24,6 +24,66 @@ beforeEach(() => {
 afterEach(() => {
   db.close();
   rmSync(libRoot, { recursive: true, force: true });
+});
+
+describe('embedded covers', () => {
+  const PNG = Buffer.from(
+    '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0300050001ff2b4c6e0000000049454e44ae426082',
+    'hex',
+  );
+  const syncsafe = (n: number) =>
+    Buffer.from([(n >> 21) & 0x7f, (n >> 14) & 0x7f, (n >> 7) & 0x7f, n & 0x7f]);
+  const mp3WithArt = () => {
+    const body = Buffer.concat([
+      Buffer.from([0]),
+      Buffer.from('image/png\0', 'latin1'),
+      Buffer.from([3]),
+      Buffer.from('\0', 'latin1'),
+      PNG,
+    ]);
+    const frame = Buffer.concat([Buffer.from('APIC', 'latin1'), syncsafe(body.length), Buffer.from([0, 0]), body]);
+    return Buffer.concat([Buffer.from('ID3', 'latin1'), Buffer.from([4, 0, 0]), syncsafe(frame.length), frame]);
+  };
+
+  it('reads a cover out of the audio when the folder has none, caches it, and serves it from the pseudo-root', async () => {
+    const cache = path.join(libRoot, '.cache');
+    const abs = path.join(libRoot, 'Mira Solen/Morning/01.mp3');
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, mp3WithArt());
+    put('Mira Solen/Morning/02.mp3');
+
+    await runScan(db, roots(), { coverCacheDir: cache });
+    const covers = db
+      .prepare("SELECT root_id, rel_path, ext, missing FROM assets WHERE kind = 'cover'")
+      .all() as { root_id: number; rel_path: string; ext: string; missing: number }[];
+    expect(covers).toHaveLength(1);
+    expect(covers[0]!.root_id).toBe(EMBEDDED_ROOT_ID);
+    expect(covers[0]!.ext).toBe('png');
+    expect(covers[0]!.missing).toBe(0);
+    expect(readdirSync(cache)).toEqual([covers[0]!.rel_path]);
+
+    // Second scan: cache hit, still present, still not missing.
+    await runScan(db, roots(), { coverCacheDir: cache });
+    expect((db.prepare("SELECT missing FROM assets WHERE kind = 'cover'").get() as { missing: number }).missing).toBe(0);
+
+    // A real image beside the files wins over the embedded one.
+    put('Mira Solen/Morning/cover.jpg');
+    await runScan(db, roots(), { coverCacheDir: cache });
+    const after = db
+      .prepare("SELECT root_id, missing FROM assets WHERE kind = 'cover' ORDER BY root_id")
+      .all() as { root_id: number; missing: number }[];
+    expect(after).toEqual([
+      { root_id: EMBEDDED_ROOT_ID, missing: 1 },
+      { root_id: 0, missing: 0 },
+    ]);
+  });
+
+  it('lists video containers as playable tracks', async () => {
+    put('Tomas Reyes/Evening Talk/talk.mp4');
+    await runScan(db, roots());
+    const tracks = db.prepare('SELECT ext FROM tracks').all() as { ext: string }[];
+    expect(tracks.map((t) => t.ext)).toEqual(['mp4']);
+  });
 });
 
 describe('runScan persistence', () => {

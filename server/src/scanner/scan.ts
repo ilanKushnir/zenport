@@ -1,13 +1,63 @@
 import { createHash } from 'node:crypto';
+import { access, mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { ScanStateDto } from '@zenport/shared';
 import type { Db } from '../db/index.js';
-import { inferLibrary } from '../library/infer.js';
+import { inferLibrary, type InferredTrack } from '../library/infer.js';
+import { extractEmbeddedArt } from './artwork.js';
 import { safeWalk } from './walk.js';
 
 export interface ScanRoot {
   id: number;
   path: string;
   label: string;
+}
+
+export interface ScanOptions {
+  /**
+   * Where covers read out of the audio files' own tags are cached. Assets
+   * under here carry EMBEDDED_ROOT_ID rather than a library root, and the
+   * media route resolves them inside this directory. Omitted in tests that
+   * do not care about artwork.
+   */
+  coverCacheDir?: string;
+}
+
+/** Pseudo-root for covers extracted from the files themselves. */
+export const EMBEDDED_ROOT_ID = -1;
+
+const COVER_EXTS = ['jpg', 'png', 'webp', 'gif'] as const;
+
+/**
+ * A cover for an item with no image file beside it, read out of its audio
+ * (ID3 APIC / FLAC PICTURE) and cached once. The cache is checked first so
+ * the hourly rescan costs one stat per item, not one tag parse.
+ */
+async function embeddedCover(
+  cacheDir: string,
+  itemId: string,
+  rootPath: string,
+  tracks: InferredTrack[],
+): Promise<{ relPath: string; ext: string; size: number } | null> {
+  for (const ext of COVER_EXTS) {
+    const file = path.join(cacheDir, `${itemId}.${ext}`);
+    try {
+      await access(file);
+      return { relPath: `${itemId}.${ext}`, ext, size: 0 };
+    } catch {
+      /* not cached under this extension */
+    }
+  }
+  // The first few tracks are enough: an album's art is on every track or on none.
+  for (const track of tracks.slice(0, 3)) {
+    const art = await extractEmbeddedArt(path.join(rootPath, track.relPath), track.ext);
+    if (!art) continue;
+    await mkdir(cacheDir, { recursive: true });
+    const rel = `${itemId}.${art.ext}`;
+    await writeFile(path.join(cacheDir, rel), art.data);
+    return { relPath: rel, ext: art.ext, size: art.data.length };
+  }
+  return null;
 }
 
 const sid = (input: string) => createHash('sha1').update(input).digest('hex').slice(0, 20);
@@ -19,7 +69,11 @@ const nowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
  * path); files that vanish are marked missing rather than deleted, so user
  * history, plans, and journals always survive a library hiccup.
  */
-export async function runScan(db: Db, roots: ScanRoot[]): Promise<ScanStateDto> {
+export async function runScan(
+  db: Db,
+  roots: ScanRoot[],
+  opts: ScanOptions = {},
+): Promise<ScanStateDto> {
   const startedAt = nowIso();
   db.prepare(`UPDATE scan_state SET status = 'scanning', started_at = ? WHERE id = 1`).run(
     startedAt,
@@ -48,6 +102,17 @@ export async function runScan(db: Db, roots: ScanRoot[]): Promise<ScanStateDto> 
     for (const w of walk.warnings) warnings.push(`${root.label}: ${w}`);
 
     const items = inferLibrary(walk.files);
+
+    const embedded = new Map<string, { relPath: string; ext: string; size: number }>();
+    if (opts.coverCacheDir) {
+      for (const item of items) {
+        if (item.coverRelPath) continue;
+        const itemId = sid(`item:${root.id}:${item.itemKey}`);
+        const cover = await embeddedCover(opts.coverCacheDir, itemId, root.path, item.tracks);
+        if (cover) embedded.set(itemId, cover);
+      }
+    }
+
     db.exec('BEGIN');
     try {
       const upsertItem = db.prepare(
@@ -108,6 +173,22 @@ export async function runScan(db: Db, roots: ScanRoot[]): Promise<ScanStateDto> 
           const assetId = sid(`asset:${root.id}:${itemId}:${item.coverRelPath}`);
           seenAssets.add(assetId);
           upsertAsset.run(assetId, itemId, root.id, item.coverRelPath, name, ext, 'cover', 0);
+        } else {
+          const cover = embedded.get(itemId);
+          if (cover) {
+            const assetId = sid(`asset:embedded:${itemId}`);
+            seenAssets.add(assetId);
+            upsertAsset.run(
+              assetId,
+              itemId,
+              EMBEDDED_ROOT_ID,
+              cover.relPath,
+              `cover.${cover.ext}`,
+              cover.ext,
+              'cover',
+              cover.size,
+            );
+          }
         }
         for (const doc of item.documents) {
           const assetId = sid(`asset:${root.id}:${itemId}:${doc.relPath}`);
@@ -154,6 +235,16 @@ export async function runScan(db: Db, roots: ScanRoot[]): Promise<ScanStateDto> 
       for (const row of db.prepare('SELECT id FROM assets WHERE root_id = ?').all(rootId) as {
         id: string;
       }[]) {
+        if (!seenAssets.has(row.id)) {
+          db.prepare('UPDATE assets SET missing = 1 WHERE id = ?').run(row.id);
+        }
+      }
+      // Cached covers follow their item's root, not their own pseudo-root.
+      for (const row of db
+        .prepare(
+          'SELECT a.id FROM assets a JOIN items i ON i.id = a.item_id WHERE a.root_id = ? AND i.root_id = ?',
+        )
+        .all(EMBEDDED_ROOT_ID, rootId) as { id: string }[]) {
         if (!seenAssets.has(row.id)) {
           db.prepare('UPDATE assets SET missing = 1 WHERE id = ?').run(row.id);
         }

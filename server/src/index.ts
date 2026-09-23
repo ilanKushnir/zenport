@@ -43,7 +43,9 @@ async function main(): Promise<void> {
 
   // Initial scan on boot, then on the configured interval.
   const scan = () =>
-    runScan(db, config.libraryRoots).catch((err) => app.log.error(err, 'scan failed'));
+    runScan(db, config.libraryRoots, { coverCacheDir: path.join(config.dataDir, 'covers') }).catch(
+      (err) => app.log.error(err, 'scan failed'),
+    );
   void scan();
   if (config.scanIntervalMinutes > 0) {
     const timer = setInterval(scan, config.scanIntervalMinutes * 60_000);

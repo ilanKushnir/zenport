@@ -184,6 +184,31 @@ describe('inferLibrary', () => {
     expect(items[0]!.tracks.map((t) => t.ord)).toEqual([1, 2, 3]);
   });
 
+  it('15. the recommended layout: creator folders holding meditation folders or plain files', () => {
+    const items = inferLibrary(
+      files(
+        'Mira Solen/Morning Meditation/01 Intro.mp3',
+        'Mira Solen/Morning Meditation/02 Meditation.mp3',
+        'Mira Solen/Morning Meditation/cover.jpg',
+        'Mira Solen/Walking Sit.mp3',
+        'The Lantern Sessions/Wave I - First Light/Light 1 - Arrival.flac',
+        'The Lantern Sessions/Wave I - First Light/Light 2 - First Stillness.flac',
+        'Orin Vale/Body Scan.mp3',
+      ),
+    );
+    const by = (t: string) => items.find((i) => i.title === t)!;
+    expect(items.map((i) => i.title).sort()).toEqual(
+      ['Body Scan', 'Morning Meditation', 'Walking Sit', 'Wave I - First Light'].sort(),
+    );
+    expect(by('Morning Meditation').creator).toBe('Mira Solen');
+    expect(by('Morning Meditation').tracks).toHaveLength(2);
+    expect(by('Morning Meditation').coverRelPath).toBe('Mira Solen/Morning Meditation/cover.jpg');
+    expect(by('Walking Sit').creator).toBe('Mira Solen');
+    expect(by('Wave I - First Light').creator).toBe('The Lantern Sessions');
+    expect(by('Wave I - First Light').tracks).toHaveLength(2);
+    expect(by('Body Scan').creator).toBe('Orin Vale');
+  });
+
   it('11. output is deterministic regardless of input order', () => {
     const a = files(
       'Meditations/A/S1/1.mp3',

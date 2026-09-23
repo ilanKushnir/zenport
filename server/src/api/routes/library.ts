@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../context.js';
@@ -14,7 +15,9 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
 
   app.post('/api/library/rescan', async () => {
     if (!scanning) {
-      scanning = runScan(db, config.libraryRoots)
+      scanning = runScan(db, config.libraryRoots, {
+        coverCacheDir: path.join(config.dataDir, 'covers'),
+      })
         .catch((err) => app.log.error(err, 'rescan failed'))
         .finally(() => {
           scanning = null;

@@ -2,7 +2,21 @@ import type { DocumentKind } from '@zenport/shared';
 
 export type FileKind = 'audio' | 'image' | 'document';
 
-export const AUDIO_EXTS = new Set(['mp3', 'm4a', 'm4b', 'flac', 'ogg', 'opus', 'wav', 'aac']);
+// mp4/m4v/webm are video containers; a browser's <audio> element plays their
+// audio track, which is what a recorded talk or livestream needs.
+export const AUDIO_EXTS = new Set([
+  'mp3',
+  'm4a',
+  'm4b',
+  'flac',
+  'ogg',
+  'opus',
+  'wav',
+  'aac',
+  'mp4',
+  'm4v',
+  'webm',
+]);
 export const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'avif']);
 export const DOCUMENT_EXTS = new Set(['pdf', 'txt', 'md', 'html', 'htm']);
 
@@ -31,6 +45,9 @@ export const AUDIO_MIME: Record<string, string> = {
   opus: 'audio/ogg',
   wav: 'audio/wav',
   aac: 'audio/aac',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
 };
 
 export const IMAGE_MIME: Record<string, string> = {

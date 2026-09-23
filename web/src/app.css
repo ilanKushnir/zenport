@@ -1827,14 +1827,14 @@
   letter-spacing: 0.005em;
 }
 
-/* Zen carries the weight; Port takes one violet, held quiet. */
+/* Zen carries the weight; Port the same ink, lighter. */
 .wm-zen {
   font-weight: 700;
 }
 
 .wm-port {
   font-weight: 400;
-  color: var(--wordmark-port);
+  color: var(--text);
 }
 
 .wordmark small {
@@ -1925,9 +1925,11 @@
   }
 }
 
+/* Above the fixed aurora. The tab bar is left out: it is position: fixed on
+   a phone, and a later `position: relative` here is what pinned it to the
+   bottom of the page instead of the bottom of the screen. */
 .shell > .sidebar,
-.shell > .main,
-.shell > .mobile-tabs {
+.shell > .main {
   position: relative;
   z-index: 1;
 }
@@ -2092,7 +2094,7 @@
 
 .ob-body {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: var(--s8);
   align-items: center;
   min-height: 300px;
@@ -2122,6 +2124,77 @@
   animation: ob-breathe 11s ease-in-out infinite;
 }
 
+/* Library-layout step: three pictures stacked in one cell, one lit at a time. */
+.ob-cycle {
+  display: grid;
+  place-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ob-cycle .ob-art {
+  grid-area: 1 / 1;
+  transition: opacity 900ms ease, transform 900ms ease;
+}
+
+.ob-cycle .ob-art.off {
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
+}
+
+.ob-cycle-cap {
+  grid-area: 2 / 1;
+  display: grid;
+  min-height: 1.4em;
+  font-size: 12.5px;
+  color: var(--faint);
+  text-align: center;
+}
+
+.ob-cycle-cap > span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.ob-cycle-cap > span.on {
+  opacity: 1;
+}
+
+.ob-tree {
+  margin: var(--s4) 0 0;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r2);
+  background: color-mix(in oklab, var(--panel) 80%, transparent);
+  border: 1px solid var(--line);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.ob-tree i {
+  font-style: normal;
+  color: var(--faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-cycle .ob-art,
+  .ob-cycle-cap > span {
+    transition: none;
+  }
+}
+
 @keyframes ob-breathe {
   0%,
   100% {
@@ -2130,6 +2203,10 @@
   45% {
     transform: scale(1.04);
   }
+}
+
+.ob-copy {
+  min-width: 0;
 }
 
 .ob-copy h1 {
@@ -2312,12 +2389,16 @@
     padding: var(--s5);
   }
   .ob-body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s5);
     min-height: 0;
   }
   .ob-art {
     max-width: 128px;
+  }
+  /* The tree's margin notes do not fit beside it on a phone; the lede says the same. */
+  .ob-tree i {
+    display: none;
   }
   .ob-copy h1 {
     font-size: 23px;

@@ -1,6 +1,7 @@
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { EMBEDDED_ROOT_ID } from '../../scanner/scan.js';
 import type { AppContext } from '../../context.js';
 import { AUDIO_MIME, DOCUMENT_MIME, IMAGE_MIME, documentKind } from '../../scanner/classify.js';
 
@@ -18,6 +19,18 @@ export function registerMediaRoutes(app: FastifyInstance, ctx: AppContext): void
   const { db, config } = ctx;
 
   async function resolveContained(rootId: number, relPath: string): Promise<string | null> {
+    if (rootId === EMBEDDED_ROOT_ID) {
+      // Covers read out of the audio files, cached under the data dir.
+      const dir = path.resolve(config.dataDir, 'covers');
+      const abs = path.resolve(dir, relPath);
+      if (!abs.startsWith(dir + path.sep)) return null;
+      try {
+        await fs.access(abs);
+        return abs;
+      } catch {
+        return null;
+      }
+    }
     const root = config.libraryRoots.find((r) => r.id === rootId);
     if (!root) return null;
     try {

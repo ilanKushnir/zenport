@@ -25,6 +25,24 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.4.0',
+    items: [
+      {
+        emoji: '🖼️',
+        text: 'Covers now come out of the recordings themselves - an album with no image file beside it still gets its artwork.',
+      },
+      {
+        emoji: '🎬',
+        text: 'Recorded talks and livestreams saved as video (mp4, webm) are listed and play like any other track.',
+      },
+      {
+        emoji: '🗂️',
+        text: 'The welcome tour shows the folder layout the library reads best: a folder per creator, holding a folder or a file per meditation.',
+      },
+      { emoji: '📱', text: 'The bottom tab bar stays put while the page scrolls.' },
+    ],
+  },
+  {
     version: '0.3.3',
     items: [
       {

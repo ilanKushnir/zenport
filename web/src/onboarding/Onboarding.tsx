@@ -18,7 +18,7 @@ import { Logo, Wordmark } from '../components/Brand.tsx';
 import { Icon } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
 import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
-import { Scene } from './scenes.tsx';
+import { Scene, SceneCycle } from './scenes.tsx';
 
 const GOALS = [5, 10, 15, 20, 30, 45] as const;
 const TIMERS = [3, 5, 10, 15, 20, 30, 45, 60] as const;
@@ -31,6 +31,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const steps = [
     { key: 'welcome', art: <Scene name="welcome" breathe /> },
     { key: 'library', art: <Scene name="library" /> },
+    { key: 'shape', art: <SceneCycle /> },
     { key: 'sit', art: <Scene name="sit" /> },
     { key: 'rhythm', art: <Scene name="rhythm" /> },
     { key: 'feel', art: <Scene name="feel" /> },
@@ -132,6 +133,31 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
             {step === 2 && (
               <>
+                <h1 id="ob-title">Shape it so it reads well</h1>
+                <p className="ob-lede">
+                  ZenPort reads most folder layouts, but one works best: a folder per creator - or
+                  per pack, like The Lantern Sessions - and inside it a folder per meditation, or
+                  plain audio files.
+                </p>
+                <pre className="ob-tree" aria-label="Recommended folder layout">
+{`Meditations
+├─ Mira Solen           `}<i>creator, or a pack</i>{`
+│  ├─ Morning Meditation  `}<i>one meditation</i>{`
+│  │  ├─ 01 Intro.mp3
+│  │  ├─ 02 Meditation.mp3
+│  │  └─ cover.jpg
+│  └─ Walking Sit.mp3     `}<i>a file works too</i>{`
+└─ The Lantern Sessions`}
+                </pre>
+                <p className="ob-note">
+                  Covers come from an image in the folder or from the audio's own tags. Not a must -
+                  any other layout is scanned as best it can be, but this one lands every time.
+                </p>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
                 <h1 id="ob-title">Or sit with nothing at all</h1>
                 <p className="ob-lede">
                   Not every practice needs a recording. The timer gives you a bowl at the start,
@@ -158,7 +184,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <>
                 <h1 id="ob-title">Find a rhythm you'll keep</h1>
                 <p className="ob-lede">
@@ -213,7 +239,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <>
                 <h1 id="ob-title">Make it yours</h1>
                 <div className="ob-field">
@@ -295,7 +321,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <>
                 <h1 id="ob-title">That's everything</h1>
                 <p className="ob-lede">

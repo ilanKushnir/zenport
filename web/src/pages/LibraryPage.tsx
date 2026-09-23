@@ -186,7 +186,8 @@ export function LibraryPage() {
           }
         >
           Mount your meditation folders (read-only) and point ZP_LIBRARY_DIRS at them - ZenPort
-          indexes in place and never touches your files.
+          indexes in place and never touches your files. It reads best as a folder per creator,
+          holding a folder (or a file) per meditation.
         </EmptyState>
       ) : (
         <>
