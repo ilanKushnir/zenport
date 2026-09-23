@@ -7,7 +7,7 @@ import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { REPO_URL, VersionRow, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
-import { ErrorNote, Icon, Sheet, Switch } from '../components/ui.tsx';
+import { ErrorNote, Icon, Sheet, Slider, Switch } from '../components/ui.tsx';
 import { AiKeyForm } from '../components/AiPlanSheet.tsx';
 
 const COMMON_TIMEZONES = [
@@ -478,17 +478,16 @@ function PreferencesSection() {
           {prefs.bellEnabled && (
             <div className="set-volume">
               <Icon name="volume-low" size={18} />
-              <input
-                className="scrub-range"
-                type="range"
-                min={0}
+              <Slider
+                value={prefs.bellVolume}
                 max={1}
                 step={0.05}
-                value={prefs.bellVolume}
-                style={{ '--pct': `${Math.round(prefs.bellVolume * 100)}%` } as React.CSSProperties}
-                aria-label="Bell volume"
-                onChange={(e) => void save({ bellVolume: Number(e.target.value) })}
-                onPointerUp={() => playBell(prefs.bellVolume)}
+                label="Bell volume"
+                valueText={`${Math.round(prefs.bellVolume * 100)}%`}
+                onCommit={(v) => {
+                  void save({ bellVolume: v });
+                  playBell(v);
+                }}
               />
               <Icon name="volume" size={18} />
               <button className="btn btn-sm btn-quiet" onClick={() => playBell(prefs.bellVolume)}>

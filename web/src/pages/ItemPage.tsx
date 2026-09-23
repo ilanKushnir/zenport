@@ -8,7 +8,7 @@ import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx'
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
-import { TypeSheet } from '../components/TypeSheet.tsx';
+import { TypeMenu } from '../components/TypeSheet.tsx';
 import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
 
 export function ItemPage() {
@@ -19,7 +19,8 @@ export function ItemPage() {
   const [showEvidence, setShowEvidence] = useState(false);
   const [showPlanSheet, setShowPlanSheet] = useState(false);
   const [openDoc, setOpenDoc] = useState<DocumentDto | null>(null);
-  const [picking, setPicking] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const { user } = useAuth();
   const lib = useApi<{ items: { id: string; creator: string; collection: string | null }[] }>(
     '/api/library',
@@ -58,30 +59,50 @@ export function ItemPage() {
     await api.put(`/api/tracks/${trackId}/completed`, { completed }).catch(() => {});
     detail.reload();
   };
-  // A course picks up at the first unfinished lesson; everything else begins at the top.
+  // Where this person left off: the server only reports a place that is past
+  // the opening seconds, short of the end, and on a part not yet ticked done.
+  const resumeAt = item.resume && resumeTrack && !resumeTrack.missing ? item.resume : null;
+  const hasProgress = !!resumeAt || doneCount > 0;
+  const Part = meta.part[0]!.toUpperCase() + meta.part.slice(1);
+  // Lessons pick up where they stopped, then at the first unfinished one; a
+  // practice begins at the top (with Resume offered beside it).
   const begin = () => {
-    if (learning && nextTrack && doneCount > 0) {
-      const resume =
-        item.resume && item.resume.trackId === nextTrack.id ? item.resume.positionSec : undefined;
-      player.start(item, { trackId: nextTrack.id, resumeSec: resume });
+    if (learning && resumeAt) {
+      player.start(item, { trackId: resumeAt.trackId, resumeSec: resumeAt.positionSec });
+    } else if (learning && nextTrack && doneCount > 0) {
+      player.start(item, { trackId: nextTrack.id });
     } else {
       player.start(item);
     }
   };
+  const startOver = async () => {
+    setResetting(true);
+    // Stop without saving first, or the player's last save would put the place back.
+    if (player.item?.id === item.id) player.stop('abandon', { forget: true });
+    await api.del(`/api/items/${item.id}/progress`).catch(() => {});
+    setResetting(false);
+    setConfirmReset(false);
+    window.dispatchEvent(new Event('zenport:progress'));
+    detail.reload();
+  };
   const beginLabel =
-    item.type === 'course'
-      ? doneCount === 0
-        ? 'Start the course'
-        : nextTrack
-          ? `Continue · ${meta.part[0]!.toUpperCase()}${meta.part.slice(1)} ${nextTrack.ord}`
-          : 'Watch again'
-      : item.type === 'talk'
-        ? item.hasVideo
-          ? 'Watch'
-          : 'Listen'
-        : item.type === 'soundscape'
-          ? 'Play'
-          : 'Begin practice';
+    learning && resumeAt
+      ? item.trackCount > 1 && resumeTrack
+        ? `Continue · ${Part} ${resumeTrack.ord} at ${formatClock(resumeAt.positionSec)}`
+        : `Continue at ${formatClock(resumeAt.positionSec)}`
+      : item.type === 'course'
+        ? doneCount === 0
+          ? 'Start the course'
+          : nextTrack
+            ? `Continue · ${Part} ${nextTrack.ord}`
+            : 'Watch again'
+        : item.type === 'talk'
+          ? item.hasVideo
+            ? 'Watch'
+            : 'Listen'
+          : item.type === 'soundscape'
+            ? 'Play'
+            : 'Begin practice';
 
   return (
     <>
@@ -110,23 +131,18 @@ export function ItemPage() {
 
         <div className="detail-body">
           <div className="type-line">
-            <span className={`type-pill t-${item.type}`}>
-              <Icon name={meta.icon} size={14} />
-              {meta.label}
-              {item.hasVideo && (
-                <>
-                  <span className="dot" aria-hidden="true">
-                    ·
-                  </span>
-                  <Icon name="video" size={14} /> Video
-                </>
-              )}
-            </span>
-            {user?.role === 'admin' && (
-              <button className="type-change" onClick={() => setPicking(true)}>
-                {item.typeSource === 'auto' ? 'Not right?' : 'Change'}
-              </button>
-            )}
+            <TypeMenu
+              itemId={item.id}
+              current={item.type}
+              auto={item.typeSource === 'auto'}
+              hasVideo={item.hasVideo}
+              seriesSize={seriesSize}
+              editable={user?.role === 'admin'}
+              onSaved={() => {
+                detail.reload();
+                lib.reload();
+              }}
+            />
           </div>
           <p className="eyebrow">
             <Link to={`/creators/${encodeURIComponent(item.creator)}`}>{item.creator}</Link>
@@ -158,27 +174,29 @@ export function ItemPage() {
               <button className="btn btn-primary btn-lg" onClick={begin}>
                 <Icon name="play" /> {beginLabel}
               </button>
-              {!(learning && doneCount > 0) &&
-                resumeTrack &&
-                item.resume &&
-                item.resume.positionSec > 10 && (
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() =>
-                      player.start(item, {
-                        trackId: item.resume!.trackId,
-                        resumeSec: item.resume!.positionSec,
-                      })
-                    }
-                  >
-                    <Icon name="history" size={16} /> Resume{' '}
-                    {item.trackCount > 1 ? `${resumeTrack.title} ` : ''}at{' '}
-                    {formatClock(item.resume.positionSec)}
-                  </button>
-                )}
+              {!learning && resumeAt && resumeTrack && (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() =>
+                    player.start(item, {
+                      trackId: resumeAt.trackId,
+                      resumeSec: resumeAt.positionSec,
+                    })
+                  }
+                >
+                  <Icon name="history" size={16} /> Resume{' '}
+                  {item.trackCount > 1 ? `${resumeTrack.title} ` : ''}at{' '}
+                  {formatClock(resumeAt.positionSec)}
+                </button>
+              )}
               <button className="btn btn-ghost" onClick={() => setShowPlanSheet(true)}>
                 <Icon name="plans" size={16} /> Add to a plan
               </button>
+              {hasProgress && (
+                <button className="btn btn-ghost" onClick={() => setConfirmReset(true)}>
+                  <Icon name="restart" size={16} /> Start over
+                </button>
+              )}
             </div>
           )}
 
@@ -357,19 +375,32 @@ export function ItemPage() {
         </Sheet>
       )}
 
-      {picking && (
-        <TypeSheet
-          itemId={item.id}
-          current={item.type}
-          auto={item.typeSource === 'auto'}
-          seriesSize={seriesSize}
-          onClose={() => setPicking(false)}
-          onSaved={() => {
-            setPicking(false);
-            detail.reload();
-            lib.reload();
-          }}
-        />
+      {confirmReset && (
+        <Sheet title="Start over?" onClose={() => setConfirmReset(false)} labelId="reset-title">
+          <p className="sit-sheet-lede">
+            {resumeAt
+              ? `Your place${resumeTrack && item.trackCount > 1 ? ` in ${resumeTrack.title}` : ''} (${formatClock(resumeAt.positionSec)})`
+              : ''}
+            {resumeAt && doneCount > 0 ? ' and ' : ''}
+            {doneCount > 0
+              ? `${doneCount} ${doneCount === 1 ? meta.part : meta.parts} ticked done`
+              : ''}{' '}
+            will be cleared, and {item.title} begins from the start next time. Your practice
+            history, stats and journal stay as they are.
+          </p>
+          <div className="rf-actions">
+            <button className="btn btn-quiet" onClick={() => setConfirmReset(false)}>
+              Keep my progress
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => void startOver()}
+              disabled={resetting}
+            >
+              <Icon name="restart" size={16} /> {resetting ? 'Clearing…' : 'Start over'}
+            </button>
+          </div>
+        </Sheet>
       )}
       {showPlanSheet && (
         <AddToPlanSheet meditationId={item.id} onClose={() => setShowPlanSheet(false)} />

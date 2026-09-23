@@ -440,6 +440,12 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   'chevron-down': <path d="m6 9 6 6 6-6" />,
+  restart: (
+    <>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9" />
+      <path d="M4.5 4.5V9H9" />
+    </>
+  ),
   sparkle: (
     <path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18.3 10.2 12.6 4.5 10.8 10.2 9zM18.5 4v3M20 5.5h-3" />
   ),
@@ -492,5 +498,123 @@ export function Switch({
     >
       <span className="switch-knob" />
     </button>
+  );
+}
+
+/**
+ * A slider built for fingers. The native range input on iOS only moves when
+ * the touch lands on its small thumb, and a value re-rendered while playback
+ * runs can drop a grab that has just begun. Here the whole strip (taller than
+ * it looks) takes the touch: the thumb jumps to the finger and follows it,
+ * `onInput` previews, and `onCommit` fires once on release. While a drag is on,
+ * the slider shows the drag, whatever `value` the parent keeps sending.
+ */
+export function Slider({
+  value,
+  min = 0,
+  max,
+  step = 1,
+  keyStep,
+  onInput,
+  onCommit,
+  label,
+  valueText,
+  disabled = false,
+  className = '',
+}: {
+  value: number;
+  min?: number;
+  max: number;
+  step?: number;
+  /** Arrow-key step; defaults to `step`. */
+  keyStep?: number;
+  onInput?: (v: number) => void;
+  onCommit: (v: number) => void;
+  label: string;
+  valueText?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<number | null>(null);
+  const shown = Math.min(max, Math.max(min, drag ?? value));
+  const pct = max > min ? ((shown - min) / (max - min)) * 100 : 0;
+
+  const at = (clientX: number) => {
+    const r = trackRef.current?.getBoundingClientRect();
+    if (!r || r.width === 0) return shown;
+    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    const raw = min + f * (max - min);
+    const snapped = Math.round(raw / step) * step;
+    return Math.min(max, Math.max(min, Number(snapped.toFixed(6))));
+  };
+
+  const move = (v: number) => {
+    setDrag(v);
+    onInput?.(v);
+  };
+
+  return (
+    <div
+      className={`slider${drag !== null ? ' dragging' : ''}${disabled ? ' disabled' : ''} ${className}`}
+      role="slider"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={label}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={Math.round(shown * 100) / 100}
+      aria-valuetext={valueText}
+      aria-disabled={disabled || undefined}
+      style={{ '--pct': `${pct}%` } as React.CSSProperties}
+      onPointerDown={(e) => {
+        if (disabled || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.currentTarget.focus({ preventScroll: true });
+        move(at(e.clientX));
+      }}
+      onPointerMove={(e) => {
+        if (drag !== null) move(at(e.clientX));
+      }}
+      onPointerUp={(e) => {
+        if (drag === null) return;
+        const v = at(e.clientX);
+        setDrag(null);
+        onCommit(v);
+      }}
+      onPointerCancel={() => {
+        if (drag === null) return;
+        const v = drag;
+        setDrag(null);
+        onCommit(v);
+      }}
+      onKeyDown={(e) => {
+        if (disabled) return;
+        const k = keyStep ?? step;
+        const big = (max - min) / 10;
+        const next =
+          e.key === 'ArrowRight' || e.key === 'ArrowUp'
+            ? shown + k
+            : e.key === 'ArrowLeft' || e.key === 'ArrowDown'
+              ? shown - k
+              : e.key === 'PageUp'
+                ? shown + big
+                : e.key === 'PageDown'
+                  ? shown - big
+                  : e.key === 'Home'
+                    ? min
+                    : e.key === 'End'
+                      ? max
+                      : null;
+        if (next === null) return;
+        e.preventDefault();
+        onCommit(Math.min(max, Math.max(min, next)));
+      }}
+    >
+      <div className="slider-track" ref={trackRef}>
+        <div className="slider-fill" />
+        <div className="slider-thumb" />
+      </div>
+    </div>
   );
 }

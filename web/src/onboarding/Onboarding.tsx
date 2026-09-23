@@ -16,7 +16,7 @@ import type { AiSettingsDto, ScanStateDto, UserPrefsDto } from '@zenport/shared'
 import { useApi } from '../hooks.ts';
 import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Logo, Wordmark } from '../components/Brand.tsx';
-import { Icon } from '../components/ui.tsx';
+import { Icon, Slider } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
 import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
 import { Scene, SceneCycle } from './scenes.tsx';
@@ -291,16 +291,17 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     </button>
                   </div>
                   {prefs.bellEnabled && (
-                    <input
+                    <Slider
                       className="ob-range"
-                      type="range"
-                      min={0}
+                      value={prefs.bellVolume}
                       max={1}
                       step={0.05}
-                      value={prefs.bellVolume}
-                      aria-label="Bell volume"
-                      onChange={(e) => void save({ bellVolume: Number(e.target.value) })}
-                      onMouseUp={() => playBell(prefs.bellVolume)}
+                      label="Bell volume"
+                      valueText={`${Math.round(prefs.bellVolume * 100)}%`}
+                      onCommit={(v) => {
+                        void save({ bellVolume: v });
+                        playBell(v);
+                      }}
                     />
                   )}
                 </div>

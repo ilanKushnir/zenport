@@ -60,9 +60,11 @@
     color var(--t-fast) var(--ease);
 }
 
-.sb-search:hover {
-  color: var(--text);
-  border-color: var(--border);
+@media (hover: hover) {
+  .sb-search:hover {
+    color: var(--text);
+    border-color: var(--border);
+  }
 }
 
 .sb-search kbd {
@@ -126,18 +128,24 @@
   transition: background var(--t-fast) var(--ease);
 }
 
-.nav a:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
-  text-decoration: none;
+@media (hover: hover) {
+  .nav a:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+    text-decoration: none;
+  }
 }
 
-.nav a:hover .nav-tile {
-  background: rgba(255, 255, 255, 0.09);
+@media (hover: hover) {
+  .nav a:hover .nav-tile {
+    background: rgba(255, 255, 255, 0.09);
+  }
 }
 
-.nav a:hover .nav-ic {
-  color: var(--text);
+@media (hover: hover) {
+  .nav a:hover .nav-ic {
+    color: var(--text);
+  }
 }
 
 .nav a[aria-current='page'] {
@@ -308,8 +316,10 @@
     color: var(--accent);
   }
 
-  .mobile-tabs a:hover {
-    text-decoration: none;
+  @media (hover: hover) {
+    .mobile-tabs a:hover {
+      text-decoration: none;
+    }
   }
 }
 
@@ -396,9 +406,11 @@
   box-shadow: 0 6px 20px -6px rgba(240, 76, 138, 0.55);
 }
 
-.btn-primary:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 8px 26px -6px rgba(240, 76, 138, 0.7);
+@media (hover: hover) {
+  .btn-primary:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 8px 26px -6px rgba(240, 76, 138, 0.7);
+  }
 }
 
 .btn-ghost {
@@ -406,16 +418,20 @@
   color: var(--text);
 }
 
-.btn-ghost:hover {
-  border-color: var(--faint);
+@media (hover: hover) {
+  .btn-ghost:hover {
+    border-color: var(--faint);
+  }
 }
 
 .btn-quiet {
   color: var(--muted);
 }
 
-.btn-quiet:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .btn-quiet:hover {
+    color: var(--text);
+  }
 }
 
 .btn-danger {
@@ -448,9 +464,11 @@
     scale var(--t-fast) var(--ease);
 }
 
-.icon-btn:hover {
-  background: rgba(239, 231, 218, 0.06);
-  color: var(--text);
+@media (hover: hover) {
+  .icon-btn:hover {
+    background: rgba(239, 231, 218, 0.06);
+    color: var(--text);
+  }
 }
 
 .icon-btn:active {
@@ -491,13 +509,17 @@
     filter var(--t-med) var(--ease);
 }
 
-.med-card:hover {
-  text-decoration: none;
-  translate: 0 -3px;
+@media (hover: hover) {
+  .med-card:hover {
+    text-decoration: none;
+    translate: 0 -3px;
+  }
 }
 
-.med-card:hover .cover {
-  box-shadow: 0 14px 34px rgba(10, 7, 16, 0.55);
+@media (hover: hover) {
+  .med-card:hover .cover {
+    box-shadow: 0 14px 34px rgba(10, 7, 16, 0.55);
+  }
 }
 
 .med-card .cover {
@@ -780,8 +802,10 @@
   border-radius: var(--r-sm);
 }
 
-.row:hover {
-  background: rgba(239, 231, 218, 0.03);
+@media (hover: hover) {
+  .row:hover {
+    background: rgba(239, 231, 218, 0.03);
+  }
 }
 
 .row .grow {
@@ -981,39 +1005,49 @@
   --tabbar-h: calc(70px + env(safe-area-inset-bottom));
 }
 
-/* Range slider shared by the scrubber and volume: a filled track up to the thumb. */
-.scrub-range,
-.seek {
+/* The touch-first Slider (ui.tsx): a 36px-tall strip takes the touch anywhere,
+   drawn as a thin filled track with a thumb at the value. */
+.slider {
   --pct: 0%;
-  appearance: none;
-  -webkit-appearance: none;
+  position: relative;
+  display: flex;
+  align-items: center;
   inline-size: 100%;
-  min-height: 28px;
-  padding: 0;
-  margin: 0;
-  border: 0;
-  background: transparent;
+  min-block-size: 36px;
+  padding-inline: 8px;
   cursor: pointer;
-  touch-action: pan-x;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
-.scrub-range::-webkit-slider-runnable-track,
-.seek::-webkit-slider-runnable-track {
-  height: 5px;
+.slider-track {
+  position: relative;
+  flex: 1;
+  block-size: 5px;
   border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    var(--accent) 0 var(--pct),
-    rgba(255, 255, 255, 0.16) var(--pct) 100%
-  );
+  background: rgba(255, 255, 255, 0.16);
+  transition: block-size var(--t-fast) var(--ease);
 }
 
-.scrub-range::-webkit-slider-thumb,
-.seek::-webkit-slider-thumb {
-  -webkit-appearance: none;
+.slider-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: var(--pct);
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.slider-thumb {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: var(--pct);
   inline-size: 16px;
   block-size: 16px;
-  margin-top: -5.5px;
+  margin: -8px 0 0 -8px;
   border-radius: 50%;
   background: #fff;
   box-shadow:
@@ -1022,34 +1056,21 @@
   transition: transform var(--t-fast) var(--ease);
 }
 
-.scrub-range:active::-webkit-slider-thumb {
-  transform: scale(1.25);
+.slider.dragging .slider-track {
+  block-size: 7px;
 }
 
-.scrub-range::-moz-range-track,
-.seek::-moz-range-track {
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+.slider.dragging .slider-thumb {
+  transform: scale(1.3);
 }
 
-.scrub-range::-moz-range-progress,
-.seek::-moz-range-progress {
-  height: 5px;
-  border-radius: 999px;
-  background: var(--accent);
+.slider:focus-visible .slider-thumb {
+  box-shadow:
+    0 0 0 4px var(--accent),
+    0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
-.scrub-range::-moz-range-thumb,
-.seek::-moz-range-thumb {
-  inline-size: 16px;
-  block-size: 16px;
-  border: 0;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.scrub-range:disabled {
+.slider.disabled {
   opacity: 0.45;
   cursor: default;
 }
@@ -1311,8 +1332,10 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-.fp-round:hover {
-  background: rgba(255, 255, 255, 0.13);
+@media (hover: hover) {
+  .fp-round:hover {
+    background: rgba(255, 255, 255, 0.13);
+  }
 }
 
 .fp-top-mid {
@@ -1461,8 +1484,10 @@
   cursor: pointer;
 }
 
-.fp-t:hover {
-  background: rgba(255, 255, 255, 0.07);
+@media (hover: hover) {
+  .fp-t:hover {
+    background: rgba(255, 255, 255, 0.07);
+  }
 }
 
 .fp-t:disabled {
@@ -1507,9 +1532,11 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-.fp-chip:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
+@media (hover: hover) {
+  .fp-chip:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .fp-chip.on {
@@ -1552,9 +1579,11 @@
   cursor: pointer;
 }
 
-.fp-end:hover {
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.3);
+@media (hover: hover) {
+  .fp-end:hover {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
 }
 
 /* Short phones (SE, landscape): tighten so it still fits without scrolling. */
@@ -1635,8 +1664,10 @@
   cursor: pointer;
 }
 
-.tl-row:hover {
-  background: var(--raised);
+@media (hover: hover) {
+  .tl-row:hover {
+    background: var(--raised);
+  }
 }
 
 .tl-row.current {
@@ -1775,8 +1806,10 @@
     color var(--t-fast) var(--ease);
 }
 
-.seg-opt:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .seg-opt:hover {
+    color: var(--text);
+  }
 }
 
 .seg-opt.on {
@@ -1801,8 +1834,10 @@
   cursor: pointer;
 }
 
-.ps-try:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .ps-try:hover {
+    color: var(--text);
+  }
 }
 
 .ps-text .ps-warn {
@@ -2190,9 +2225,11 @@
     background var(--t-fast) var(--ease);
 }
 
-.template:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .template:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
 }
 
 .template__label {
@@ -2289,8 +2326,10 @@
     background var(--t-fast) var(--ease);
 }
 
-.med-pick:hover {
-  background: var(--raised);
+@media (hover: hover) {
+  .med-pick:hover {
+    background: var(--raised);
+  }
 }
 
 .med-pick[aria-pressed='true'] {
@@ -2901,9 +2940,11 @@
     border-color var(--t-fast) var(--ease);
 }
 
-.cmdk-hint:hover {
-  color: var(--text);
-  border-color: var(--border);
+@media (hover: hover) {
+  .cmdk-hint:hover {
+    color: var(--text);
+    border-color: var(--border);
+  }
 }
 
 .cmdk-hint kbd {
@@ -3221,13 +3262,8 @@
 }
 
 .ob-range {
-  margin-block-start: var(--s3);
+  margin-block-start: var(--s2);
   max-width: 260px;
-  accent-color: var(--accent);
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  background: none;
 }
 
 .accent-row {
@@ -3457,11 +3493,13 @@
     background var(--t-fast) var(--ease);
 }
 
-.begin-card:hover {
-  border-color: var(--border);
-  background: var(--raised);
-  text-decoration: none;
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .begin-card:hover {
+    border-color: var(--border);
+    background: var(--raised);
+    text-decoration: none;
+    transform: translateY(-2px);
+  }
 }
 
 .begin-primary {
@@ -3758,9 +3796,11 @@
     border-color var(--t-fast) var(--ease);
 }
 
-.sit-opt:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: var(--border);
+@media (hover: hover) {
+  .sit-opt:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--border);
+  }
 }
 
 .sit-opt .v {
@@ -3838,9 +3878,11 @@
   cursor: pointer;
 }
 
-.sit-end:hover {
-  color: var(--text);
-  border-color: var(--border);
+@media (hover: hover) {
+  .sit-end:hover {
+    color: var(--text);
+    border-color: var(--border);
+  }
 }
 
 .sit-toggle {
@@ -4034,9 +4076,11 @@
     background var(--t-fast) var(--ease);
 }
 
-.fav-btn:hover {
-  color: var(--accent);
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .fav-btn:hover {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
 }
 
 .fav-btn[aria-pressed='true'] {
@@ -4062,10 +4106,25 @@
   transition: opacity var(--t-fast) var(--ease);
 }
 
-.med-card:hover .fav-btn,
 .med-card .fav-btn:focus-visible,
 .med-card .fav-btn[aria-pressed='true'] {
   opacity: 1;
+}
+
+@media (hover: hover) {
+  .med-card:hover .fav-btn {
+    opacity: 1;
+  }
+}
+
+/* A touch screen has no hover to reveal the star, and iOS spends the first tap
+   on a card "hovering" when that reveals something - the double tap to open.
+   So on touch the star simply stays in view. */
+@media (hover: none) {
+  .med-card .fav-btn {
+    opacity: 1;
+    transition: none;
+  }
 }
 
 /* ===================================================================
@@ -4096,17 +4155,21 @@
     border-color var(--t-fast) var(--ease);
 }
 
-.version-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+@media (hover: hover) {
+  .version-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
 }
 
 .version-row .icon-btn {
   color: var(--faint);
 }
 
-.version-row .icon-btn:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .version-row .icon-btn:hover {
+    color: var(--text);
+  }
 }
 
 .wn-hero {
@@ -4159,9 +4222,11 @@
   border: 1px solid var(--hairline);
 }
 
-.wn-older:hover {
-  color: var(--text);
-  border-color: var(--border);
+@media (hover: hover) {
+  .wn-older:hover {
+    color: var(--text);
+    border-color: var(--border);
+  }
 }
 
 .wn-past {
@@ -4225,11 +4290,18 @@
     border-color var(--t-fast) var(--ease);
 }
 
-.more-tile:hover,
 .more-tile:active {
   text-decoration: none;
   background: var(--raised);
   border-color: var(--border);
+}
+
+@media (hover: hover) {
+  .more-tile:hover {
+    text-decoration: none;
+    background: var(--raised);
+    border-color: var(--border);
+  }
 }
 
 .more-tile[aria-current='page'] {
@@ -4453,8 +4525,10 @@
   transition: background var(--t-fast) var(--ease);
 }
 
-.folder-row:hover {
-  background: color-mix(in oklab, var(--raised) 60%, transparent);
+@media (hover: hover) {
+  .folder-row:hover {
+    background: color-mix(in oklab, var(--raised) 60%, transparent);
+  }
 }
 
 .folder-twisty {
@@ -4640,8 +4714,10 @@
   color: var(--muted);
 }
 
-.rf-mood:hover {
-  border-color: var(--border);
+@media (hover: hover) {
+  .rf-mood:hover {
+    border-color: var(--border);
+  }
 }
 
 .rf-mood.on {
@@ -4682,9 +4758,11 @@
   cursor: pointer;
 }
 
-.rf-starter:hover {
-  color: var(--text);
-  border-style: solid;
+@media (hover: hover) {
+  .rf-starter:hover {
+    color: var(--text);
+    border-style: solid;
+  }
 }
 
 .rf-more {
@@ -4975,9 +5053,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-.type-tab:hover {
-  color: var(--text);
-  border-color: var(--border);
+@media (hover: hover) {
+  .type-tab:hover {
+    color: var(--text);
+    border-color: var(--border);
+  }
 }
 
 .type-tab[aria-selected='true'] {
@@ -5135,21 +5215,116 @@
   opacity: 0.5;
 }
 
-.type-change {
-  border: 0;
-  background: none;
-  padding: 4px 2px;
-  color: var(--faint);
+.type-menu {
+  position: relative;
+}
+
+/* The pill is the dropdown: same face, plus a caret. */
+.type-pill-btn {
+  padding-inline-end: 8px;
   font: inherit;
   font-size: 12.5px;
-  text-decoration: underline;
-  text-decoration-color: var(--border);
-  text-underline-offset: 3px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.type-pill-caret {
+  display: inline-grid;
+  place-items: center;
+  margin-inline-start: 2px;
+  opacity: 0.7;
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.type-pill-btn[aria-expanded='true'] .type-pill-caret {
+  transform: rotate(180deg);
+}
+
+.type-pop {
+  position: absolute;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-start: 0;
+  z-index: 30;
+  display: grid;
+  gap: 2px;
+  min-inline-size: 210px;
+  max-inline-size: calc(100vw - 32px);
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface) 94%, black);
+  box-shadow: 0 18px 40px rgba(6, 4, 12, 0.55);
+  animation: type-pop-in var(--t-fast) var(--ease);
+}
+
+@keyframes type-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.type-pop-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: 42px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: start;
   cursor: pointer;
 }
 
-.type-change:hover {
-  color: var(--text);
+.type-pop-opt:focus-visible,
+.type-pop-opt.on {
+  background: color-mix(in oklab, var(--tc, var(--accent)) 14%, transparent);
+  outline: none;
+}
+
+.type-pop-ic {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 9px;
+  color: var(--tc, var(--accent));
+  background: color-mix(in oklab, var(--tc, var(--accent)) 16%, transparent);
+}
+
+.type-pop-t {
+  flex: 1;
+}
+
+.type-pop-check {
+  color: var(--tc, var(--accent));
+}
+
+.type-pop-auto {
+  color: var(--muted);
+  border-block-start: 1px solid var(--hairline);
+  border-radius: 0 0 11px 11px;
+  margin-block-start: 2px;
+}
+
+.type-pop-series {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (hover: hover) {
+  .type-pop-opt:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .type-eyebrow {
@@ -5244,9 +5419,11 @@
   transition: background var(--t-fast) var(--ease);
 }
 
-.series-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-  text-decoration: none;
+@media (hover: hover) {
+  .series-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+    text-decoration: none;
+  }
 }
 
 .series-row.next {
@@ -5326,8 +5503,10 @@
     background var(--t-fast) var(--ease);
 }
 
-.type-choice:hover {
-  border-color: var(--border);
+@media (hover: hover) {
+  .type-choice:hover {
+    border-color: var(--border);
+  }
 }
 
 .type-choice.on {

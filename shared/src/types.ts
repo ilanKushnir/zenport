@@ -137,6 +137,8 @@ export interface MeditationSummaryDto {
   hasVideo: boolean;
   /** Tracks this account has finished (lessons done, for a course). */
   completedCount: number;
+  /** Seconds into the item's last-played, unfinished track; null when there is nothing to resume. */
+  resumeSec: number | null;
 }
 
 export interface MeditationDetailDto extends MeditationSummaryDto {

@@ -141,13 +141,22 @@ export function LibraryPage() {
   // Courses and series someone is part-way through.
   const continuing = useMemo(() => {
     const { series, singles } = groupSeries(present);
+    // Started and not finished: a part ticked done, or a place to pick up from.
     const open = (done: number, total: number) => done > 0 && done < total;
     return [
       ...series
-        .filter((s) => open(s.completedCount, s.trackCount))
+        .filter(
+          (s) =>
+            open(s.completedCount, s.trackCount) ||
+            (s.type !== 'meditation' && s.items.some((i) => i.resumeSec !== null)),
+        )
         .map((s) => ({ kind: 'series' as const, s })),
       ...singles
-        .filter((i) => i.type !== 'meditation' && open(i.completedCount, i.trackCount))
+        .filter(
+          (i) =>
+            i.type !== 'meditation' &&
+            (open(i.completedCount, i.trackCount) || i.resumeSec !== null),
+        )
         .map((i) => ({ kind: 'item' as const, i })),
     ].slice(0, 8);
   }, [present]);

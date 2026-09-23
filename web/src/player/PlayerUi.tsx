@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import { formatClock } from '@zenport/shared';
 import { usePlayer } from './PlayerProvider.tsx';
 import { playBell } from './bell.ts';
-import { Cover, Icon, Sheet, Switch } from '../components/ui.tsx';
+import { Cover, Icon, Sheet, Slider, Switch } from '../components/ui.tsx';
 import { useScrollLock } from '../scrollLock.ts';
 
 const SPEEDS = [0.75, 0.9, 1, 1.1, 1.25] as const;
@@ -41,35 +41,25 @@ const minShort = (m: number) => (m === 0 ? 'Off' : m === 60 ? '1h' : `${m}m`);
  */
 function Scrubber({ compact = false }: { compact?: boolean }) {
   const p = usePlayer();
-  const [drag, setDrag] = useState<number | null>(null);
+  const [preview, setPreview] = useState<number | null>(null);
   const max = Math.max(1, Math.floor(p.duration));
-  const value = drag ?? Math.min(Math.floor(p.position), max);
-  const pct = (value / max) * 100;
-  const commit = () => {
-    if (drag !== null) {
-      p.seek(drag);
-      setDrag(null);
-    }
-  };
+  const value = preview ?? Math.min(Math.floor(p.position), max);
   const known = p.duration > 0;
   return (
     <div className={`scrub${compact ? ' compact' : ''}`}>
-      <input
-        type="range"
-        className="scrub-range"
-        min={0}
-        max={max}
-        step={1}
+      <Slider
+        className="scrub-slider"
         value={value}
+        max={max}
+        keyStep={5}
         disabled={!known}
-        style={{ '--pct': `${pct}%` } as React.CSSProperties}
-        onChange={(e) => setDrag(Number(e.target.value))}
-        onPointerUp={commit}
-        onTouchEnd={commit}
-        onKeyUp={commit}
-        onBlur={commit}
-        aria-label="Position"
-        aria-valuetext={`${formatClock(value)} of ${known ? formatClock(p.duration) : 'unknown'}`}
+        onInput={setPreview}
+        onCommit={(v) => {
+          p.seek(v);
+          setPreview(null);
+        }}
+        label="Position"
+        valueText={`${formatClock(value)} of ${known ? formatClock(p.duration) : 'unknown'}`}
       />
       {!compact && (
         <div className="scrub-times">
@@ -173,7 +163,7 @@ export function FocusMode() {
     if (!open || !el) return;
     const onMove = (e: TouchEvent) => {
       const t = e.target as HTMLElement;
-      if (t.closest('input[type="range"], .sheet')) return;
+      if (t.closest('.slider, .sheet')) return;
       e.preventDefault();
     };
     el.addEventListener('touchmove', onMove, { passive: false });
@@ -714,15 +704,14 @@ export function PracticeSettingsSheet({ onClose }: { onClose: () => void }) {
           />
           <div className="ps-volume">
             <Icon name="volume-low" size={18} />
-            <input
-              type="range"
-              className="scrub-range"
-              min={0}
-              max={100}
+            <Slider
               value={Math.round(s.volume * 100)}
-              style={{ '--pct': `${Math.round(s.volume * 100)}%` } as React.CSSProperties}
-              onChange={(e) => p.updateSettings({ volume: Number(e.target.value) / 100 })}
-              aria-label="Volume"
+              max={100}
+              keyStep={5}
+              onInput={(v) => p.updateSettings({ volume: v / 100 })}
+              onCommit={(v) => p.updateSettings({ volume: v / 100 })}
+              label="Volume"
+              valueText={`${Math.round(s.volume * 100)}%`}
             />
             <Icon name="volume" size={18} />
           </div>

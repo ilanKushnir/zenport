@@ -70,7 +70,8 @@ interface PlayerApi {
   setFocus: (v: boolean) => void;
   updateSettings: (patch: Partial<PlayerSettings>) => void;
   toggleWakeLock: () => void;
-  stop: (how: 'finish' | 'abandon') => void;
+  /** `forget` skips saving the place - for Start over, which is about to erase it. */
+  stop: (how: 'finish' | 'abandon', opts?: { forget?: boolean }) => void;
   clearReflect: () => void;
   openReflectFor: (prompt: ReflectPrompt) => void;
 }
@@ -263,9 +264,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const finishInternal = useCallback(
-    (status: 'completed' | 'abandoned', reason: string) => {
+    (status: 'completed' | 'abandoned', reason: string, keepPlace = true) => {
       sendBeat();
-      saveProgress();
+      if (keepPlace) saveProgress();
       const sid = sessionRef.current;
       const it = itemRef.current;
       const minutes = startedAtRef.current
@@ -376,10 +377,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const stop = useCallback(
-    (how: 'finish' | 'abandon') => {
+    (how: 'finish' | 'abandon', opts?: { forget?: boolean }) => {
       finishInternal(
         how === 'finish' ? 'completed' : 'abandoned',
         how === 'finish' ? 'stopped early' : 'left practice',
+        !opts?.forget,
       );
     },
     [finishInternal],

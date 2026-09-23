@@ -202,6 +202,23 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     return { ok: true };
   });
 
+  /** Start over: forget where this person was in an item and which parts they ticked done.
+   *  Practice history, stats and journal entries are kept. */
+  app.delete('/api/items/:id/progress', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const exists = db.prepare('SELECT 1 FROM items WHERE id = ?').get(id);
+    if (!exists) return reply.code(404).send({ error: 'not found' });
+    db.prepare('DELETE FROM playback_positions WHERE user_id = ? AND item_id = ?').run(
+      req.user!.id,
+      id,
+    );
+    db.prepare('DELETE FROM track_completions WHERE user_id = ? AND item_id = ?').run(
+      req.user!.id,
+      id,
+    );
+    return { ok: true };
+  });
+
   app.put('/api/progress/:trackId', async (req, reply) => {
     const { trackId } = req.params as { trackId: string };
     const body = z.object({ positionSec: z.number().min(0).max(86_400) }).safeParse(req.body);

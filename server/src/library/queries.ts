@@ -31,6 +31,40 @@ function rootLabel(config: Config, rootId: number): string {
   return config.libraryRoots.find((r) => r.id === rootId)?.label ?? `Library ${rootId + 1}`;
 }
 
+/**
+ * Where to pick an item up: its most recently played track, if that track is
+ * not ticked done and the place is past the opening seconds and short of the
+ * end. A lesson played to its last seconds is finished, not "in progress".
+ */
+export function resumePoint(
+  db: Db,
+  userId: number,
+  itemId: string,
+): { trackId: string; positionSec: number; updatedAt: string } | null {
+  const row = db
+    .prepare(
+      `SELECT p.track_id, p.position_sec, p.updated_at, t.duration_sec,
+              EXISTS (SELECT 1 FROM track_completions c
+                      WHERE c.user_id = p.user_id AND c.track_id = p.track_id) AS done
+       FROM playback_positions p JOIN tracks t ON t.id = p.track_id
+       WHERE p.user_id = ? AND p.item_id = ? AND t.missing = 0
+       ORDER BY p.updated_at DESC LIMIT 1`,
+    )
+    .get(userId, itemId) as
+    | {
+        track_id: string;
+        position_sec: number;
+        updated_at: string;
+        duration_sec: number | null;
+        done: number;
+      }
+    | undefined;
+  if (!row || row.done || row.position_sec < 10) return null;
+  const d = row.duration_sec;
+  if (d && (row.position_sec >= d * 0.95 || row.position_sec >= d - 15)) return null;
+  return { trackId: row.track_id, positionSec: row.position_sec, updatedAt: row.updated_at };
+}
+
 function summarize(db: Db, config: Config, row: ItemRow, userId: number): MeditationSummaryDto {
   const tracks = db
     .prepare(
@@ -83,6 +117,7 @@ function summarize(db: Db, config: Config, row: ItemRow, userId: number): Medita
     typeSource: manual ? 'manual' : 'auto',
     hasVideo: formats.some(isVideoExt),
     completedCount,
+    resumeSec: resumePoint(db, userId, row.id)?.positionSec ?? null,
   };
 }
 
@@ -205,20 +240,7 @@ export function itemDetail(
     )
     .all(row.creator, itemId) as unknown as ItemRow[];
 
-  const resumeRow = db
-    .prepare(
-      `SELECT track_id, position_sec, updated_at FROM playback_positions
-       WHERE user_id = ? AND item_id = ? ORDER BY updated_at DESC LIMIT 1`,
-    )
-    .get(userId, itemId) as
-    { track_id: string; position_sec: number; updated_at: string } | undefined;
-  const resume: ResumeStateDto | null = resumeRow
-    ? {
-        trackId: resumeRow.track_id,
-        positionSec: resumeRow.position_sec,
-        updatedAt: resumeRow.updated_at,
-      }
-    : null;
+  const resume: ResumeStateDto | null = resumePoint(db, userId, itemId);
 
   return {
     ...summary,

@@ -5,6 +5,19 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-23
+
+### Added
+
+- **Courses and talks pick up where you stopped.** The main button reads *Continue at 12:34* (or *Continue · Lesson 3 at 12:34*) and resumes that exact place; a place in the opening seconds, in the last seconds, or on a lesson ticked done does not count. Talks and videos watched halfway now sit on the Library's Continue shelf too.
+- **Start over.** An item with progress has a Start over button. After a confirmation it clears your place and the lessons ticked done, so the item begins from the top next time; practice history, stats and journal entries stay. `DELETE /api/items/:id/progress`.
+- **The type label is its own dropdown.** On an item page the Meditation / Course / Talk / Soundscape pill carries a small caret; tap it and the other types open right beneath it to pick from, with *Let ZenPort decide* and *All in this series* where they apply. It replaces the "Not right?" link.
+
+### Fixed
+
+- **Taps needed a second try on a phone.** iOS treats the first tap on anything whose hover style reveals something as a hover, not a click - and every card revealed its favourite star on hover. All hover styles now apply only on devices with a real pointer (`@media (hover: hover)`), the star stays visible on touch screens, and a stylesheet test keeps hover rules inside that query.
+- **The seek bar was hard to grab.** The native slider on iOS only moves when the touch lands on its small thumb, and playback re-rendering its value could drop a grab. Seek, volume and bell volume now use a touch-first slider: a taller strip that takes the touch anywhere, jumps to the finger, follows it, and seeks once on release.
+
 ## [0.7.0] — 2026-09-23
 
 ### Added

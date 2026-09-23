@@ -10,6 +10,10 @@
  * - Pages scrolled sideways, because a `1fr` grid column will not shrink below
  *   its longest unbreakable word, and folder names are exactly that. Columns
  *   are written minmax(0, 1fr) (or with an explicit minimum) instead.
+ *
+ * And one that made phones need a double tap: iOS treats the first tap on
+ * anything whose :hover style reveals content as a hover, not a click. Hover
+ * styles live inside `@media (hover: hover)`, where touch screens never go.
  */
 /// <reference types="node" />
 // Read from disk: under Vitest every CSS import, ?raw included, is an empty
@@ -87,6 +91,29 @@ describe('layout invariants', () => {
       // Drop the columns that are fine: minmax(<anything>, Nfr).
       const rest = value.replace(/minmax\([^()]*\)/g, '');
       if (/\d*\.?\d+fr\b/.test(rest)) bad.push(value.trim());
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('hover styles only apply where there is a real hover', () => {
+    const bad: string[] = [];
+    const stack: string[] = [];
+    let prelude = '';
+    for (const ch of css) {
+      if (ch === '{') {
+        const head = prelude.trim();
+        if (head.includes(':hover') && !stack.some((h) => /@media[^{]*\(hover:\s*hover\)/.test(h)))
+          bad.push(head);
+        stack.push(head);
+        prelude = '';
+      } else if (ch === '}') {
+        stack.pop();
+        prelude = '';
+      } else if (ch === ';') {
+        prelude = '';
+      } else {
+        prelude += ch;
+      }
     }
     expect(bad).toEqual([]);
   });

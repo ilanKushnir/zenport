@@ -25,6 +25,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.0',
+    items: [
+      {
+        emoji: '⏯️',
+        text: 'Courses and talks continue from exactly where you stopped.',
+      },
+      { emoji: '↩️', text: 'Start over clears your place in an item when you want a fresh run.' },
+      { emoji: '🏷️', text: 'Tap an item’s type label to change it.' },
+      { emoji: '👆', text: 'One tap is enough on a phone, and the seek bar is easy to grab.' },
+    ],
+  },
+  {
     version: '0.7.0',
     items: [
       {

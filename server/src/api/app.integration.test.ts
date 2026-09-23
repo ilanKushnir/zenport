@@ -661,6 +661,49 @@ describe('content types, lessons and AI planning', () => {
     expect(stats.learning.lessonsCompleted).toBe(1);
   });
 
+  it('resumes an unfinished place, not a finished one, and starts over on request', async () => {
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const course = lib.items.find((i: { title: string }) => i.title === 'The Long Road');
+    const url = `/api/items/${course.id}`;
+    const detail = (await app.inject({ method: 'GET', url, headers: auth() })).json();
+    const [t1, t2] = detail.tracks as { id: string }[];
+    const at = (trackId: string, positionSec: number) =>
+      app.inject({
+        method: 'PUT',
+        url: `/api/progress/${trackId}`,
+        headers: auth(),
+        payload: { positionSec },
+      });
+    await app.inject({
+      method: 'PUT',
+      url: `/api/tracks/${t1!.id}/completed`,
+      headers: auth(),
+      payload: { completed: true },
+    });
+    await at(t2!.id, 125);
+    const mid = (await app.inject({ method: 'GET', url, headers: auth() })).json();
+    expect(mid.resume).toMatchObject({ trackId: t2!.id, positionSec: 125 });
+    const shelf = (
+      await app.inject({ method: 'GET', url: '/api/library', headers: auth() })
+    ).json();
+    expect(shelf.items.find((i: { id: string }) => i.id === course.id).resumeSec).toBe(125);
+
+    // Played to its last seconds: finished, so nothing to resume.
+    db.prepare('UPDATE tracks SET duration_sec = 130 WHERE id = ?').run(t2!.id);
+    const end = (await app.inject({ method: 'GET', url, headers: auth() })).json();
+    expect(end.resume).toBeNull();
+    expect(end.resumeSec).toBeNull();
+
+    db.prepare('UPDATE tracks SET duration_sec = 600 WHERE id = ?').run(t2!.id);
+    const reset = await app.inject({ method: 'DELETE', url: `${url}/progress`, headers: auth() });
+    expect(reset.statusCode).toBe(200);
+    const fresh = (await app.inject({ method: 'GET', url, headers: auth() })).json();
+    expect(fresh.resume).toBeNull();
+    expect(fresh.completedCount).toBe(0);
+    expect(fresh.tracks.some((t: { completed: boolean }) => t.completed)).toBe(false);
+  });
+
   it('keeps the AI key secret and plans only with real library items', async () => {
     await setupAndLogin();
     const bad = await app.inject({
