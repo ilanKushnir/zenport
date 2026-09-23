@@ -255,7 +255,7 @@
   .mobile-tabs {
     position: fixed;
     inset-inline: 10px;
-    inset-block-end: calc(env(safe-area-inset-bottom) + 8px);
+    inset-block-end: var(--tabbar-gap);
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
@@ -917,7 +917,7 @@
 @media (max-width: 699px) {
   .sheet {
     inset-inline: 10px;
-    inset-block-end: calc(env(safe-area-inset-bottom) + 10px);
+    inset-block-end: max(10px, calc(env(safe-area-inset-bottom) - 12px));
     border-radius: 26px;
     max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px);
     padding-block-end: var(--s5);
@@ -1002,7 +1002,10 @@
 :root {
   /* The phone tab bar's real height, home indicator included. */
   /* Floating tab bar: 62px tall, 8px above the home indicator. */
-  --tabbar-h: calc(70px + env(safe-area-inset-bottom));
+  /* Floating tab bar: 62px tall, sitting just above the home indicator - lower
+     than the safe-area inset, which leaves room the indicator does not need. */
+  --tabbar-gap: max(8px, calc(env(safe-area-inset-bottom) - 14px));
+  --tabbar-h: calc(62px + var(--tabbar-gap));
 }
 
 /* The touch-first Slider (ui.tsx): a 36px-tall strip takes the touch anywhere,
@@ -5877,9 +5880,28 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: var(--s2);
-  margin-block-end: var(--s3);
+  margin-block-end: 6px;
+}
+
+.ai-stage-t {
+  font-family: var(--font-display, inherit);
+  font-size: 16px;
+  color: var(--text);
+  min-inline-size: 0;
+}
+
+.ai-step-n {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
 }
 
 .ai-track .plan-focus {
@@ -5887,8 +5909,112 @@
 }
 
 .ai-track-meta {
+  margin: 0 0 var(--s3);
   font-size: 12.5px;
   color: var(--muted);
+}
+
+/* Approach: four cards, each with a small diagram of its shape over time. */
+.ai-approach {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.ai-approach-opt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.ai-approach-opt.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ai-approach-ic {
+  display: block;
+  margin-block-end: 4px;
+}
+
+.ai-approach-t {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ai-approach-h {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+/* The path at a glance: a lane per stage, bars placed on their weeks. */
+.ai-timeline {
+  display: grid;
+  gap: 8px;
+  margin-block: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.ai-lane {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s3);
+}
+
+.ai-lane-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ai-lane-label .nav-ic {
+  flex: none;
+}
+
+.ai-lane-track {
+  position: relative;
+  block-size: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.ai-lane-bar {
+  position: absolute;
+  inset-block: 0;
+  border-radius: 999px;
+  background: var(--tc);
+}
+
+.ai-lane-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-inline-start: calc(38% + var(--s3));
+  font-size: 11px;
+  color: var(--faint);
 }
 
 .ai-items {
@@ -6147,4 +6273,1013 @@ span.role-chip {
 
 .role-chip .nav-ic {
   color: inherit;
+}
+
+/* ===================================================================
+ * AI paths on the Plans page
+ * =================================================================== */
+
+.path-block {
+  margin-block-end: var(--s5);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+}
+
+.path-head h3 {
+  margin: 2px 0 var(--s3);
+  font-family: var(--font-display, inherit);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.path-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* The stages as a vertical stepper: done, now, ahead. */
+.path-steps {
+  list-style: none;
+  margin: 0 0 var(--s4);
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+.path-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  padding-block: 7px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.path-step + .path-step::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 10.5px;
+  inset-block-start: -7px;
+  block-size: 14px;
+  border-inline-start: 1px solid var(--border);
+}
+
+.path-dot {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface);
+  position: relative;
+  z-index: 1;
+}
+
+.path-step.now {
+  color: var(--text);
+}
+
+.path-step.now .path-dot {
+  border-color: transparent;
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+.path-step.done .path-dot {
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 50%, transparent);
+}
+
+.path-step-t {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path-step-d {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.path-step.now .path-step-d {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.path-ahead {
+  margin-block-start: var(--s3);
+}
+
+.path-ahead .plan-focus {
+  margin: 0;
+  padding: 5px;
+}
+
+/* ===================================================================
+ * People: avatars, friends, invitations
+ * =================================================================== */
+
+.avatar {
+  --av: 40px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--av);
+  block-size: var(--av);
+  border-radius: 50%;
+}
+
+.avatar-face {
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 50%;
+  font-size: calc(var(--av) * 0.46);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: oklch(0.93 0.04 var(--av-hue));
+  background:
+    radial-gradient(circle at 30% 25%, oklch(0.5 0.1 var(--av-hue) / 0.9), transparent 70%),
+    oklch(0.32 0.07 var(--av-hue));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  line-height: 1;
+}
+
+/* Today's state as a ring: practised (accent), sitting now (breathing), not yet (faint). */
+.avatar[class*='ring-']::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--av) * -0.09);
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.avatar.ring-open::before {
+  border-color: var(--hairline);
+  border-style: dashed;
+}
+
+.avatar.ring-done::before {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg), var(--bg)) padding-box,
+    var(--accent-fill-grad, var(--accent)) border-box;
+  z-index: -1;
+}
+
+.avatar.ring-live::before {
+  border-color: var(--accent);
+  animation: live-breathe 4s ease-in-out infinite;
+}
+
+@keyframes live-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.55;
+  }
+}
+
+.person-row {
+  gap: var(--s3);
+}
+
+.request-list {
+  display: grid;
+  gap: var(--s2);
+}
+
+.request-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--hairline));
+  background: color-mix(in oklab, var(--accent) 7%, var(--surface));
+}
+
+.request-name {
+  font-weight: 600;
+}
+
+.request-actions {
+  display: flex;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+/* Today: everyone's day at a glance. */
+.today-circle {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: var(--s4) var(--s2);
+}
+
+.circle-person {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--text);
+  text-decoration: none;
+  min-inline-size: 0;
+}
+
+.circle-name {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  margin-block-start: 4px;
+}
+
+.circle-state {
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-block-start: -4px;
+}
+
+.friend-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+}
+
+@media (min-width: 760px) {
+  .friend-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.friend-card {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 85%, transparent);
+  min-inline-size: 0;
+}
+
+.friend-card.live {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--hairline));
+}
+
+.friend-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  min-inline-size: 0;
+}
+
+.friend-top > .nav-ic {
+  color: var(--faint);
+}
+
+.friend-id {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.friend-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.friend-day {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-day.live {
+  color: var(--accent);
+}
+
+.friend-stats {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s4);
+}
+
+.fs {
+  display: grid;
+  line-height: 1.1;
+}
+
+.fs strong {
+  font-family: var(--font-display, inherit);
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.fs span {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.week-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  block-size: 30px;
+  margin-inline-start: auto;
+}
+
+.wb {
+  inline-size: 7px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.wb.on {
+  background: var(--accent);
+}
+
+.friend-learning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--t-course) 10%, transparent);
+  color: var(--text);
+  font-size: 13.5px;
+  text-decoration: none;
+  min-inline-size: 0;
+}
+
+.friend-learning .grow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-learning .nav-ic {
+  color: var(--t-course);
+}
+
+.friend-learning.big {
+  padding: 12px 14px;
+  font-size: 15px;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* One thing a friend sat with, and the bow. */
+.feed {
+  display: grid;
+  gap: 2px;
+}
+
+.activity {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 10px 4px;
+  border-block-end: 1px solid var(--hairline);
+  min-inline-size: 0;
+}
+
+.activity:last-child {
+  border-block-end: 0;
+}
+
+.activity.compact {
+  padding: 0;
+  border: 0;
+}
+
+.activity-cover {
+  flex: none;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.activity-timer {
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.activity-body {
+  min-inline-size: 0;
+}
+
+.activity-line {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.activity-line a {
+  color: var(--text);
+}
+
+.bow-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  min-block-size: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  filter: grayscale(0.7);
+  transition:
+    filter var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.bow-btn.on {
+  filter: none;
+  color: var(--text);
+  border-color: color-mix(in oklab, var(--accent) 50%, transparent);
+  background: var(--accent-soft);
+}
+
+.bow-btn:active {
+  transform: scale(0.94);
+}
+
+.bow-n {
+  font-variant-numeric: tabular-nums;
+}
+
+.nudge-options {
+  display: grid;
+  gap: 6px;
+  margin-block-end: var(--s3);
+}
+
+.nudge-opt {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--text);
+  font: inherit;
+  font-size: 14.5px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.nudge-opt.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* A friend up close. */
+.friend-hero {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s5);
+  margin-block-end: var(--s6);
+}
+
+.friend-hero-text {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.friend-hero-text h1 {
+  margin: 0;
+}
+
+.friend-hero-text p {
+  margin: 2px 0 0;
+}
+
+.stat-tile strong {
+  display: block;
+  font-family: var(--font-display, inherit);
+  font-size: 26px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile > span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.stat-tile.accent {
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--hairline));
+  background: color-mix(in oklab, var(--accent) 8%, var(--surface));
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  max-inline-size: 260px;
+}
+
+.hm-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hm-cell[data-on] {
+  background: var(--accent);
+}
+
+.friend-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin-block-start: var(--s8);
+  padding-block-start: var(--s4);
+  border-block-start: 1px solid var(--hairline);
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* Friends on Today. */
+.section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ft-card {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+}
+
+.ft-rings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+
+.ft-ring {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  inline-size: 56px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.ft-ring-n {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.ft-line {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: none;
+  min-inline-size: 0;
+}
+
+.ft-line .grow {
+  min-inline-size: 0;
+}
+
+.ft-msg {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.ft-go {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.ft-bow {
+  inline-size: 28px;
+  text-align: center;
+}
+
+.ft-invite {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  min-inline-size: 0;
+}
+
+.ft-invite-cover {
+  flex: none;
+  inline-size: 46px;
+  block-size: 46px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ft-invite .grow {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.ft-invite-t {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nav badge and the More dot. */
+.nav-badge {
+  margin-inline-start: auto;
+  min-inline-size: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+.tab-more,
+.more-ic {
+  position: relative;
+}
+
+.tab-dot {
+  position: absolute;
+  inset-block-start: 6px;
+  inset-inline-end: calc(50% - 16px);
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.more-ic .tab-dot {
+  inset-block-start: -2px;
+  inset-inline-end: -2px;
+}
+
+/* People (admin). */
+.people-list {
+  display: grid;
+  gap: var(--s2);
+}
+
+.person-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  min-inline-size: 0;
+}
+
+.person-card .grow {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.person-card .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-name {
+  font-weight: 600;
+}
+
+.you {
+  margin-inline-start: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.invite-ic {
+  display: grid;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.link-art {
+  display: grid;
+  place-items: center;
+  inline-size: 56px;
+  block-size: 56px;
+  margin: 0 auto var(--s3);
+  border-radius: 18px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.link-field {
+  inline-size: 100%;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px !important;
+  text-overflow: ellipsis;
+}
+
+.manage-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-block-end: var(--s4);
+}
+
+.manage-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.manage-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.manage-row .grow {
+  display: grid;
+  gap: 2px;
+}
+
+.manage-row.danger {
+  color: var(--danger, #f07a7a);
+}
+
+.manage-confirm {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--danger, #f07a7a) 40%, transparent);
+}
+
+.manage-confirm p {
+  margin: 0 0 var(--s3);
+}
+
+.people-link {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  max-inline-size: 640px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.people-link .grow {
+  display: grid;
+  gap: 2px;
+}
+
+/* You (Settings). */
+.saved-note {
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.profile-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s4);
+  padding: var(--s5) var(--s5) 0;
+}
+
+.profile-head .grow {
+  min-inline-size: 0;
+}
+
+.profile-head input {
+  inline-size: 100%;
+}
+
+.avatar-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 6px;
+  margin-block-start: 8px;
+}
+
+.avatar-opt {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.16);
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.avatar-opt.initials {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.avatar-opt.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.share-choices {
+  display: grid;
+  gap: 6px;
+}
+
+.share-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.share-choice.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.share-choice .grow {
+  display: grid;
+  gap: 2px;
+}
+
+.share-t {
+  font-weight: 600;
+}
+
+.share-h {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.share-dot {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  margin-block-start: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.share-choice.on .share-dot {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--bg);
+  background: var(--accent);
+}
+
+.pw-form {
+  display: grid;
+  gap: 4px;
+}
+
+/* Joining. */
+.join-card {
+  text-align: start;
+}
+
+.join-art {
+  display: block;
+  inline-size: 140px;
+  block-size: 140px;
+  margin: var(--s4) auto var(--s3);
+  border-radius: 28px;
+  object-fit: cover;
+}
+
+.pw-field {
+  position: relative;
+}
+
+.pw-field input {
+  inline-size: 100%;
+  padding-inline-end: 64px;
+}
+
+.pw-toggle {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 6px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .person-card:hover,
+  .manage-row:hover,
+  .share-choice:hover,
+  .avatar-opt:hover,
+  .nudge-opt:hover {
+    border-color: var(--border);
+  }
+
+  .bow-btn:hover {
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar.ring-live::before {
+    animation: none;
+  }
 }

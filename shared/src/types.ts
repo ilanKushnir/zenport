@@ -8,7 +8,19 @@ export interface UserInfo {
   role: Role;
   timezone: string;
   createdAt: string;
+  /** What friends see; null falls back to the username. */
+  displayName: string | null;
+  /** One emoji, or null for initials. */
+  avatar: string | null;
+  shareLevel: ShareLevel;
 }
+
+/**
+ * How much friends see. full: what you practised and studied, when, and
+ * what is playing now. summary: minutes, streaks and days only - no titles.
+ * off: nothing beyond the friendship itself.
+ */
+export type ShareLevel = 'full' | 'summary' | 'off';
 
 // --- Library / scanner ---
 
@@ -217,6 +229,8 @@ export interface PlanDto {
   /** Practice plans hold meditations; learning plans follow courses and talks. */
   focus: PlanFocus;
   meditationIds: string[];
+  /** Plans made together as one path (by the AI planner) share a name; step orders them. */
+  path: { name: string; step: number } | null;
   createdAt: string;
 }
 
@@ -393,15 +407,26 @@ export interface AiSettingsDto {
   model: string | null;
   /** Chat models this key can use, newest-preferred first. */
   models: string[];
+  /** Admin only: whether members without a key may plan with this one. */
+  sharing?: boolean;
+  /** Set when this account has no key of its own but may use the owner's. */
+  sharedBy?: string | null;
 }
 
 export type PlanLevel = 'new' | 'some' | 'experienced';
+
+/** How learning and practice share the weeks of a plan. */
+export type PlanApproach = 'together' | 'learn-first' | 'alternate' | 'ai';
 
 export interface AiPlanRequest {
   /** In the person's own words: what they want from the next weeks. */
   goal: string;
   /** Null: let the planner choose the length the content and time need. */
   weeks: number | null;
+  /** With weeks null: cover the whole path to the goal, however long it takes. */
+  untilComplete?: boolean;
+  /** Only matters when both practice and learning are on. */
+  approach?: PlanApproach;
   startDate: string; // YYYY-MM-DD
   practice: { daysPerWeek: number; minutes: number } | null;
   learning: { minutesPerWeek: number; daysPerWeek: number } | null;
@@ -419,7 +444,16 @@ export interface AiPlanItemDto {
   item: MeditationSummaryDto;
 }
 
-export interface AiPlanTrackDto {
+/**
+ * One stretch of a path: practice or learning, from a start week for some
+ * weeks. Stages may run side by side or one after another; each becomes a plan.
+ */
+export interface AiPlanStageDto {
+  title: string;
+  focus: PlanFocus;
+  /** 1-based week of the path this stage starts in. */
+  startWeek: number;
+  weeks: number;
   daysOfWeek: number[];
   minutesPerSession: number;
   preferredTime: string | null;
@@ -430,10 +464,144 @@ export interface AiPlanProposalDto {
   name: string;
   intention: string;
   summary: string;
-  practice: AiPlanTrackDto | null;
-  learning: AiPlanTrackDto | null;
+  approach: PlanApproach;
+  /** In start order. */
+  stages: AiPlanStageDto[];
   outline: { week: number; focus: string }[];
-  /** How long the plan runs - the person's choice, or the planner's. */
+  /** How long the whole path runs - the person's choice, or the planner's. */
   weeks: number;
   model: string;
+}
+
+// --- People: invites, accounts, friends ---
+
+export type InviteKind = 'join' | 'reset';
+export type InviteStatus = 'open' | 'used' | 'expired' | 'revoked';
+
+export interface InviteDto {
+  id: number;
+  kind: InviteKind;
+  /** Who it is for, in the owner's words ("For Dana"). */
+  note: string | null;
+  role: Role;
+  /** Become friends with the inviter on joining. */
+  befriend: boolean;
+  createdAt: string;
+  expiresAt: string;
+  usedAt: string | null;
+  usedBy: string | null;
+  /** For a reset link: whose password it resets. */
+  forUser: string | null;
+  status: InviteStatus;
+}
+
+/** The raw token exists only in this answer; the server keeps its hash. */
+export interface InviteCreatedDto {
+  invite: InviteDto;
+  token: string;
+}
+
+export interface JoinInfoDto {
+  kind: InviteKind;
+  note: string | null;
+  invitedBy: string;
+  /** For a reset: the account it resets. */
+  username: string | null;
+  expiresAt: string;
+}
+
+export interface AdminUserDto {
+  id: number;
+  username: string;
+  displayName: string | null;
+  avatar: string | null;
+  role: Role;
+  createdAt: string;
+  lastActiveAt: string | null;
+}
+
+export type Relation = 'friend' | 'outgoing' | 'incoming' | 'none';
+
+export interface PersonDto {
+  id: number;
+  name: string;
+  username: string;
+  avatar: string | null;
+  relation: Relation;
+}
+
+export interface FriendActivityDto {
+  sessionId: number;
+  friendId: number;
+  friendName: string;
+  friendAvatar: string | null;
+  itemId: string;
+  title: string;
+  creator: string;
+  type: ContentType | 'timer';
+  coverId: string | null;
+  minutes: number;
+  at: string;
+  completed: boolean;
+  bows: number;
+  bowedByMe: boolean;
+}
+
+export interface FriendDto {
+  id: number;
+  name: string;
+  username: string;
+  avatar: string | null;
+  shareLevel: ShareLevel;
+  friendsSince: string;
+  /** Null when they share nothing. */
+  today: { minutes: number; studyMinutes: number } | null;
+  streak: number | null;
+  /** Seven days of practice minutes, oldest first, in their own days. */
+  week: { day: string; minutes: number }[];
+  /** Days in a row you have both practised, up to today or yesterday. */
+  together: number | null;
+  /** Something is playing for them right now (title only when sharing fully). */
+  now: { title: string | null; type: ContentType | 'timer' | null; since: string } | null;
+  last: FriendActivityDto | null;
+  learning: { itemId: string; title: string; done: number; total: number } | null;
+  /** You already nudged them today. */
+  nudgedToday: boolean;
+}
+
+export interface FriendsDto {
+  friends: FriendDto[];
+  incoming: PersonDto[];
+  outgoing: PersonDto[];
+}
+
+export interface FriendProfileDto {
+  friend: FriendDto;
+  /** 35 days of practice minutes, oldest first. */
+  days: { day: string; minutes: number }[];
+  totalMinutes: number | null;
+  totalSessions: number | null;
+  longestStreak: number | null;
+  recent: FriendActivityDto[];
+}
+
+export type CheerKind = 'bow' | 'nudge' | 'sit';
+
+export interface CheerDto {
+  id: number;
+  kind: CheerKind;
+  from: { id: number; name: string; avatar: string | null };
+  /** A bow: the session it was for. */
+  sessionTitle: string | null;
+  /** A sit invitation: what to sit with. */
+  item: { id: string; title: string; coverId: string | null } | null;
+  message: string | null;
+  at: string;
+  seen: boolean;
+}
+
+export interface InboxDto {
+  requests: PersonDto[];
+  cheers: CheerDto[];
+  unseen: number;
 }

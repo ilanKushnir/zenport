@@ -21,6 +21,7 @@ import { planNext } from './PlansPage.tsx';
 import { itemLabel, TYPE_META } from '../content.ts';
 import { Cover, EmptyState, Icon, SkeletonGrid } from '../components/ui.tsx';
 import { MedCard } from './LibraryPage.tsx';
+import { FriendsToday } from '../components/FriendsToday.tsx';
 
 export function TodayPage() {
   const navigate = useNavigate();
@@ -221,6 +222,8 @@ export function TodayPage() {
               </Link>
             </div>
           </section>
+
+          <FriendsToday />
 
           {todayOcc.length > 0 && (
             <section className="section" aria-labelledby="sec-plan">

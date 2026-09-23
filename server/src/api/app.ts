@@ -14,6 +14,8 @@ import { registerJournalRoutes } from './routes/journal.js';
 import { registerYouTubeRoutes } from './routes/youtube.js';
 import { registerPrefsRoutes } from './routes/prefs.js';
 import { registerMiscRoutes } from './routes/misc.js';
+import { registerInviteRoutes } from './routes/invites.js';
+import { registerFriendRoutes } from './routes/friends.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -85,7 +87,9 @@ export function buildApp(ctx: AppContext): FastifyInstance {
     const token = req.cookies[SESSION_COOKIE];
     req.user = token ? verifySession(ctx.db, token) : null;
 
-    if (PUBLIC_PATHS.has(req.url.split('?')[0] as string)) return;
+    const route = req.url.split('?')[0] as string;
+    // Invitation links are opened by people who have no account yet.
+    if (PUBLIC_PATHS.has(route) || route.startsWith('/api/join/')) return;
     if (!req.user) {
       return reply.code(401).send({ error: 'not signed in' });
     }
@@ -102,6 +106,8 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   registerYouTubeRoutes(app, ctx);
   registerPrefsRoutes(app, ctx);
   registerMiscRoutes(app, ctx);
+  registerInviteRoutes(app, ctx);
+  registerFriendRoutes(app, ctx);
 
   // Static frontend + SPA fallback (production only; dev uses Vite).
   if (ctx.config.webDistDir) {

@@ -9,6 +9,7 @@ import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
 import { TypeMenu } from '../components/TypeSheet.tsx';
+import { SitTogetherSheet } from '../social.tsx';
 import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
 
 export function ItemPage() {
@@ -20,6 +21,7 @@ export function ItemPage() {
   const [showPlanSheet, setShowPlanSheet] = useState(false);
   const [openDoc, setOpenDoc] = useState<DocumentDto | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [sitTogether, setSitTogether] = useState(false);
   const [resetting, setResetting] = useState(false);
   const { user } = useAuth();
   const lib = useApi<{ items: { id: string; creator: string; collection: string | null }[] }>(
@@ -191,6 +193,10 @@ export function ItemPage() {
               )}
               <button className="btn btn-ghost" onClick={() => setShowPlanSheet(true)}>
                 <Icon name="plans" size={16} /> Add to a plan
+              </button>
+              <button className="btn btn-ghost" onClick={() => setSitTogether(true)}>
+                <Icon name="friends" size={16} />{' '}
+                {learning ? 'Study with a friend' : 'Sit with a friend'}
               </button>
               {hasProgress && (
                 <button className="btn btn-ghost" onClick={() => setConfirmReset(true)}>
@@ -375,6 +381,13 @@ export function ItemPage() {
         </Sheet>
       )}
 
+      {sitTogether && (
+        <SitTogetherSheet
+          itemId={item.id}
+          title={item.title}
+          onClose={() => setSitTogether(false)}
+        />
+      )}
       {confirmReset && (
         <Sheet title="Start over?" onClose={() => setConfirmReset(false)} labelId="reset-title">
           <p className="sit-sheet-lede">

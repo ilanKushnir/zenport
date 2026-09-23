@@ -25,6 +25,27 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.0',
+    items: [
+      {
+        emoji: '🪷',
+        text: 'Friends: see how each other’s day is going, send a bow or a gentle nudge, and invite a friend to sit with the same recording.',
+      },
+      {
+        emoji: '🔒',
+        text: 'You choose what friends see - everything, just the numbers, or nothing.',
+      },
+      {
+        emoji: '✉️',
+        text: 'No open sign-up: admins invite people with a single-use link, and manage who is here.',
+      },
+      {
+        emoji: '✨',
+        text: 'Plan with AI can lay out a whole path - learn first, take turns, or side by side - as long as it takes.',
+      },
+    ],
+  },
+  {
     version: '0.8.0',
     items: [
       {

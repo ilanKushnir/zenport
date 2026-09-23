@@ -27,6 +27,8 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const planRequest = z.object({
   goal: z.string().max(1200).default(''),
   weeks: z.number().int().min(1).max(52).nullable(),
+  untilComplete: z.boolean().default(false),
+  approach: z.enum(['together', 'learn-first', 'alternate', 'ai']).default('together'),
   startDate: z.string().regex(DATE),
   practice: z
     .object({
@@ -63,6 +65,20 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       .prepare('SELECT api_key_enc, key_hint, model FROM ai_settings WHERE user_id = ?')
       .get(userId) as Row | undefined;
 
+  /** The owner's key, when they have chosen to share it with everyone here. */
+  const sharedKey = (): { userId: number; name: string } | null => {
+    const v = db.prepare("SELECT value FROM app_settings WHERE key = 'ai_shared_by'").get() as
+      { value: string } | undefined;
+    if (!v) return null;
+    const owner = db
+      .prepare(
+        `SELECT u.id, COALESCE(u.display_name, u.username) AS name FROM users u
+         JOIN ai_settings a ON a.user_id = u.id WHERE u.id = ? AND u.role = 'admin'`,
+      )
+      .get(Number(v.value)) as { id: number; name: string } | undefined;
+    return owner ? { userId: owner.id, name: owner.name } : null;
+  };
+
   const send = (
     err: unknown,
     reply: { code: (n: number) => { send: (b: unknown) => unknown } },
@@ -78,13 +94,41 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   app.get('/api/ai/settings', async (req): Promise<AiSettingsDto> => {
     const r = row(req.user!.id);
-    if (!r) return { configured: false, keyHint: null, model: null, models: [] };
+    const shared = sharedKey();
+    if (!r) {
+      return {
+        configured: false,
+        keyHint: null,
+        model: null,
+        models: [],
+        sharedBy: shared && shared.userId !== req.user!.id ? shared.name : null,
+      };
+    }
     return {
       configured: true,
       keyHint: r.key_hint,
       model: r.model,
       models: modelCache.get(req.user!.id)?.models ?? [r.model],
+      sharing: req.user!.role === 'admin' ? shared?.userId === req.user!.id : undefined,
     };
+  });
+
+  // The owner may let everyone on this ZenPort plan with their key. The key
+  // itself is never shown to anyone; members only learn that planning works.
+  app.put('/api/ai/sharing', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const body = z.object({ enabled: z.boolean() }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'enabled required' });
+    if (body.data.enabled) {
+      if (!row(req.user!.id)) return reply.code(400).send({ error: 'Add your key first.' });
+      db.prepare(
+        `INSERT INTO app_settings (key, value) VALUES ('ai_shared_by', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ).run(String(req.user!.id));
+    } else {
+      db.prepare("DELETE FROM app_settings WHERE key = 'ai_shared_by'").run();
+    }
+    return { ok: true };
   });
 
   app.put('/api/ai/settings', async (req, reply) => {
@@ -146,7 +190,8 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!body.data.practice && !body.data.learning) {
       return reply.code(400).send({ error: 'Choose practice, learning, or both.' });
     }
-    const r = row(req.user!.id);
+    const shared = sharedKey();
+    const r = row(req.user!.id) ?? (shared ? row(shared.userId) : undefined);
     const key = r ? openSecret(r.api_key_enc, secret) : null;
     if (!r || !key)
       return reply.code(400).send({ error: 'Add your OpenAI key in Settings first.' });
@@ -176,7 +221,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
         schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
       });
       const proposal = resolveProposal(raw, entries, body.data, r.model);
-      if (!proposal.practice && !proposal.learning) {
+      if (proposal.stages.length === 0) {
         return reply
           .code(502)
           .send({ error: 'The answer did not use anything from your library. Try again.' });

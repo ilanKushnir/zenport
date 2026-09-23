@@ -3,8 +3,9 @@
  *
  * The model is given a compact catalogue of the library - every item's type,
  * title, creator, series, length and its lessons in order - plus what the
- * person asked for, and returns an ordered practice track and an ordered
- * learning track that fit their time. It chooses and orders; everything else
+ * person asked for, and returns a path: stages of practice or learning, each
+ * with its own start week and length, running side by side or one after
+ * another as the person chose. It chooses and orders; everything else
  * (ids, dates, the plans themselves) stays in the app's hands:
  *
  * - Items are named to the model by short handles ("m12"), never real ids, and
@@ -16,8 +17,8 @@ import type {
   AiPlanItemDto,
   AiPlanProposalDto,
   AiPlanRequest,
-  AiPlanTrackDto,
-  ContentType,
+  AiPlanStageDto,
+  PlanApproach,
   MeditationSummaryDto,
 } from '@zenport/shared';
 import { isPracticeType, naturalCompare } from '@zenport/shared';
@@ -26,7 +27,7 @@ import type { Db } from '../db/index.js';
 export interface CatalogEntry {
   handle: string;
   item: MeditationSummaryDto;
-  lessons: { title: string; minutes: number | null; done: boolean }[];
+  lessons: { title: string; minutes: number | null; done: boolean; practice: boolean }[];
 }
 
 // Generous: a planner that cannot see a course's later lessons cannot order them.
@@ -47,7 +48,9 @@ export function buildCatalog(
     ).map((r) => r.track_id),
   );
   const trackStmt = db.prepare(
-    'SELECT id, title, duration_sec FROM tracks WHERE item_id = ? AND missing = 0 ORDER BY ord',
+    `SELECT t.id, t.title, t.duration_sec, COALESCE(r.role, t.inferred_role) AS role
+     FROM tracks t LEFT JOIN track_roles r ON r.track_id = t.id
+     WHERE t.item_id = ? AND t.missing = 0 ORDER BY t.ord`,
   );
   return items
     .filter((i) => !i.missing)
@@ -61,11 +64,17 @@ export function buildCatalog(
       handle: `m${n + 1}`,
       item,
       lessons: (
-        trackStmt.all(item.id) as { id: string; title: string; duration_sec: number | null }[]
+        trackStmt.all(item.id) as {
+          id: string;
+          title: string;
+          duration_sec: number | null;
+          role: string;
+        }[]
       ).map((t) => ({
         title: t.title,
         minutes: t.duration_sec ? Math.max(1, Math.round(t.duration_sec / 60)) : null,
         done: done.has(t.id),
+        practice: !isPracticeType(item.type) && t.role === 'practice',
       })),
     }));
 }
@@ -136,7 +145,7 @@ export function renderCatalog(entries: CatalogEntry[], history?: PracticeHistory
     if (e.lessons.length > 1) {
       for (const [k, l] of e.lessons.slice(0, MAX_LESSONS).entries()) {
         lines.push(
-          `    ${k + 1}. ${clip(l.title, 90)}${l.minutes ? ` (${l.minutes}m)` : ''}${l.done ? ' [done]' : ''}`,
+          `    ${k + 1}. ${clip(l.title, 90)}${l.minutes ? ` (${l.minutes}m)` : ''}${l.practice ? ' [guided practice]' : ''}${l.done ? ' [done]' : ''}`,
         );
       }
       if (e.lessons.length > MAX_LESSONS)
@@ -146,11 +155,27 @@ export function renderCatalog(entries: CatalogEntry[], history?: PracticeHistory
   return lines.join('\n');
 }
 
-const trackSchema = {
-  type: ['object', 'null'],
+/** Longest path the planner may lay out: three years, for "until it's done". */
+export const MAX_WEEKS = 156;
+
+const stageSchema = {
+  type: 'object',
   additionalProperties: false,
-  required: ['daysOfWeek', 'minutesPerSession', 'preferredTime', 'items'],
+  required: [
+    'title',
+    'focus',
+    'startWeek',
+    'weeks',
+    'daysOfWeek',
+    'minutesPerSession',
+    'preferredTime',
+    'items',
+  ],
   properties: {
+    title: { type: 'string', description: 'A few words naming this stage, e.g. "Foundations".' },
+    focus: { type: 'string', enum: ['practice', 'learning'] },
+    startWeek: { type: 'integer', minimum: 1, maximum: MAX_WEEKS },
+    weeks: { type: 'integer', minimum: 1, maximum: MAX_WEEKS },
     daysOfWeek: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 } },
     minutesPerSession: { type: 'integer', minimum: 1, maximum: 600 },
     preferredTime: { type: ['string', 'null'], description: 'HH:MM, 24h' },
@@ -175,22 +200,22 @@ const trackSchema = {
 export const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['name', 'intention', 'summary', 'weeks', 'practice', 'learning', 'outline'],
+  required: ['name', 'intention', 'summary', 'weeks', 'approach', 'stages', 'outline'],
   properties: {
     weeks: {
       type: 'integer',
       minimum: 1,
-      maximum: 52,
-      description: 'How many weeks the plan runs.',
+      maximum: MAX_WEEKS,
+      description: 'How many weeks the whole path runs.',
     },
     name: { type: 'string', description: 'Short plan name, at most 40 characters.' },
     intention: {
       type: 'string',
       description: 'One warm line in second person, at most 120 characters.',
     },
-    summary: { type: 'string', description: 'Two or three sentences on the shape of the plan.' },
-    practice: trackSchema,
-    learning: trackSchema,
+    summary: { type: 'string', description: 'Two or three sentences on the shape of the path.' },
+    approach: { type: 'string', enum: ['together', 'learn-first', 'alternate'] },
+    stages: { type: 'array', items: stageSchema },
     outline: {
       type: 'array',
       items: {
@@ -203,6 +228,16 @@ export const PLAN_SCHEMA = {
   },
 } as const;
 
+const APPROACH_RULES: Record<PlanApproach, string> = {
+  together:
+    'Approach "together": one practice stage and one learning stage, both from week 1 to the end, side by side. Return approach "together".',
+  'learn-first':
+    'Approach "learn-first": learning comes first - one learning stage per course or talk series, one after another from the widest foundations to the most advanced, each long enough to finish at the weekly study time. Guided practices inside a course are done as they come. Only after the last learning stage does a practice stage begin: a steady routine that climbs the meditations in order of level. A light practice stage alongside the learning is fine only if the person asked for it. Return approach "learn-first".',
+  alternate:
+    'Approach "alternate": take turns - a learning stage for one course, then a practice stage of a few weeks deepening what it taught (its creator\'s meditations at the matching level), then the next course, and so on. Stages do not overlap. Return approach "alternate".',
+  ai: 'Approach: your call - choose "together", "learn-first" or "alternate", whichever best serves the goal, experience and library, and lay the stages out accordingly. Return the approach you chose.',
+};
+
 const TIME = { morning: '07:00', midday: '12:30', evening: '20:00', any: null } as const;
 
 export function planPrompt(
@@ -210,34 +245,47 @@ export function planPrompt(
   catalog: string,
   history = '',
 ): { system: string; user: string } {
+  const both = Boolean(req.practice && req.learning);
   const system = [
-    'You are a thoughtful meditation teacher and curriculum designer. You build a personal plan',
+    'You are a thoughtful meditation teacher and curriculum designer. You build a personal path',
     "strictly from the person's own library, described in the catalogue below.",
+    '',
+    'A path is a list of stages. Each stage is practice (meditations, soundscapes) or learning',
+    '(courses, talks), starts in a week of the path and runs for some weeks, on set days, in order.',
+    'Stages may run side by side or one after another. Week 1 is the first week.',
     '',
     'Rules:',
     '- Use only handles that appear in the catalogue. Never invent items.',
-    '- Practice items must be meditations or soundscapes. Learning items must be courses or talks.',
-    '- Order each list in the sequence it should be consumed: a series and its lessons in their own order,',
-    '  foundations before advanced work, an introduction before the practice it introduces.',
-    '- Fit the time given: pick practices whose length suits the minutes per session, and enough learning',
-    '  to fill the weekly study time for the number of weeks - not much more.',
+    '- Practice stages hold only meditations or soundscapes; learning stages only courses or talks.',
+    '- Order each stage in the sequence it should be consumed: a series and its lessons in their own order,',
+    '  foundations before advanced work, an introduction before the practice it introduces. Where',
+    '  titles carry levels, parts or numbers, climb them in order.',
+    '- Lessons marked [guided practice] are meditations inside a course; they are done as the course',
+    '  reaches them, so do not schedule them again elsewhere.',
+    '- Fit the time given: practices whose length suits the minutes per session, and learning stages',
+    '  long enough to finish their courses at the weekly study time (sum the lesson minutes).',
     '- Use the history: build on what the person already practises, continue courses where they left off,',
     '  and do not repeat what is finished unless asked. Items played often are favourites - use them wisely.',
-    '- Prefer unfinished items unless asked to include finished ones.',
-    '- Spread the days of the week evenly (0 = Sunday). If a track is not requested, return null for it.',
+    '- Spread the days of the week evenly (0 = Sunday). Stages must end by the last week of the path.',
     '- Write "why" as one short, specific sentence. Keep the tone warm, plain and unhyped.',
   ].join('\n');
+  const length = req.weeks
+    ? `Length: ${req.weeks} week${req.weeks === 1 ? '' : 's'}, starting ${req.startDate}. Return weeks = ${req.weeks}.`
+    : req.untilComplete
+      ? `Length: as long as it takes. Lay out the whole path to the goal - every course and practice it needs, in order - at this pace, however many weeks that is (up to ${MAX_WEEKS}), starting ${req.startDate}. Return the total as weeks.`
+      : `Length: your call - a sensible first stretch for this goal at this pace (1 to 52 weeks), starting ${req.startDate}. Return it as weeks.`;
   const user = [
     `What I want: ${req.goal.trim() || 'a steady, balanced practice'}`,
-    req.weeks
-      ? `Length: ${req.weeks} week${req.weeks === 1 ? '' : 's'}, starting ${req.startDate}. Return weeks = ${req.weeks}.`
-      : `Length: your call - as long as the chosen content needs at this pace (1 to 52 weeks), starting ${req.startDate}. Return it as weeks.`,
+    length,
     req.practice
       ? `Practice: ${req.practice.daysPerWeek} days a week, about ${req.practice.minutes} minutes each.`
-      : 'Practice: none - return null for practice.',
+      : 'Practice: none - no practice stages.',
     req.learning
       ? `Learning: about ${req.learning.minutesPerWeek} minutes a week over ${req.learning.daysPerWeek} days.`
-      : 'Learning: none - return null for learning.',
+      : 'Learning: none - no learning stages.',
+    both
+      ? APPROACH_RULES[req.approach ?? 'together']
+      : 'Only one kind is wanted: stages of that kind, one after another where the content has a natural order. Return approach "together".',
     `Time of day: ${req.timeOfDay}${TIME[req.timeOfDay] ? ` (use ${TIME[req.timeOfDay]})` : ''}.`,
     `Experience: ${{ new: 'new to meditation', some: 'some experience', experienced: 'experienced' }[req.level]}.`,
     req.creators.length ? `Only use these creators: ${req.creators.join(', ')}.` : '',
@@ -254,7 +302,11 @@ export function planPrompt(
   return { system, user };
 }
 
-interface RawTrack {
+interface RawStage {
+  title: string;
+  focus: string;
+  startWeek: number;
+  weeks: number;
   daysOfWeek: number[];
   minutesPerSession: number;
   preferredTime: string | null;
@@ -266,15 +318,20 @@ interface RawPlan {
   weeks: number;
   intention: string;
   summary: string;
-  practice: RawTrack | null;
-  learning: RawTrack | null;
+  approach: string;
+  stages: RawStage[];
   outline: { week: number; focus: string }[];
 }
 
+const int = (v: unknown, lo: number, hi: number, fallback: number) => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
+};
+
 /**
  * Turn the model's answer into a proposal, trusting nothing: unknown handles
- * and wrong-kind items are dropped, days and minutes are clamped, and a track
- * that ends up empty becomes null.
+ * and wrong-kind items are dropped (so is a kind the person switched off),
+ * weeks, days and minutes are clamped into the path, and an empty stage goes.
  */
 export function resolveProposal(
   raw: unknown,
@@ -284,46 +341,68 @@ export function resolveProposal(
 ): AiPlanProposalDto {
   const plan = raw as RawPlan;
   const byHandle = new Map(entries.map((e) => [e.handle, e.item]));
-  const track = (t: RawTrack | null, want: (type: ContentType) => boolean, fallbackMin: number) => {
-    if (!t) return null;
+  const cap = req.weeks ?? (req.untilComplete ? MAX_WEEKS : 52);
+  let total = req.weeks ?? int(plan.weeks, 1, cap, 4);
+  const learningMinutes = req.learning
+    ? Math.round(req.learning.minutesPerWeek / Math.max(1, req.learning.daysPerWeek))
+    : 30;
+  const stages: AiPlanStageDto[] = [];
+  for (const st of Array.isArray(plan.stages) ? plan.stages : []) {
+    const focus = st.focus === 'learning' ? 'learning' : 'practice';
+    if (focus === 'practice' ? !req.practice : !req.learning) continue;
+    const want = (t: MeditationSummaryDto['type']) =>
+      focus === 'practice' ? isPracticeType(t) : !isPracticeType(t);
     const seen = new Set<string>();
     const items: AiPlanItemDto[] = [];
-    for (const { handle, why } of t.items ?? []) {
+    for (const { handle, why } of st.items ?? []) {
       const item = byHandle.get(handle);
       if (!item || seen.has(item.id) || !want(item.type)) continue;
       seen.add(item.id);
       items.push({ id: item.id, why: clip(String(why ?? ''), 240), item });
     }
-    if (items.length === 0) return null;
+    if (items.length === 0) continue;
+    const startWeek = int(st.startWeek, 1, cap, 1);
+    const weeks = int(st.weeks, 1, cap - startWeek + 1, 1);
+    // A chosen length is fixed; a planner-chosen one grows to fit its stages.
+    if (!req.weeks) total = Math.max(total, startWeek + weeks - 1);
     const days = [
-      ...new Set((t.daysOfWeek ?? []).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)),
+      ...new Set((st.daysOfWeek ?? []).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)),
     ].sort();
-    const out: AiPlanTrackDto = {
+    stages.push({
+      title: clip(String(st.title ?? '') || (focus === 'learning' ? 'Learning' : 'Practice'), 60),
+      focus,
+      startWeek,
+      weeks: Math.min(weeks, total - startWeek + 1),
       daysOfWeek: days,
-      minutesPerSession: Math.min(600, Math.max(1, Math.round(t.minutesPerSession || fallbackMin))),
-      preferredTime: /^\d{2}:\d{2}$/.test(t.preferredTime ?? '')
-        ? t.preferredTime
+      minutesPerSession: int(
+        st.minutesPerSession,
+        1,
+        600,
+        focus === 'practice' ? (req.practice?.minutes ?? 20) : learningMinutes,
+      ),
+      preferredTime: /^\d{2}:\d{2}$/.test(st.preferredTime ?? '')
+        ? st.preferredTime
         : TIME[req.timeOfDay],
       items,
-    };
-    return out;
-  };
-  const learningMinutes = req.learning
-    ? Math.round(req.learning.minutesPerWeek / Math.max(1, req.learning.daysPerWeek))
-    : 30;
+    });
+  }
+  stages.sort((a, b) => a.startWeek - b.startWeek || (a.focus === 'learning' ? -1 : 1));
+  const approach: PlanApproach = (['together', 'learn-first', 'alternate'] as const).includes(
+    plan.approach as 'together',
+  )
+    ? (plan.approach as PlanApproach)
+    : (req.approach ?? 'together');
   return {
     name: clip(String(plan.name ?? 'My plan'), 60),
     intention: clip(String(plan.intention ?? ''), 160),
     summary: clip(String(plan.summary ?? ''), 600),
-    practice: req.practice ? track(plan.practice, isPracticeType, req.practice.minutes) : null,
-    learning: req.learning
-      ? track(plan.learning, (t) => !isPracticeType(t), learningMinutes)
-      : null,
+    approach,
+    stages: stages.filter((st) => st.startWeek <= total),
     outline: (plan.outline ?? [])
-      .filter((o) => Number.isInteger(o.week) && o.week >= 1 && o.week <= 52)
-      .slice(0, 52)
+      .filter((o) => Number.isInteger(o.week) && o.week >= 1 && o.week <= total)
+      .slice(0, MAX_WEEKS)
       .map((o) => ({ week: o.week, focus: clip(String(o.focus ?? ''), 160) })),
-    weeks: req.weeks ?? Math.min(52, Math.max(1, Math.round(Number(plan.weeks) || 4))),
+    weeks: total,
     model,
   };
 }

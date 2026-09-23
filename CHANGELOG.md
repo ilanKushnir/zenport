@@ -5,6 +5,24 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-09-23
+
+### Added
+
+- **Invitations instead of sign-up.** Admins invite people from the new **People** page: a single-use link (shown once, stored only as a hash) that expires after a day, a week or a month, can be revoked, makes the newcomer a member or an admin, and can make you friends the moment they join. The link opens a welcome page to pick a name, username and password, then the tour.
+- **People management.** Everyone on the instance with when they joined and were last active; make someone an admin or a member (there is always at least one admin), send a password-reset link (single-use, two days, signs them out everywhere), or remove an account.
+- **Roles, enforced.** Members practise, study, plan, journal and make friends. Rescans, folders, item types, track roles, YouTube sources, sharing the AI key and managing people are admin-only on the server, and the controls are hidden for members.
+- **Friends.** Send and accept friend requests. The Friends page shows everyone's day as a ring (practised today, sitting right now, not yet), streaks, the days in a row you have *both* practised, a week of minutes, the course they are studying, and a feed of recent sits to bow to. A friend's own page adds five weeks of practice and their longest streak. Send a gentle nudge (once a day), or invite a friend to sit with a particular recording from its page - it lands on their Today page with a button to open it.
+- **You decide what friends see:** everything, just the numbers (minutes, streaks and days, never titles), or nothing. Set it in Settings → You or in the tour.
+- **Settings → You**: a name and an emoji avatar for friends to see, sharing, and changing your password (other devices are signed out).
+- **Plan with AI builds a path.** Choose how learning and practice fit together - side by side, learn first (courses one by one from the basics up, then a routine that climbs the levels), take turns, or let the AI choose - and a length of *Until done* to lay out the whole path. The plan comes back as dated stages, each saved as its own plan and shown together on the Plans page as a path with a stepper. Meditations inside a course are done as the course reaches them.
+- **Share your AI key.** The owner can let everyone here plan with AI without a key of their own; nobody sees the key.
+- The welcome tour has a new step, *Practise together*, with new art.
+
+### Changed
+
+- The phone tab bar sits lower, just above the home indicator; floating sheets follow.
+
 ## [0.8.0] — 2026-09-23
 
 ### Added

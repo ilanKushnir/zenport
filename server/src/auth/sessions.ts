@@ -42,3 +42,16 @@ export function verifySession(db: Db, token: string): SessionUser | null {
 export function destroySession(db: Db, token: string): void {
   db.prepare('DELETE FROM auth_sessions WHERE token_hash = ?').run(hashToken(token));
 }
+
+/** Sign a person out everywhere except the session in hand (after a password change). */
+export function destroyOtherSessions(db: Db, userId: number, keepToken: string): void {
+  db.prepare('DELETE FROM auth_sessions WHERE user_id = ? AND token_hash != ?').run(
+    userId,
+    hashToken(keepToken),
+  );
+}
+
+/** Sign a person out everywhere (after a reset or removal). */
+export function destroyAllSessions(db: Db, userId: number): void {
+  db.prepare('DELETE FROM auth_sessions WHERE user_id = ?').run(userId);
+}

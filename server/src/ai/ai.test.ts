@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AiPlanRequest, MeditationSummaryDto } from '@zenport/shared';
 import { chatModels } from './openai.js';
-import { renderCatalog, resolveProposal, type CatalogEntry } from './planner.js';
+import { planPrompt, renderCatalog, resolveProposal, type CatalogEntry } from './planner.js';
 import { openSecret, sealSecret } from './secret.js';
 
 describe('key encryption', () => {
@@ -58,8 +58,8 @@ const entries: CatalogEntry[] = [
     handle: 'm1',
     item: item('aaa', 'meditation', 'Morning Ritual'),
     lessons: [
-      { title: 'Intro', minutes: 3, done: true },
-      { title: 'Practice', minutes: 17, done: false },
+      { title: 'Intro', minutes: 3, done: true, practice: false },
+      { title: 'Practice', minutes: 17, done: false, practice: false },
     ],
   },
   { handle: 'm2', item: item('bbb', 'course', 'The Long Road'), lessons: [] },
@@ -90,29 +90,41 @@ describe('planner', () => {
     const p = resolveProposal(
       {
         name: 'Four weeks',
+        weeks: 4,
         intention: 'Begin gently.',
         summary: 'A plan.',
-        practice: {
-          daysOfWeek: [1, 1, 3, 9],
-          minutesPerSession: 20,
-          preferredTime: 'soon',
-          items: [
-            { handle: 'm1', why: 'Start here.' },
-            { handle: 'm1', why: 'again' },
-            { handle: 'm2', why: 'a course is not practice' },
-            { handle: 'm99', why: 'invented' },
-          ],
-        },
-        learning: {
-          daysOfWeek: [2, 4],
-          minutesPerSession: 60,
-          preferredTime: '19:00',
-          items: [
-            { handle: 'm2', why: 'Foundations.' },
-            { handle: 'm3', why: 'Then the talk.' },
-            { handle: 'm1', why: 'not learning' },
-          ],
-        },
+        approach: 'together',
+        stages: [
+          {
+            title: 'Steady mornings',
+            focus: 'practice',
+            startWeek: 1,
+            weeks: 4,
+            daysOfWeek: [1, 1, 3, 9],
+            minutesPerSession: 20,
+            preferredTime: 'soon',
+            items: [
+              { handle: 'm1', why: 'Start here.' },
+              { handle: 'm1', why: 'again' },
+              { handle: 'm2', why: 'a course is not practice' },
+              { handle: 'm99', why: 'invented' },
+            ],
+          },
+          {
+            title: 'Foundations',
+            focus: 'learning',
+            startWeek: 1,
+            weeks: 9,
+            daysOfWeek: [2, 4],
+            minutesPerSession: 60,
+            preferredTime: '19:00',
+            items: [
+              { handle: 'm2', why: 'Foundations.' },
+              { handle: 'm3', why: 'Then the talk.' },
+              { handle: 'm1', why: 'not learning' },
+            ],
+          },
+        ],
         outline: [
           { week: 1, focus: 'Arrive' },
           { week: 99, focus: 'nope' },
@@ -122,32 +134,84 @@ describe('planner', () => {
       req,
       'gpt-test',
     );
-    expect(p.practice?.items.map((i) => i.id)).toEqual(['aaa']);
-    expect(p.practice?.daysOfWeek).toEqual([1, 3]);
-    expect(p.practice?.preferredTime).toBe('07:00'); // invalid time falls back to the chosen time of day
-    expect(p.learning?.items.map((i) => i.id)).toEqual(['bbb', 'ccc']);
+    const practice = p.stages.find((st) => st.focus === 'practice');
+    const learning = p.stages.find((st) => st.focus === 'learning');
+    expect(practice?.items.map((i) => i.id)).toEqual(['aaa']);
+    expect(practice?.daysOfWeek).toEqual([1, 3]);
+    expect(practice?.preferredTime).toBe('07:00'); // invalid time falls back to the chosen time of day
+    expect(learning?.items.map((i) => i.id)).toEqual(['bbb', 'ccc']);
+    expect(learning?.weeks).toBe(4); // a chosen length is fixed; stages are cut to fit it
     expect(p.outline).toEqual([{ week: 1, focus: 'Arrive' }]);
   });
 
-  it('a track the person did not ask for stays empty whatever the model says', () => {
+  it('lays stages out one after another, and a planner-chosen length grows to fit them', () => {
+    const stage = (focus: string, startWeek: number, weeks: number, handle: string) => ({
+      title: handle,
+      focus,
+      startWeek,
+      weeks,
+      daysOfWeek: [1],
+      minutesPerSession: 30,
+      preferredTime: null,
+      items: [{ handle, why: '' }],
+    });
+    const p = resolveProposal(
+      {
+        name: 'Path',
+        weeks: 6,
+        intention: '',
+        summary: '',
+        approach: 'learn-first',
+        stages: [stage('practice', 9, 20, 'm1'), stage('learning', 1, 8, 'm2')],
+        outline: [],
+      },
+      entries,
+      { ...req, weeks: null, untilComplete: true, approach: 'learn-first' },
+      'gpt-test',
+    );
+    expect(p.approach).toBe('learn-first');
+    expect(p.stages.map((st) => [st.focus, st.startWeek, st.weeks])).toEqual([
+      ['learning', 1, 8],
+      ['practice', 9, 20],
+    ]);
+    expect(p.weeks).toBe(28);
+  });
+
+  it('a kind the person did not ask for stays out whatever the model says', () => {
     const p = resolveProposal(
       {
         name: 'x',
+        weeks: 4,
         intention: '',
         summary: '',
-        practice: null,
-        learning: {
-          daysOfWeek: [1],
-          minutesPerSession: 30,
-          preferredTime: null,
-          items: [{ handle: 'm2', why: '' }],
-        },
+        approach: 'together',
+        stages: [
+          {
+            title: 'Study',
+            focus: 'learning',
+            startWeek: 1,
+            weeks: 4,
+            daysOfWeek: [1],
+            minutesPerSession: 30,
+            preferredTime: null,
+            items: [{ handle: 'm2', why: '' }],
+          },
+        ],
         outline: [],
       },
       entries,
       { ...req, learning: null },
       'gpt-test',
     );
-    expect(p.learning).toBeNull();
+    expect(p.stages).toEqual([]);
+  });
+
+  it('asks for the chosen approach, and for the whole path when length is open', () => {
+    const { user } = planPrompt(
+      { ...req, weeks: null, untilComplete: true, approach: 'learn-first' },
+      'catalogue',
+    );
+    expect(user).toContain('Approach "learn-first"');
+    expect(user).toContain('as long as it takes');
   });
 });

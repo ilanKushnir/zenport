@@ -14,6 +14,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AiSettingsDto, ScanStateDto, UserPrefsDto } from '@zenport/shared';
 import { useApi } from '../hooks.ts';
+import { api } from '../api.ts';
+import { useAuth } from '../App.tsx';
 import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Logo, Wordmark } from '../components/Brand.tsx';
 import { Icon, Slider } from '../components/ui.tsx';
@@ -30,6 +32,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [aiSaved, setAiSaved] = useState(false);
   const ai = useApi<AiSettingsDto>('/api/ai/settings');
+  const { user, refresh } = useAuth();
   const scan = useApi<ScanStateDto>('/api/library/scan-state');
 
   const steps = [
@@ -39,6 +42,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     { key: 'sit', art: <Scene name="breathe" breathe /> },
     { key: 'rhythm', art: <Scene name="rhythm" /> },
     { key: 'ai', art: <Scene name="ai" /> },
+    { key: 'friends', art: <Scene name="friends" /> },
     { key: 'feel', art: <Scene name="feel" /> },
     { key: 'ready', art: <Scene name="ready" /> },
   ];
@@ -236,7 +240,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   order.
                 </p>
                 <div className="ob-field">
-                  {aiSaved || ai.data?.configured ? (
+                  {ai.data?.sharedBy && !ai.data.configured ? (
+                    <p className="ob-note ob-ok">
+                      <Icon name="check" size={15} /> Ready - {ai.data.sharedBy} shares their key
+                      here. Find it under Plans → Plan with AI.
+                    </p>
+                  ) : aiSaved || ai.data?.configured ? (
                     <p className="ob-note ob-ok">
                       <Icon name="check" size={15} /> Your key is set. Find it under Plans → Plan
                       with AI.
@@ -250,6 +259,45 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             )}
 
             {step === 6 && (
+              <>
+                <h1 id="ob-title">Practise together</h1>
+                <p className="ob-lede">
+                  Friends see each other&apos;s day: a ring once you have sat, a bow for a good sit,
+                  a gentle nudge, an invitation to sit with the same recording.
+                </p>
+                <div className="ob-field">
+                  <label>What friends see</label>
+                  <div className="chip-row">
+                    {(
+                      [
+                        ['full', 'Everything'],
+                        ['summary', 'Just the numbers'],
+                        ['off', 'Nothing'],
+                      ] as const
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        className="chip"
+                        aria-pressed={(user?.shareLevel ?? 'full') === v}
+                        onClick={() =>
+                          void api
+                            .patch('/api/auth/me', { shareLevel: v })
+                            .then(refresh)
+                            .catch(() => {})
+                        }
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="ob-note">
+                  Only friends you accept - never anyone else. Find them under Friends.
+                </p>
+              </>
+            )}
+
+            {step === 7 && (
               <>
                 <h1 id="ob-title">Make it yours</h1>
                 <div className="ob-field">
@@ -328,7 +376,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 7 && (
+            {step === 8 && (
               <>
                 <h1 id="ob-title">That's everything</h1>
                 <p className="ob-lede">

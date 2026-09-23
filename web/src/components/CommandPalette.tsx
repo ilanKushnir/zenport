@@ -14,6 +14,7 @@ import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { Icon } from './ui.tsx';
+import { useAuth } from '../App.tsx';
 
 interface Command {
   id: string;
@@ -59,6 +60,7 @@ export function CommandPalette() {
     }
   }, [open]);
 
+  const isAdmin = useAuth().user?.role === 'admin';
   const commands = useMemo<Command[]>(() => {
     const go = (to: string) => () => {
       navigate(to);
@@ -77,7 +79,25 @@ export function CommandPalette() {
       { id: 'plans', label: 'Plans', icon: 'plans', group: 'Go', run: go('/plans') },
       { id: 'journal', label: 'Journal', icon: 'journal', group: 'Go', run: go('/journal') },
       { id: 'stats', label: 'Practice history', icon: 'stats', group: 'Go', run: go('/stats') },
-      { id: 'sources', label: 'Sources', icon: 'sources', group: 'Go', run: go('/sources') },
+      { id: 'friends', label: 'Friends', icon: 'friends', group: 'Go', run: go('/friends') },
+      ...(isAdmin
+        ? [
+            {
+              id: 'sources',
+              label: 'Sources',
+              icon: 'sources',
+              group: 'Go' as const,
+              run: go('/sources'),
+            },
+            {
+              id: 'people',
+              label: 'People',
+              icon: 'user-plus',
+              group: 'Go' as const,
+              run: go('/people'),
+            },
+          ]
+        : []),
       { id: 'settings', label: 'Settings', icon: 'settings', group: 'Go', run: go('/settings') },
       {
         id: 'bell',
@@ -101,16 +121,20 @@ export function CommandPalette() {
           setOpen(false);
         },
       },
-      {
-        id: 'rescan',
-        label: 'Rescan the library',
-        icon: 'history',
-        group: 'Do',
-        run: () => {
-          void api.post('/api/library/rescan').catch(() => {});
-          setOpen(false);
-        },
-      },
+      ...(isAdmin
+        ? [
+            {
+              id: 'rescan',
+              label: 'Rescan the library',
+              icon: 'history',
+              group: 'Do' as const,
+              run: () => {
+                void api.post('/api/library/rescan').catch(() => {});
+                setOpen(false);
+              },
+            },
+          ]
+        : []),
     ];
 
     const meds: Command[] = (lib.data?.items ?? [])
@@ -125,7 +149,7 @@ export function CommandPalette() {
       }));
 
     return [...base, ...meds];
-  }, [lib.data, navigate, prefs.bellEnabled, prefs.calmMotion, save]);
+  }, [lib.data, navigate, prefs.bellEnabled, prefs.calmMotion, save, isAdmin]);
 
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase();

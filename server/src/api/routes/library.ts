@@ -27,7 +27,8 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     return scanning;
   };
 
-  app.post('/api/library/rescan', async () => {
+  app.post('/api/library/rescan', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     void rescan();
     return readScanState(db);
   });

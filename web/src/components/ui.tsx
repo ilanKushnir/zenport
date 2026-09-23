@@ -440,6 +440,44 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   'chevron-down': <path d="m6 9 6 6 6-6" />,
+  friends: (
+    <>
+      <circle cx="9" cy="8.5" r="3.2" />
+      <path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" />
+      <circle cx="16.5" cy="9.5" r="2.6" />
+      <path d="M15.2 14.6c.4-.1.9-.1 1.3-.1 2.3 0 4.1 1.5 4.6 4.3" />
+    </>
+  ),
+  'user-plus': (
+    <>
+      <circle cx="10" cy="8.5" r="3.4" />
+      <path d="M3.5 19.5c.6-3.3 3.1-5.2 6.5-5.2 1.3 0 2.5.3 3.5.8M18.5 13v6M15.5 16h6" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2" />
+      <path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" />
+    </>
+  ),
+  share: (
+    <>
+      <path d="M12 3.5v11M8 7.5l4-4 4 4" />
+      <path d="M6 11.5H5a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 5 20.5h14a1.5 1.5 0 0 0 1.5-1.5v-6A1.5 1.5 0 0 0 19 11.5h-1" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="3.8" />
+      <path d="M10.8 12.3 19.5 3.5M16 7l2.5 2.5M13.8 9.2l2 2" />
+    </>
+  ),
   restart: (
     <>
       <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9" />
@@ -616,5 +654,49 @@ export function Slider({
         <div className="slider-thumb" />
       </div>
     </div>
+  );
+}
+
+const HUES = [12, 32, 280, 300, 330, 200, 160, 250];
+
+/**
+ * A person: their emoji if they chose one, otherwise initials on a soft tint
+ * picked from their id. `ring` draws today's state around it - practised
+ * (accent ring) or sitting right now (a slow breathing ring).
+ */
+export function Avatar({
+  name,
+  avatar,
+  id,
+  size = 40,
+  ring = null,
+}: {
+  name: string;
+  avatar: string | null;
+  id: number;
+  size?: number;
+  ring?: 'done' | 'live' | 'open' | null;
+}) {
+  const initials =
+    name
+      .split(/\s+/)
+      .map((w) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || '?';
+  const hue = HUES[Math.abs(id) % HUES.length];
+  return (
+    <span
+      className={`avatar${ring ? ` ring-${ring}` : ''}`}
+      style={
+        {
+          '--av': `${size}px`,
+          '--av-hue': hue,
+        } as React.CSSProperties
+      }
+      aria-hidden="true"
+    >
+      <span className="avatar-face">{avatar ?? initials}</span>
+    </span>
   );
 }

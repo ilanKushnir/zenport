@@ -10,7 +10,16 @@
 import { useEffect, useState } from 'react';
 
 export type SceneKey =
-  'welcome' | 'library' | 'kinds' | 'sit' | 'breathe' | 'rhythm' | 'ai' | 'feel' | 'ready';
+  | 'welcome'
+  | 'library'
+  | 'kinds'
+  | 'sit'
+  | 'breathe'
+  | 'rhythm'
+  | 'ai'
+  | 'friends'
+  | 'feel'
+  | 'ready';
 
 export function Scene({ name, breathe = false }: { name: SceneKey; breathe?: boolean }) {
   return (

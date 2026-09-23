@@ -15,7 +15,7 @@
  * Missed days are information, not debt: nothing here is red, and "Done
  * anyway" is always on offer.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type {
   LibraryDto,
@@ -174,6 +174,16 @@ export function PlansPage() {
   if (plans.error) return <ErrorNote message={plans.error} onRetry={reloadAll} />;
 
   const activePlans = (plans.data ?? []).filter((p) => p.status === 'active');
+  // Plans made as one AI path travel together, in step order; the rest stand alone.
+  const paths = new Map<string, PlanDto[]>();
+  for (const p of activePlans) {
+    if (!p.path) continue;
+    const list = paths.get(p.path.name) ?? [];
+    list.push(p);
+    paths.set(p.path.name, list);
+  }
+  for (const list of paths.values()) list.sort((a, b) => a.path!.step - b.path!.step);
+  const singlePlans = activePlans.filter((p) => !p.path);
   const restingPlans = (plans.data ?? []).filter((p) => p.status !== 'active');
 
   return (
@@ -222,18 +232,39 @@ export function PlansPage() {
               <div className="section-head">
                 <h2 id="sec-active">In motion</h2>
               </div>
-              <div className="plan-grid">
-                {activePlans.map((p) => (
-                  <PlanCard
-                    key={p.id}
-                    plan={p}
-                    stats={summary.get(p.id) ?? { done: 0, total: 0, next: null }}
-                    byId={byId}
-                    today={today}
-                    onEdit={() => setEditing(p)}
-                  />
-                ))}
-              </div>
+              {[...paths.entries()].map(([pathName, stages]) => (
+                <PathBlock
+                  key={pathName}
+                  name={pathName}
+                  stages={stages}
+                  today={today}
+                  render={(p) => (
+                    <PlanCard
+                      key={p.id}
+                      plan={p}
+                      stats={summary.get(p.id) ?? { done: 0, total: 0, next: null }}
+                      byId={byId}
+                      today={today}
+                      onEdit={() => setEditing(p)}
+                    />
+                  )}
+                  onEdit={setEditing}
+                />
+              ))}
+              {singlePlans.length > 0 && (
+                <div className="plan-grid">
+                  {singlePlans.map((p) => (
+                    <PlanCard
+                      key={p.id}
+                      plan={p}
+                      stats={summary.get(p.id) ?? { done: 0, total: 0, next: null }}
+                      byId={byId}
+                      today={today}
+                      onEdit={() => setEditing(p)}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
@@ -365,6 +396,76 @@ function CadencePips({ days, today }: { days: number[]; today: string }) {
         </span>
       ))}
     </span>
+  );
+}
+
+/**
+ * An AI path: its stages in order as a stepper, with the stages under way
+ * shown as full plan cards and the ones still ahead as a quiet line each.
+ */
+function PathBlock({
+  name,
+  stages,
+  today,
+  render,
+  onEdit,
+}: {
+  name: string;
+  stages: PlanDto[];
+  today: string;
+  render: (p: PlanDto) => ReactNode;
+  onEdit: (p: PlanDto) => void;
+}) {
+  const state = (p: PlanDto) =>
+    p.endDate && p.endDate < today ? 'done' : p.startDate > today ? 'ahead' : 'now';
+  const current = stages.filter((p) => state(p) === 'now');
+  const ahead = stages.filter((p) => state(p) === 'ahead');
+  const fmt = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return (
+    <div className="path-block">
+      <div className="path-head">
+        <span className="path-kicker">
+          <Icon name="sparkle" size={13} /> Path
+        </span>
+        <h3>{name}</h3>
+      </div>
+      <ol className="path-steps" aria-label={`${name}: stages`}>
+        {stages.map((p) => (
+          <li key={p.id} className={`path-step ${state(p)}`}>
+            <span className="path-dot" aria-hidden="true">
+              {state(p) === 'done' ? <Icon name="check" size={11} /> : p.path!.step}
+            </span>
+            <span className="path-step-t">{p.name.replace(`${name} · `, '')}</span>
+            <span className="path-step-d">{state(p) === 'now' ? 'Now' : fmt(p.startDate)}</span>
+          </li>
+        ))}
+      </ol>
+      {current.length > 0 && <div className="plan-grid">{current.map(render)}</div>}
+      {ahead.length > 0 && (
+        <div className="rowlist path-ahead">
+          {ahead.map((p) => (
+            <div className="row" key={p.id}>
+              <span
+                className={`plan-focus ${p.focus === 'learning' ? 't-course' : 't-meditation'}`}
+              >
+                <Icon name={p.focus === 'learning' ? 'book' : 'lotus'} size={12} />
+              </span>
+              <div className="grow">
+                <div>{p.name.replace(`${name} · `, '')}</div>
+                <div className="sub">
+                  Starts {fmt(p.startDate)}
+                  {p.endDate ? ` · until ${fmt(p.endDate)}` : ''} · {cadenceLabel(p)}
+                </div>
+              </div>
+              <button className="btn btn-sm btn-quiet" onClick={() => onEdit(p)}>
+                Edit
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

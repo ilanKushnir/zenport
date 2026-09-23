@@ -72,24 +72,36 @@ function fakeOpenAi(): OpenAiClient {
         name: 'Four weeks of mornings',
         intention: 'Arrive before the day does.',
         summary: 'Practice most mornings, learn twice a week.',
-        practice: {
-          daysOfWeek: [1, 2, 3, 4, 5],
-          minutesPerSession: 20,
-          preferredTime: null,
-          items: [
-            { handle: handle('Morning Ritual'), why: 'Begin here.' },
-            { handle: 'm404', why: 'invented' },
-          ],
-        },
-        learning: {
-          daysOfWeek: [2, 4],
-          minutesPerSession: 45,
-          preferredTime: null,
-          items: [
-            { handle: handle('The Long Road'), why: 'Foundations.' },
-            { handle: handle('Evening Gathering'), why: 'Then the talk.' },
-          ],
-        },
+        weeks: 4,
+        approach: 'together',
+        stages: [
+          {
+            title: 'Mornings',
+            focus: 'practice',
+            startWeek: 1,
+            weeks: 4,
+            daysOfWeek: [1, 2, 3, 4, 5],
+            minutesPerSession: 20,
+            preferredTime: null,
+            items: [
+              { handle: handle('Morning Ritual'), why: 'Begin here.' },
+              { handle: 'm404', why: 'invented' },
+            ],
+          },
+          {
+            title: 'Foundations',
+            focus: 'learning',
+            startWeek: 1,
+            weeks: 4,
+            daysOfWeek: [2, 4],
+            minutesPerSession: 45,
+            preferredTime: null,
+            items: [
+              { handle: handle('The Long Road'), why: 'Foundations.' },
+              { handle: handle('Evening Gathering'), why: 'Then the talk.' },
+            ],
+          },
+        ],
         outline: [{ week: 1, focus: 'Settle in' }],
       };
     },
@@ -750,14 +762,16 @@ describe('content types, lessons and AI planning', () => {
     });
     expect(plan.statusCode).toBe(200);
     const p = plan.json();
-    expect(p.practice.items.map((i: { item: { title: string } }) => i.item.title)).toEqual([
+    const practice = p.stages.find((st: { focus: string }) => st.focus === 'practice');
+    const learning = p.stages.find((st: { focus: string }) => st.focus === 'learning');
+    expect(practice.items.map((i: { item: { title: string } }) => i.item.title)).toEqual([
       'Morning Ritual',
     ]);
-    expect(p.learning.items.map((i: { item: { title: string } }) => i.item.title)).toEqual([
+    expect(learning.items.map((i: { item: { title: string } }) => i.item.title)).toEqual([
       'The Long Road',
       'Evening Gathering',
     ]);
-    expect(p.practice.preferredTime).toBe('07:00');
+    expect(practice.preferredTime).toBe('07:00');
     expect(lastPrompt).toContain('Practice: 5 days a week, about 20 minutes each.');
     expect(lastPrompt).not.toMatch(/[0-9a-f]{20}/); // real ids never leave the server
 
@@ -769,13 +783,317 @@ describe('content types, lessons and AI planning', () => {
       payload: {
         name: p.name,
         startDate: '2026-10-01',
-        daysOfWeek: p.learning.daysOfWeek,
+        daysOfWeek: learning.daysOfWeek,
         focus: 'learning',
-        meditationIds: p.learning.items.map((i: { id: string }) => i.id),
+        meditationIds: learning.items.map((i: { id: string }) => i.id),
+        path: { name: p.name, step: 2 },
       },
     });
     expect(created.statusCode).toBe(200);
     const plans = (await app.inject({ method: 'GET', url: '/api/plans', headers: auth() })).json();
-    expect(plans[0]).toMatchObject({ focus: 'learning' });
+    expect(plans[0]).toMatchObject({ focus: 'learning', path: { name: p.name, step: 2 } });
+  });
+});
+
+describe('people: invitations, roles and friends', () => {
+  type Who = { cookie: string; id: number };
+  const as = (w: Who) => ({ cookie: `zp_session=${w.cookie}`, ...CSRF });
+  const sessionFrom = (res: { cookies: { name: string; value: string }[] }) =>
+    res.cookies.find((c) => c.name === 'zp_session')?.value ?? '';
+
+  /** Admin invites; the invited person joins through the public link. */
+  async function invite(admin: Who, username: string, opts: Record<string, unknown> = {}) {
+    const made = await app.inject({
+      method: 'POST',
+      url: '/api/invites',
+      headers: as(admin),
+      payload: { note: `For ${username}`, ...opts },
+    });
+    expect(made.statusCode).toBe(200);
+    const { token } = made.json() as { token: string };
+    const info = await app.inject({ method: 'GET', url: `/api/join/${token}` });
+    expect(info.statusCode).toBe(200);
+    expect(info.json()).toMatchObject({
+      kind: 'join',
+      note: `For ${username}`,
+      invitedBy: 'astra',
+    });
+    const joined = await app.inject({
+      method: 'POST',
+      url: `/api/join/${token}`,
+      headers: CSRF,
+      payload: {
+        username,
+        password: `${username}-password-123`,
+        displayName: username.toUpperCase(),
+      },
+    });
+    expect(joined.statusCode).toBe(200);
+    const cookie = sessionFrom(joined);
+    const me = (
+      await app.inject({
+        method: 'GET',
+        url: '/api/auth/me',
+        headers: { cookie: `zp_session=${cookie}` },
+      })
+    ).json();
+    return { who: { cookie, id: me.id } as Who, token, me };
+  }
+
+  async function admin(): Promise<Who> {
+    await setupAndLogin();
+    const me = (await app.inject({ method: 'GET', url: '/api/auth/me', headers: auth() })).json();
+    return { cookie, id: me.id };
+  }
+
+  async function sit(w: Who, minutes: number) {
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: as(w) })).json();
+    const started = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/practice/start',
+        headers: as(w),
+        payload: { meditationId: lib.items[0].id },
+      })
+    ).json();
+    await app.inject({
+      method: 'POST',
+      url: `/api/practice/${started.id}/finish`,
+      headers: as(w),
+      payload: { status: 'completed', reason: 'finished' },
+    });
+    // Beats are capped by wall-clock time; a test sit states its minutes directly.
+    db.prepare('UPDATE practice_sessions SET listened_sec = ? WHERE id = ?').run(
+      minutes * 60,
+      started.id,
+    );
+    return started.id as number;
+  }
+
+  it('an invitation works once, makes a member, and can make friends on the way in', async () => {
+    const a = await admin();
+    const { who: dana, token, me } = await invite(a, 'dana');
+    expect(me).toMatchObject({ username: 'dana', role: 'member', displayName: 'DANA' });
+
+    const again = await app.inject({
+      method: 'POST',
+      url: `/api/join/${token}`,
+      headers: CSRF,
+      payload: { username: 'dana2', password: 'another-password-1' },
+    });
+    expect(again.statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: `/api/join/${token}` })).statusCode).toBe(404);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/join/not-a-real-token-xx' })).statusCode,
+    ).toBe(404);
+
+    const friends = (
+      await app.inject({ method: 'GET', url: '/api/friends', headers: as(dana) })
+    ).json();
+    expect(friends.friends.map((f: { name: string }) => f.name)).toEqual(['astra']);
+
+    const list = (await app.inject({ method: 'GET', url: '/api/invites', headers: as(a) })).json();
+    expect(list[0]).toMatchObject({ status: 'used', usedBy: 'DANA' });
+    // Only the hash is stored.
+    const stored = db.prepare('SELECT token_hash FROM invites').all() as { token_hash: string }[];
+    expect(stored.some((r) => r.token_hash === token)).toBe(false);
+  });
+
+  it('a revoked or expired invitation opens nothing', async () => {
+    const a = await admin();
+    const made = (
+      await app.inject({ method: 'POST', url: '/api/invites', headers: as(a), payload: {} })
+    ).json();
+    await app.inject({ method: 'DELETE', url: `/api/invites/${made.invite.id}`, headers: as(a) });
+    expect((await app.inject({ method: 'GET', url: `/api/join/${made.token}` })).statusCode).toBe(
+      404,
+    );
+    const old = (
+      await app.inject({ method: 'POST', url: '/api/invites', headers: as(a), payload: {} })
+    ).json();
+    db.prepare('UPDATE invites SET expires_at = ? WHERE id = ?').run(
+      '2000-01-01T00:00:00Z',
+      old.invite.id,
+    );
+    expect((await app.inject({ method: 'GET', url: `/api/join/${old.token}` })).statusCode).toBe(
+      404,
+    );
+  });
+
+  it('members practise, plan and befriend - but do not manage the library or people', async () => {
+    const a = await admin();
+    const { who: m } = await invite(a, 'dana');
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: as(m) })).json();
+    const itemId = lib.items[0].id;
+    const forbidden = [
+      ['POST', '/api/library/rescan', {}],
+      ['PUT', '/api/library/exclusions', { excluded: [] }],
+      ['PUT', `/api/items/${itemId}/type`, { type: 'course' }],
+      ['POST', '/api/invites', {}],
+      ['GET', '/api/users', undefined],
+      ['PATCH', `/api/users/${a.id}`, { role: 'member' }],
+      ['POST', `/api/users/${a.id}/reset-link`, {}],
+      ['POST', '/api/youtube/sources', { url: 'https://youtu.be/dQw4w9WgXcQ' }],
+      ['PUT', '/api/ai/sharing', { enabled: true }],
+    ] as const;
+    for (const [method, url, payload] of forbidden) {
+      const res = await app.inject({ method, url, headers: as(m), payload });
+      expect(`${method} ${url} ${res.statusCode}`).toBe(`${method} ${url} 403`);
+    }
+    const plan = await app.inject({
+      method: 'POST',
+      url: '/api/plans',
+      headers: as(m),
+      payload: { name: 'Mine', startDate: '2026-10-01', meditationIds: [itemId] },
+    });
+    expect(plan.statusCode).toBe(200);
+    expect(await sit(m, 12)).toBeGreaterThan(0);
+  });
+
+  it('there is always an admin, and a reset link signs the old sessions out', async () => {
+    const a = await admin();
+    const { who: m } = await invite(a, 'dana');
+    const selfDemote = await app.inject({
+      method: 'PATCH',
+      url: `/api/users/${a.id}`,
+      headers: as(a),
+      payload: { role: 'member' },
+    });
+    expect(selfDemote.statusCode).toBe(400);
+
+    const link = (
+      await app.inject({ method: 'POST', url: `/api/users/${m.id}/reset-link`, headers: as(a) })
+    ).json();
+    const info = (await app.inject({ method: 'GET', url: `/api/join/${link.token}` })).json();
+    expect(info).toMatchObject({ kind: 'reset', username: 'dana' });
+    const reset = await app.inject({
+      method: 'POST',
+      url: `/api/join/${link.token}`,
+      headers: CSRF,
+      payload: { password: 'a-brand-new-password' },
+    });
+    expect(reset.statusCode).toBe(200);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/auth/me', headers: as(m) })).statusCode,
+    ).toBe(401);
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: CSRF,
+      payload: { username: 'dana', password: 'a-brand-new-password' },
+    });
+    expect(login.statusCode).toBe(200);
+  });
+
+  it('friends: request, accept, see each other as shared, bow and nudge', async () => {
+    const a = await admin();
+    const { who: dana } = await invite(a, 'dana', { befriend: false });
+    const { who: noa } = await invite(a, 'noa', { befriend: false });
+
+    const people = (
+      await app.inject({ method: 'GET', url: '/api/people', headers: as(noa) })
+    ).json();
+    expect(people.map((p: { username: string }) => p.username).sort()).toEqual(['astra', 'dana']);
+
+    await app.inject({ method: 'POST', url: `/api/friends/${dana.id}`, headers: as(noa) });
+    const inbox = (
+      await app.inject({ method: 'GET', url: '/api/inbox', headers: as(dana) })
+    ).json();
+    expect(inbox.requests.map((p: { username: string }) => p.username)).toEqual(['noa']);
+    // Not friends yet: nothing to see, nothing to send.
+    expect(
+      (await app.inject({ method: 'GET', url: `/api/friends/${noa.id}`, headers: as(dana) }))
+        .statusCode,
+    ).toBe(404);
+    await app.inject({ method: 'POST', url: `/api/friends/${noa.id}/accept`, headers: as(dana) });
+
+    const sessionId = await sit(dana, 15);
+    await sit(noa, 10);
+    const board = (
+      await app.inject({ method: 'GET', url: '/api/friends', headers: as(noa) })
+    ).json();
+    const d = board.friends.find((f: { username: string }) => f.username === 'dana');
+    expect(d).toMatchObject({ streak: 1, together: 1, today: { minutes: 15 } });
+    expect(d.last).toMatchObject({ sessionId, title: 'Morning Ritual' });
+
+    const bow = await app.inject({
+      method: 'POST',
+      url: '/api/cheers',
+      headers: as(noa),
+      payload: { to: dana.id, kind: 'bow', sessionId },
+    });
+    expect(bow.statusCode).toBe(200);
+    const nudge = { to: dana.id, kind: 'nudge', message: 'Sit with me tonight?' };
+    expect(
+      (await app.inject({ method: 'POST', url: '/api/cheers', headers: as(noa), payload: nudge }))
+        .statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ method: 'POST', url: '/api/cheers', headers: as(noa), payload: nudge }))
+        .statusCode,
+    ).toBe(429);
+    const got = (await app.inject({ method: 'GET', url: '/api/inbox', headers: as(dana) })).json();
+    expect(got.cheers.map((c: { kind: string }) => c.kind).sort()).toEqual(['bow', 'nudge']);
+    expect(got.unseen).toBe(2);
+    await app.inject({ method: 'POST', url: '/api/inbox/seen', headers: as(dana) });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/inbox', headers: as(dana) })).json().unseen,
+    ).toBe(0);
+
+    // Summary sharing: numbers, never titles; off: nothing.
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/me',
+      headers: as(dana),
+      payload: { shareLevel: 'summary' },
+    });
+    const summary = (
+      await app.inject({ method: 'GET', url: `/api/friends/${dana.id}`, headers: as(noa) })
+    ).json();
+    expect(summary.friend.today.minutes).toBe(15);
+    expect(summary.friend.last).toBeNull();
+    expect(summary.recent).toEqual([]);
+    expect(JSON.stringify(summary)).not.toContain('Morning Ritual');
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/me',
+      headers: as(dana),
+      payload: { shareLevel: 'off' },
+    });
+    const off = (
+      await app.inject({ method: 'GET', url: `/api/friends/${dana.id}`, headers: as(noa) })
+    ).json();
+    expect(off.friend).toMatchObject({ today: null, streak: null });
+    expect(off.days).toEqual([]);
+
+    // Either side can end it.
+    await app.inject({ method: 'DELETE', url: `/api/friends/${noa.id}`, headers: as(dana) });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/friends', headers: as(noa) })).json().friends,
+    ).toHaveLength(0);
+  });
+
+  it('the owner can let everyone plan with their AI key, without anyone seeing it', async () => {
+    const a = await admin();
+    const { who: m } = await invite(a, 'dana');
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: as(a),
+      payload: { apiKey: 'sk-good-1111111111111111abcd' },
+    });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/ai/settings', headers: as(m) })).json()
+        .sharedBy,
+    ).toBeNull();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/sharing',
+      headers: as(a),
+      payload: { enabled: true },
+    });
+    const seen = await app.inject({ method: 'GET', url: '/api/ai/settings', headers: as(m) });
+    expect(seen.json()).toMatchObject({ configured: false, sharedBy: 'astra' });
+    expect(seen.body).not.toContain('abcd');
   });
 });

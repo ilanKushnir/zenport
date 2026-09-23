@@ -23,7 +23,11 @@ import { MORE_LINKS, MoreSheet } from './components/MoreSheet.tsx';
 import { UpdateWatcher } from './updater.tsx';
 import { FoldersPage } from './pages/FoldersPage.tsx';
 import { SeriesPage } from './pages/SeriesPage.tsx';
-import { LoginPage, SetupPage } from './pages/AuthPages.tsx';
+import { JoinPage, LoginPage, SetupPage } from './pages/AuthPages.tsx';
+import { FriendsPage } from './pages/FriendsPage.tsx';
+import { FriendPage } from './pages/FriendPage.tsx';
+import { PeoplePage } from './pages/PeoplePage.tsx';
+import { InboxProvider, useInbox } from './social.tsx';
 import { TodayPage } from './pages/TodayPage.tsx';
 import { LibraryPage } from './pages/LibraryPage.tsx';
 import { TimerPage } from './pages/TimerPage.tsx';
@@ -50,15 +54,28 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
-const NAV = [
+interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+  end?: boolean;
+  /** Only admins see it (the server enforces the same). */
+  admin?: boolean;
+  /** Carries the friends inbox badge. */
+  badge?: boolean;
+}
+
+const NAV: NavItem[] = [
   { to: '/', label: 'Today', icon: 'sun', end: true },
   { to: '/library', label: 'Library', icon: 'library', end: true },
   { to: '/breathe', label: 'Breathe', icon: 'breath' },
   { to: '/plans', label: 'Plans', icon: 'plans' },
+  { to: '/friends', label: 'Friends', icon: 'friends', badge: true },
   { to: '/journal', label: 'Journal', icon: 'journal' },
   { to: '/stats', label: 'Practice', icon: 'stats' },
-  { to: '/library/folders', label: 'Folders', icon: 'folder' },
-  { to: '/sources', label: 'Sources', icon: 'sources' },
+  { to: '/library/folders', label: 'Folders', icon: 'folder', admin: true },
+  { to: '/sources', label: 'Sources', icon: 'sources', admin: true },
+  { to: '/people', label: 'People', icon: 'user-plus', admin: true },
   { to: '/integrations', label: 'Integrations', icon: 'plug' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ];
@@ -66,8 +83,8 @@ const NAV = [
 /** The sidebar, in three quiet groups rather than one long list. */
 const NAV_GROUPS = [
   { label: 'Practice', items: NAV.slice(0, 4) },
-  { label: 'Reflect', items: NAV.slice(4, 6) },
-  { label: 'Manage', items: NAV.slice(6) },
+  { label: 'Together', items: NAV.slice(4, 7) },
+  { label: 'Manage', items: NAV.slice(7) },
 ];
 
 /**
@@ -100,6 +117,10 @@ function StartPageRedirect() {
 
 function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const { user } = useAuth();
+  const { inbox } = useInbox();
+  const unseen = inbox?.unseen ?? 0;
+  const isAdmin = user?.role === 'admin';
   const [moreOpen, setMoreOpen] = useState(false);
   const onMorePage = MORE_LINKS.some((l) => location.pathname.startsWith(l.to));
   useEffect(() => {
@@ -132,14 +153,21 @@ function Shell({ children }: { children: ReactNode }) {
             {NAV_GROUPS.map((g) => (
               <div className="nav-group" key={g.label}>
                 <div className="nav-label">{g.label}</div>
-                {g.items.map((n) => (
-                  <NavLink key={n.to} to={n.to} end={n.end}>
-                    <span className="nav-tile">
-                      <Icon name={n.icon} size={17} />
-                    </span>
-                    {n.label}
-                  </NavLink>
-                ))}
+                {g.items
+                  .filter((n) => !n.admin || isAdmin)
+                  .map((n) => (
+                    <NavLink key={n.to} to={n.to} end={n.end}>
+                      <span className="nav-tile">
+                        <Icon name={n.icon} size={17} />
+                      </span>
+                      {n.label}
+                      {n.badge && unseen > 0 && (
+                        <span className="nav-badge" aria-label={`${unseen} new`}>
+                          {unseen}
+                        </span>
+                      )}
+                    </NavLink>
+                  ))}
               </div>
             ))}
           </nav>
@@ -171,6 +199,7 @@ function Shell({ children }: { children: ReactNode }) {
         >
           <Icon name="grid" />
           More
+          {unseen > 0 && <span className="tab-dot" aria-label={`${unseen} new from friends`} />}
         </button>
       </nav>
       {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
@@ -202,25 +231,30 @@ function SignedInApp() {
     <BrowserRouter>
       <StartPageRedirect />
       <PlayerProvider>
-        <Shell>
-          <Routes>
-            <Route path="/" element={<TodayPage />} />
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/library/folders" element={<FoldersPage />} />
-            <Route path="/series/:creator/:name" element={<SeriesPage />} />
-            <Route path="/breathe" element={<TimerPage />} />
-            <Route path="/timer" element={<Navigate to="/breathe" replace />} />
-            <Route path="/creators/:name" element={<CreatorPage />} />
-            <Route path="/m/:id" element={<ItemPage />} />
-            <Route path="/plans" element={<PlansPage />} />
-            <Route path="/stats" element={<StatsPage />} />
-            <Route path="/journal" element={<JournalPage />} />
-            <Route path="/sources" element={<SourcesPage />} />
-            <Route path="/integrations" element={<IntegrationsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Shell>
+        <InboxProvider>
+          <Shell>
+            <Routes>
+              <Route path="/" element={<TodayPage />} />
+              <Route path="/library" element={<LibraryPage />} />
+              <Route path="/library/folders" element={<FoldersPage />} />
+              <Route path="/series/:creator/:name" element={<SeriesPage />} />
+              <Route path="/breathe" element={<TimerPage />} />
+              <Route path="/timer" element={<Navigate to="/breathe" replace />} />
+              <Route path="/creators/:name" element={<CreatorPage />} />
+              <Route path="/m/:id" element={<ItemPage />} />
+              <Route path="/plans" element={<PlansPage />} />
+              <Route path="/stats" element={<StatsPage />} />
+              <Route path="/journal" element={<JournalPage />} />
+              <Route path="/sources" element={<SourcesPage />} />
+              <Route path="/integrations" element={<IntegrationsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/friends" element={<FriendsPage />} />
+              <Route path="/friends/:id" element={<FriendPage />} />
+              <Route path="/people" element={<PeoplePage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Shell>
+        </InboxProvider>
       </PlayerProvider>
     </BrowserRouter>
   );
@@ -264,6 +298,21 @@ export default function App() {
   };
 
   if (phase === 'checking') return <Splash />;
+
+  // An invitation link wins over everything else on this load.
+  const joinToken = /^\/join\/([A-Za-z0-9_-]+)\/?$/.exec(window.location.pathname)?.[1];
+  if (joinToken && phase !== 'setup') {
+    return (
+      <AuthContext.Provider value={{ user, refresh, signOut }}>
+        <JoinPage
+          token={joinToken}
+          signedInAs={phase === 'in' ? (user?.displayName ?? user?.username ?? null) : null}
+          onSignOut={() => void signOut()}
+          onDone={() => void refresh()}
+        />
+      </AuthContext.Provider>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, refresh, signOut }}>

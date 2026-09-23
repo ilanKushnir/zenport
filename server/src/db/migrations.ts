@@ -429,6 +429,66 @@ const MIGRATIONS: string[] = [
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
   );
   `,
+
+  // v8: people. Invitations instead of open signup (single-use links, stored
+  // only as a hash), a name and avatar to show friends, how much each person
+  // shares with friends, friendships (one row per pair: the asker first),
+  // cheers (a bow on a session, or a nudge), plans grouped into an AI path,
+  // and instance settings such as sharing the owner's AI key.
+  `
+  ALTER TABLE users ADD COLUMN display_name TEXT;
+  ALTER TABLE users ADD COLUMN avatar TEXT;
+  ALTER TABLE users ADD COLUMN share_level TEXT NOT NULL DEFAULT 'full';
+
+  ALTER TABLE plans ADD COLUMN path_name TEXT;
+  ALTER TABLE plans ADD COLUMN path_step INTEGER;
+
+  CREATE TABLE invites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL DEFAULT 'join',
+    note TEXT,
+    role TEXT NOT NULL DEFAULT 'member',
+    befriend INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    for_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    revoked_at TEXT
+  );
+
+  CREATE TABLE friendships (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    friend_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    accepted_at TEXT,
+    PRIMARY KEY (user_id, friend_id),
+    CHECK (user_id != friend_id)
+  );
+  CREATE INDEX idx_friendships_friend ON friendships(friend_id);
+
+  CREATE TABLE cheers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id INTEGER REFERENCES practice_sessions(id) ON DELETE CASCADE,
+    item_id TEXT,
+    kind TEXT NOT NULL,
+    message TEXT,
+    created_at TEXT NOT NULL,
+    seen_at TEXT
+  );
+  CREATE INDEX idx_cheers_to ON cheers(to_id, created_at);
+  CREATE UNIQUE INDEX idx_cheers_once ON cheers(from_id, session_id, kind) WHERE session_id IS NOT NULL;
+
+  CREATE TABLE app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

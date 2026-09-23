@@ -9,27 +9,49 @@
 import { NavLink } from 'react-router-dom';
 import { Icon, Sheet } from './ui.tsx';
 import { VersionRow } from '../whatsnew/WhatsNew.tsx';
+import { useAuth } from '../App.tsx';
+import { useInbox } from '../social.tsx';
 
-export const MORE_LINKS = [
+export const MORE_LINKS: {
+  to: string;
+  label: string;
+  icon: string;
+  hint: string;
+  admin?: boolean;
+}[] = [
+  { to: '/friends', label: 'Friends', icon: 'friends', hint: 'Practise together' },
   { to: '/journal', label: 'Journal', icon: 'journal', hint: 'Reflections after each sit' },
   { to: '/stats', label: 'Practice', icon: 'stats', hint: 'Streaks, minutes, patterns' },
-  { to: '/library/folders', label: 'Folders', icon: 'folder', hint: 'Choose what gets scanned' },
-  { to: '/sources', label: 'Sources', icon: 'sources', hint: 'YouTube talks and playlists' },
-  { to: '/integrations', label: 'Integrations', icon: 'plug', hint: 'Calendars and exports' },
   { to: '/settings', label: 'Settings', icon: 'settings', hint: 'Account, look and sound' },
-] as const;
+  { to: '/integrations', label: 'Integrations', icon: 'plug', hint: 'Calendars and exports' },
+  { to: '/people', label: 'People', icon: 'user-plus', hint: 'Invite and manage', admin: true },
+  {
+    to: '/library/folders',
+    label: 'Folders',
+    icon: 'folder',
+    hint: 'Choose what gets scanned',
+    admin: true,
+  },
+  { to: '/sources', label: 'Sources', icon: 'sources', hint: 'YouTube talks', admin: true },
+];
 
 export function MoreSheet({ onClose }: { onClose: () => void }) {
+  const { user } = useAuth();
+  const { inbox } = useInbox();
+  const unseen = inbox?.unseen ?? 0;
   return (
     <Sheet title="More" onClose={onClose} labelId="more-title">
       <nav className="more-grid" aria-label="More pages">
-        {MORE_LINKS.map((l) => (
+        {MORE_LINKS.filter((l) => !l.admin || user?.role === 'admin').map((l) => (
           <NavLink key={l.to} to={l.to} className="more-tile" onClick={onClose}>
             <span className="more-ic">
               <Icon name={l.icon} size={20} />
+              {l.to === '/friends' && unseen > 0 && <span className="tab-dot" />}
             </span>
             <span className="more-label">{l.label}</span>
-            <span className="more-hint">{l.hint}</span>
+            <span className="more-hint">
+              {l.to === '/friends' && unseen > 0 ? `${unseen} new` : l.hint}
+            </span>
           </NavLink>
         ))}
       </nav>

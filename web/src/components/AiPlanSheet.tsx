@@ -11,9 +11,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type {
   AiPlanProposalDto,
   AiPlanRequest,
-  AiPlanTrackDto,
+  AiPlanStageDto,
   AiSettingsDto,
   LibraryDto,
+  PlanApproach,
   PlanLevel,
 } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
@@ -82,6 +83,68 @@ function Stepper({
   );
 }
 
+const APPROACHES: { value: PlanApproach; title: string; hint: string }[] = [
+  {
+    value: 'together',
+    title: 'Side by side',
+    hint: 'Study and practise in the same weeks.',
+  },
+  {
+    value: 'learn-first',
+    title: 'Learn first',
+    hint: 'Courses one by one, from the basics up - then a meditation routine that climbs the levels.',
+  },
+  {
+    value: 'alternate',
+    title: 'Take turns',
+    hint: 'A course, then a few weeks practising what it taught, then the next course.',
+  },
+  {
+    value: 'ai',
+    title: 'You choose',
+    hint: 'The AI picks what suits your intention and your library.',
+  },
+];
+
+/** Tiny diagrams of each approach: learning (book colour) and practice (lotus colour) over time. */
+function ApproachGlyph({ kind }: { kind: PlanApproach }) {
+  const L = 'var(--t-course)';
+  const P = 'var(--t-meditation)';
+  const bar = (x: number, y: number, w: number, c: string) => (
+    <rect x={x} y={y} width={w} height={5} rx={2.5} fill={c} />
+  );
+  return (
+    <svg viewBox="0 0 36 20" width="36" height="20">
+      {kind === 'together' && (
+        <>
+          {bar(1, 3, 34, L)}
+          {bar(1, 12, 34, P)}
+        </>
+      )}
+      {kind === 'learn-first' && (
+        <>
+          {bar(1, 3, 20, L)}
+          {bar(23, 12, 12, P)}
+        </>
+      )}
+      {kind === 'alternate' && (
+        <>
+          {bar(1, 3, 9, L)}
+          {bar(11, 12, 7, P)}
+          {bar(19, 3, 9, L)}
+          {bar(29, 12, 6, P)}
+        </>
+      )}
+      {kind === 'ai' && (
+        <path
+          d="M18 2.5l1.9 4.6 4.6 1.9-4.6 1.9L18 15.5l-1.9-4.6-4.6-1.9 4.6-1.9z"
+          fill="var(--accent)"
+        />
+      )}
+    </svg>
+  );
+}
+
 function Choices<T extends string | number>({
   options,
   value,
@@ -137,8 +200,9 @@ export function AiPlanSheet({
   const [learnWeek, setLearnWeek] = useState(90);
   const [learnDays, setLearnDays] = useState(2);
   const [timeOfDay, setTimeOfDay] = useState<AiPlanRequest['timeOfDay']>('morning');
-  // 0 = let the planner choose the length.
+  // 0 = let the planner choose the length; -1 = as long as the whole path takes.
   const [weeks, setWeeks] = useState(0);
+  const [approach, setApproach] = useState<PlanApproach>('together');
   const [startDate, setStartDate] = useState(iso(new Date()));
   const [creators, setCreators] = useState<string[]>([]);
   const [includeFinished, setIncludeFinished] = useState(false);
@@ -163,7 +227,9 @@ export function AiPlanSheet({
 
   const request: AiPlanRequest = {
     goal,
-    weeks: weeks === 0 ? null : weeks,
+    weeks: weeks <= 0 ? null : weeks,
+    untilComplete: weeks === -1,
+    approach,
     startDate,
     practice: practiceOn ? { daysPerWeek: practiceDays, minutes: practiceMin } : null,
     learning: learningOn ? { minutesPerWeek: learnWeek, daysPerWeek: learnDays } : null,
@@ -192,26 +258,26 @@ export function AiPlanSheet({
     if (!proposal) return;
     setSaving(true);
     setError(null);
-    const endDate = addDays(startDate, proposal.weeks * 7 - 1);
-    const both = Boolean(proposal.practice && proposal.learning);
-    const make = (track: AiPlanTrackDto, focus: 'practice' | 'learning') =>
-      api.post('/api/plans', {
-        name: both
-          ? `${name.trim() || proposal.name} · ${focus === 'learning' ? 'Learning' : 'Practice'}`
-          : name.trim() || proposal.name,
-        intention: proposal.intention || null,
-        startDate,
-        endDate,
-        daysOfWeek: track.daysOfWeek,
-        preferredTime: track.preferredTime,
-        targetMinutes: track.minutesPerSession,
-        notes: `Planned with ${proposal.model}. ${proposal.summary}`.slice(0, 2000),
-        meditationIds: track.items.map((i) => i.id),
-        focus,
-      });
+    const title = name.trim() || proposal.name;
+    const multi = proposal.stages.length > 1;
     try {
-      if (proposal.practice) await make(proposal.practice, 'practice');
-      if (proposal.learning) await make(proposal.learning, 'learning');
+      // One plan per stage, dated into the path; together they carry its name.
+      for (const [n, st] of proposal.stages.entries()) {
+        const start = addDays(startDate, (st.startWeek - 1) * 7);
+        await api.post('/api/plans', {
+          name: multi ? `${title} · ${st.title}` : title,
+          intention: proposal.intention || null,
+          startDate: start,
+          endDate: addDays(start, st.weeks * 7 - 1),
+          daysOfWeek: st.daysOfWeek,
+          preferredTime: st.preferredTime,
+          targetMinutes: st.minutesPerSession,
+          notes: `Planned with ${proposal.model}. ${proposal.summary}`.slice(0, 2000),
+          meditationIds: st.items.map((i) => i.id),
+          focus: st.focus,
+          path: multi ? { name: title, step: n + 1 } : null,
+        });
+      }
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the plans.');
@@ -221,7 +287,7 @@ export function AiPlanSheet({
   };
 
   // No key yet: ask for one here rather than sending people off to Settings.
-  if (settings.data && !settings.data.configured) {
+  if (settings.data && !settings.data.configured && !settings.data.sharedBy) {
     return (
       <Sheet title="Plan with AI" onClose={onClose} labelId="ai-plan">
         <AiKeyForm onSaved={settings.reload} />
@@ -343,6 +409,30 @@ export function AiPlanSheet({
             )}
           </div>
 
+          {practiceOn && learningOn && (
+            <div className="field">
+              <label id="ai-approach-l">How should learning and practice fit together?</label>
+              <div className="ai-approach" role="radiogroup" aria-labelledby="ai-approach-l">
+                {APPROACHES.map((a) => (
+                  <button
+                    key={a.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={approach === a.value}
+                    className={`ai-approach-opt${approach === a.value ? ' on' : ''}`}
+                    onClick={() => setApproach(a.value)}
+                  >
+                    <span className="ai-approach-ic" aria-hidden="true">
+                      <ApproachGlyph kind={a.value} />
+                    </span>
+                    <span className="ai-approach-t">{a.title}</span>
+                    <span className="ai-approach-h">{a.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="field">
             <label>Time of day</label>
             <Choices
@@ -359,11 +449,18 @@ export function AiPlanSheet({
             <label>Plan length</label>
             <Choices
               label="Weeks"
-              options={[0, 2, 4, 8, 12] as const}
+              options={[0, -1, 2, 4, 8, 12] as const}
               value={weeks as 0}
               onChange={setWeeks}
-              render={(v) => (v === 0 ? 'AI decides' : `${v}w`)}
+              render={(v) => (v === 0 ? 'AI decides' : v === -1 ? 'Until done' : `${v}w`)}
             />
+            {weeks <= 0 && (
+              <p className="hint">
+                {weeks === 0
+                  ? 'A sensible first stretch for your goal, chosen by the AI.'
+                  : 'The whole path to your goal - every course and practice it needs - however many weeks that takes.'}
+              </p>
+            )}
           </div>
           <div className="field">
             <label htmlFor="ai-start">Starting</label>
@@ -470,10 +567,15 @@ export function AiPlanSheet({
           />
           <p className="ai-length">
             {proposal.weeks === 1 ? 'One week' : `${proposal.weeks} weeks`}
-            {weeks === 0 ? ', the length the AI chose' : ''}
+            {weeks === 0 ? ', the length the AI chose' : weeks === -1 ? ', start to finish' : ''}
+            {proposal.stages.length > 1 && learningAndPractice(proposal)
+              ? ` · ${APPROACHES.find((a) => a.value === proposal.approach)?.title ?? ''}`
+              : ''}
           </p>
           {proposal.intention && <p className="ai-intention">“{proposal.intention}”</p>}
           <p className="ai-summary">{proposal.summary}</p>
+
+          {proposal.stages.length > 1 && <PathTimeline proposal={proposal} />}
 
           {proposal.outline.length > 0 && (
             <ol className="ai-outline">
@@ -486,8 +588,9 @@ export function AiPlanSheet({
             </ol>
           )}
 
-          {proposal.practice && <TrackPreview track={proposal.practice} focus="practice" />}
-          {proposal.learning && <TrackPreview track={proposal.learning} focus="learning" />}
+          {proposal.stages.map((st, n) => (
+            <StagePreview key={n} stage={st} step={proposal.stages.length > 1 ? n + 1 : null} />
+          ))}
 
           {error && <p className="error-note">{error}</p>}
           <div className="ai-nav">
@@ -501,8 +604,8 @@ export function AiPlanSheet({
               <button className="btn btn-primary" onClick={() => void accept()} disabled={saving}>
                 {saving
                   ? 'Saving…'
-                  : proposal.practice && proposal.learning
-                    ? 'Create both plans'
+                  : proposal.stages.length > 1
+                    ? `Create the path · ${proposal.stages.length} plans`
                     : 'Create the plan'}
               </button>
             </div>
@@ -513,24 +616,64 @@ export function AiPlanSheet({
   );
 }
 
-function TrackPreview({ track, focus }: { track: AiPlanTrackDto; focus: 'practice' | 'learning' }) {
-  const learning = focus === 'learning';
+const learningAndPractice = (p: AiPlanProposalDto) =>
+  p.stages.some((st) => st.focus === 'learning') && p.stages.some((st) => st.focus === 'practice');
+
+const weekSpan = (st: AiPlanStageDto) =>
+  st.weeks === 1 ? `Week ${st.startWeek}` : `Weeks ${st.startWeek}–${st.startWeek + st.weeks - 1}`;
+
+/** The path at a glance: one lane per stage, placed on the weeks it runs. */
+function PathTimeline({ proposal }: { proposal: AiPlanProposalDto }) {
+  const total = Math.max(1, proposal.weeks);
+  return (
+    <div className="ai-timeline" aria-label="The path, week by week">
+      {proposal.stages.map((st, n) => (
+        <div className="ai-lane" key={n}>
+          <span className="ai-lane-label">
+            <Icon name={st.focus === 'learning' ? 'book' : 'lotus'} size={12} />
+            {st.title}
+          </span>
+          <span className="ai-lane-track">
+            <span
+              className={`ai-lane-bar ${st.focus === 'learning' ? 't-course' : 't-meditation'}`}
+              style={{
+                left: `${((st.startWeek - 1) / total) * 100}%`,
+                width: `${Math.max(2, (st.weeks / total) * 100)}%`,
+              }}
+            />
+          </span>
+        </div>
+      ))}
+      <div className="ai-lane-scale" aria-hidden="true">
+        <span>Week 1</span>
+        <span>Week {total}</span>
+      </div>
+    </div>
+  );
+}
+
+function StagePreview({ stage: track, step }: { stage: AiPlanStageDto; step: number | null }) {
+  const learning = track.focus === 'learning';
   return (
     <section className="ai-track">
       <header>
+        {step !== null && <span className="ai-step-n">{step}</span>}
         <span className={`plan-focus ${learning ? 't-course' : 't-meditation'}`}>
           <Icon name={learning ? 'book' : 'lotus'} size={13} />
           {learning ? 'Learning' : 'Practice'}
         </span>
-        <span className="ai-track-meta">
-          {track.daysOfWeek.length === 0 || track.daysOfWeek.length === 7
-            ? 'Every day'
-            : track.daysOfWeek.map((d) => DAYS[d]).join(' · ')}
-          {' · '}
-          {track.minutesPerSession} min
-          {track.preferredTime ? ` · ${track.preferredTime}` : ''}
-        </span>
+        <span className="ai-stage-t">{track.title}</span>
       </header>
+      <p className="ai-track-meta">
+        {weekSpan(track)}
+        {' · '}
+        {track.daysOfWeek.length === 0 || track.daysOfWeek.length === 7
+          ? 'Every day'
+          : track.daysOfWeek.map((d) => DAYS[d]).join(' · ')}
+        {' · '}
+        {track.minutesPerSession} min
+        {track.preferredTime ? ` · ${track.preferredTime}` : ''}
+      </p>
       <ol className="ai-items">
         {track.items.map((it, n) => (
           <li key={it.id}>

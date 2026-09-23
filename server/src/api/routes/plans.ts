@@ -24,6 +24,9 @@ const planSchema = z.object({
   // Ordered: a learning plan follows its items in this order.
   meditationIds: z.array(z.string()).max(400).default([]),
   focus: z.enum(['practice', 'learning']).default('practice'),
+  path: z
+    .object({ name: z.string().min(1).max(120), step: z.number().int().min(1).max(200) })
+    .nullish(),
 });
 
 interface PlanRow {
@@ -40,6 +43,8 @@ interface PlanRow {
   meditation_ids: string;
   created_at: string;
   focus: string;
+  path_name: string | null;
+  path_step: number | null;
 }
 
 function toDto(row: PlanRow): PlanDto {
@@ -56,6 +61,7 @@ function toDto(row: PlanRow): PlanDto {
     status: row.status as PlanDto['status'],
     focus: row.focus === 'learning' ? 'learning' : 'practice',
     meditationIds: JSON.parse(row.meditation_ids),
+    path: row.path_name ? { name: row.path_name, step: row.path_step ?? 1 } : null,
     createdAt: row.created_at,
   };
 }
@@ -85,8 +91,9 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
     const res = db
       .prepare(
         `INSERT INTO plans (user_id, name, intention, start_date, end_date, days_of_week,
-           preferred_time, target_minutes, notes, status, meditation_ids, created_at, focus)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+           preferred_time, target_minutes, notes, status, meditation_ids, created_at, focus,
+           path_name, path_step)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
       )
       .run(
         req.user!.id,
@@ -101,6 +108,8 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
         JSON.stringify(p.meditationIds),
         new Date().toISOString(),
         p.focus,
+        p.path?.name ?? null,
+        p.path?.step ?? null,
       );
     return { id: Number(res.lastInsertRowid) };
   });

@@ -57,6 +57,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
 
   // Classify a pasted URL and, for single videos, try public metadata.
   app.post('/api/youtube/resolve', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     const body = z.object({ url: z.string().max(2000) }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'url required' });
     const cls = classifyYouTubeUrl(body.data.url);
@@ -70,6 +71,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
   });
 
   app.post('/api/youtube/sources', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     const body = metaSchema.extend({ url: z.string().max(2000) }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'invalid source' });
     const cls = classifyYouTubeUrl(body.data.url);
@@ -119,6 +121,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
   });
 
   app.patch('/api/youtube/sources/:id', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     const id = Number((req.params as { id: string }).id);
     const exists = db.prepare('SELECT 1 FROM yt_sources WHERE id = ?').get(id);
     if (!exists) return reply.code(404).send({ error: 'source not found' });
@@ -152,6 +155,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
   });
 
   app.delete('/api/youtube/sources/:id', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     const id = Number((req.params as { id: string }).id);
     const res = db.prepare('DELETE FROM yt_sources WHERE id = ?').run(id);
     if (res.changes === 0) return reply.code(404).send({ error: 'source not found' });
@@ -165,6 +169,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
   // Metadata-only playlist/channel listing via configured yt-dlp. Nothing is
   // downloaded and nothing is saved until the user confirms the preview.
   app.post('/api/youtube/import/preview', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     const body = z.object({ url: z.string().max(2000) }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'url required' });
     if (!ctx.deps.listPlaylist) {
@@ -200,6 +205,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
   });
 
   app.post('/api/youtube/import/commit', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     const body = z
       .object({
         kind: z.enum(['playlist', 'channel']),
