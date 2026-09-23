@@ -85,6 +85,21 @@ html {
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
   overscroll-behavior: none;
+  /* A fixed-size app, like a native one: scrolling yes, pinch and double-tap
+     zoom no (iOS also gets its gesture events cancelled in main.tsx). */
+  touch-action: pan-x pan-y;
+}
+
+/* iOS zooms the whole page into any field whose text is under 16px, and stays
+   zoomed - which is what let the app pan sideways. Never below 16px on touch. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    /* !important: toolbar selects and search fields set smaller sizes with
+       more specific rules, and any one of them is enough to trigger the zoom. */
+    font-size: 16px !important;
+  }
 }
 
 body {

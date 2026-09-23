@@ -96,14 +96,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   Welcome to <Wordmark size={28} className="wm-inline" />
                 </h1>
                 <p className="ob-lede">
-                  A calm home for the meditation recordings you already own. Everything stays on
-                  your server - nothing is uploaded, nothing phones home, and your journal is yours
-                  alone.
+                  A calm home for the recordings you own. Everything stays on your server.
                 </p>
-                <p className="ob-note">
-                  Two minutes here and the app will already be set up the way you like it. You can
-                  change any of it later in Settings.
-                </p>
+                <p className="ob-note">Two minutes to make it yours.</p>
               </>
             )}
 
@@ -112,34 +107,24 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <h1 id="ob-title">Your library, in place</h1>
                 {indexed > 0 ? (
                   <p className="ob-lede">
-                    ZenPort has already found <strong>{indexed}</strong>{' '}
-                    {indexed === 1 ? 'recording' : 'recordings'} in{' '}
-                    {rootsOk === 1 ? 'your folder' : `${rootsOk} folders`}. It reads them where they
-                    sit and never writes to them.
+                    Found <strong>{indexed}</strong> {indexed === 1 ? 'recording' : 'recordings'}{' '}
+                    {rootsOk > 1 ? `in ${rootsOk} folders` : ''} - read in place, never changed.
                   </p>
                 ) : (
                   <p className="ob-lede">
-                    Nothing is indexed yet. Point <code>ZP_LIBRARY_DIRS</code> at a folder of
-                    recordings and they will appear here - read-only, exactly as you filed them.
+                    Nothing yet - point <code>ZP_LIBRARY_DIRS</code> at your folders and it all
+                    appears here, read-only.
                   </p>
                 )}
                 <ul className="ob-list">
                   <li>
-                    <Icon name="lotus" />
-                    <span>
-                      Meditations, courses, talks and soundscapes - each recognised and on its own
-                      shelf. Wrong guess? Tap <em>Not right?</em>
-                    </span>
+                    <Icon name="lotus" /> Meditations, courses and talks, each on its shelf
                   </li>
                   <li>
-                    <Icon name="video" /> Video courses play right here, and lessons tick themselves
-                    off as you finish them
+                    <Icon name="video" /> Videos play here; lessons tick off as you go
                   </li>
                   <li>
-                    <Icon name="sparkle" /> No cover? It gets a painted one
-                  </li>
-                  <li>
-                    <Icon name="heart" /> Star the ones you return to - they get their own shelf
+                    <Icon name="heart" /> Star favourites for their own shelf
                   </li>
                 </ul>
               </>
@@ -149,9 +134,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <>
                 <h1 id="ob-title">Shape it so it reads well</h1>
                 <p className="ob-lede">
-                  ZenPort reads most folder layouts, but one works best: a folder per creator - or
-                  per pack, like The Lantern Sessions - and inside it a folder per meditation, or
-                  plain audio files.
+                  Any layout works; this one works best - a folder per creator, a folder or file per
+                  piece.
                 </p>
                 <pre className="ob-tree" aria-label="Recommended folder layout">
                   {`Meditations
@@ -169,10 +153,6 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   {`
 └─ The Lantern Sessions`}
                 </pre>
-                <p className="ob-note">
-                  Covers come from an image in the folder or from the audio's own tags. Not a must -
-                  any other layout is scanned as best it can be, but this one lands every time.
-                </p>
               </>
             )}
 
@@ -180,15 +160,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <>
                 <h1 id="ob-title">Or just breathe</h1>
                 <p className="ob-lede">
-                  Not every practice needs a recording. Breathe gives you a bowl to open, one to
-                  close, and - if you like - a breath guide that swells and settles with you.
+                  A bowl to open, one to close, and a breath guide you can even feel on your phone.
                 </p>
-                <ul className="ob-list">
-                  <li>
-                    <Icon name="breath" /> On a phone you can feel it too: taps that gather as you
-                    breathe in and ease as you breathe out
-                  </li>
-                </ul>
                 <div className="ob-field">
                   <label htmlFor="ob-timer">Default length</label>
                   <div className="chip-row" id="ob-timer">
@@ -204,19 +177,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     ))}
                   </div>
                 </div>
-                <p className="ob-note">
-                  A quiet sit counts toward your practice just like a recording does.
-                </p>
               </>
             )}
 
             {step === 4 && (
               <>
                 <h1 id="ob-title">Find a rhythm you'll keep</h1>
-                <p className="ob-lede">
-                  A daily target is the only number ZenPort nudges you with, and you choose it.
-                  Leave it off if a streak would make this feel like homework.
-                </p>
+                <p className="ob-lede">A gentle daily target - or none at all.</p>
                 <div className="ob-field">
                   <label htmlFor="ob-goal">Daily target</label>
                   <div className="chip-row" id="ob-goal">
@@ -258,10 +225,6 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     </button>
                   </div>
                 </div>
-                <p className="ob-note">
-                  Plans, in the sidebar, are for something more structured - a course you want to
-                  walk through on set days.
-                </p>
               </>
             )}
 
@@ -269,18 +232,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <>
                 <h1 id="ob-title">Let AI plan it</h1>
                 <p className="ob-lede">
-                  Tell it what you want and how much time you have. It reads your library and lays
-                  out practice and study in the right order - series from the start, foundations
-                  before depth - as plans you can edit.
+                  Share your goal and your time; it plans practice and study from your library, in
+                  order.
                 </p>
-                <ul className="ob-list">
-                  <li>
-                    <Icon name="lotus" /> A practice plan: which meditations, which days, how long
-                  </li>
-                  <li>
-                    <Icon name="book" /> A learning plan: courses and talks, lesson by lesson
-                  </li>
-                </ul>
                 <div className="ob-field">
                   {aiSaved || ai.data?.configured ? (
                     <p className="ob-note ob-ok">
@@ -291,10 +245,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     <AiKeyForm compact onSaved={() => setAiSaved(true)} />
                   )}
                 </div>
-                <p className="ob-note">
-                  Uses your own OpenAI key - optional, and it can wait for Settings. Titles and
-                  lengths are sent only when you ask for a plan.
-                </p>
+                <p className="ob-note">Optional - uses your own OpenAI key. Also in Settings.</p>
               </>
             )}
 
@@ -372,10 +323,6 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                       Ambient background
                     </button>
                   </div>
-                  <p className="ob-note">
-                    If your system already asks for reduced motion, ZenPort honours that whatever is
-                    set here.
-                  </p>
                 </div>
               </>
             )}
@@ -384,8 +331,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <>
                 <h1 id="ob-title">That's everything</h1>
                 <p className="ob-lede">
-                  Today is your home page: what you planned, what you were part-way through, and a
-                  way to begin in one tap.
+                  Today is home: your plan, where you left off, one tap to begin.
                 </p>
                 <Summary prefs={prefs} indexed={indexed} />
                 <p className="ob-note">

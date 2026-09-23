@@ -7,6 +7,12 @@ import '@fontsource-variable/newsreader/wght.css';
 import './theme.css';
 import './app.css';
 
+// Safari's pinch gestures, cancelled: the installed app stays at the phone's
+// own size instead of zooming and then panning sideways.
+for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

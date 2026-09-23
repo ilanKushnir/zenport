@@ -69,6 +69,17 @@ describe('layout invariants', () => {
     }
   });
 
+  it('the app stays at the phone size: no zoom, and no field small enough to trigger it', () => {
+    const html = read('../index.html');
+    expect(html).toMatch(/maximum-scale=1/);
+    expect(html).toMatch(/user-scalable=no/);
+    // iOS zooms into any field under 16px; on touch screens every field is 16px.
+    expect(css).toMatch(
+      /@media \(pointer: coarse\)\s*\{\s*input,\s*textarea,\s*select\s*\{[^}]*font-size:\s*16px !important/,
+    );
+    expect(css).toMatch(/touch-action:\s*pan-x pan-y/);
+  });
+
   it('every flexible grid column can shrink', () => {
     const bad: string[] = [];
     for (const m of css.matchAll(/grid-template-columns\s*:([^;]+);/g)) {

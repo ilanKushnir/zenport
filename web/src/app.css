@@ -2991,6 +2991,8 @@
   inset: 0;
   z-index: 70;
   display: grid;
+  /* The card may never be wider than the screen, whatever it holds. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: calc(var(--s4) + env(safe-area-inset-top)) var(--s4)
     calc(var(--s4) + env(safe-area-inset-bottom));
@@ -3317,9 +3319,37 @@
   margin-inline-start: auto;
 }
 
+@media (max-width: 460px) {
+  /* Eight dots and two buttons do not fit one line on a phone: the dots get
+     their own centred row, the buttons share the one below. */
+  .ob-foot {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: var(--s4);
+  }
+  .ob-dots {
+    inline-size: 100%;
+    justify-content: center;
+  }
+  .ob-actions {
+    inline-size: 100%;
+    margin-inline-start: 0;
+  }
+  .ob-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 760px) {
+  /* Breathing room from the screen edges, like a native sheet card. */
+  .ob-root {
+    padding-inline: calc(var(--s5) + env(safe-area-inset-left))
+      calc(var(--s5) + env(safe-area-inset-right));
+  }
   .ob-card {
     padding: var(--s5);
+    gap: var(--s5);
   }
   .ob-body {
     grid-template-columns: minmax(0, 1fr);

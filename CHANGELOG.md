@@ -5,6 +5,17 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.3] — 2026-09-23
+
+### Fixed
+
+- **The app zoomed and then slid sideways on an iPhone.** iOS zooms the whole page into any text field under 16px and stays zoomed, and nothing stopped pinch or double-tap zoom, so the page grew wider than the screen and panned - tab bar included. Fields are now 16px on touch screens, the viewport sets `maximum-scale=1, user-scalable=no`, `touch-action: pan-x pan-y` rules out pinch and double-tap zoom, and Safari's gesture events are cancelled. A stylesheet test keeps all of it in place.
+- **The welcome tour card outgrew narrower phones.** Eight step dots and two buttons did not fit one line below 430pt, so the card pushed past the screen (checked in WebKit on iPhone SE, 13 and 15 Pro Max). The dots now take their own row on phones, and the card can never exceed the screen width.
+
+### Changed
+
+- The welcome tour says less - one short line and at most three short points per step - and the card sits 20pt from the screen edges on a phone.
+
 ## [0.6.2] — 2026-09-23
 
 ### Changed

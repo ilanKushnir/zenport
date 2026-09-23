@@ -25,6 +25,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.6.3',
+    items: [
+      {
+        emoji: '📱',
+        text: 'The app stays at your phone’s size - no more zooming in and sliding sideways.',
+      },
+      { emoji: '🧭', text: 'A shorter, roomier welcome tour.' },
+    ],
+  },
+  {
     version: '0.6.2',
     items: [
       {
