@@ -1,54 +1,170 @@
 /* ===== Shell ===== */
 
+:root {
+  --sidebar-w: 260px;
+}
+
 .shell {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   min-height: 100dvh;
 }
 
+/* The sidebar never scrolls with the page: it is sticky, exactly one
+   viewport tall, and its own content scrolls if a short window needs it. */
 .sidebar {
-  border-inline-end: 1px solid var(--hairline);
-  padding: var(--s6) var(--s4);
   position: sticky;
   top: 0;
-  height: 100dvh;
+  align-self: start;
+  block-size: 100dvh;
+  padding: var(--s3) 0 var(--s3) var(--s3);
+  z-index: 2;
+}
+
+.sb-panel {
+  block-size: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--s6);
+  gap: var(--s4);
+  padding: var(--s5) var(--s3) var(--s3);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(40, 32, 55, 0.72), rgba(26, 21, 35, 0.62));
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  box-shadow:
+    0 24px 60px rgba(6, 4, 12, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.sb-brand {
+  padding-inline: var(--s2);
+}
+
+.sb-search {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 38px;
+  padding: 0 10px 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--faint);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+
+.sb-search:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.sb-search kbd {
+  margin-inline-start: auto;
+  font-size: 11px;
 }
 
 .nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-inline: calc(-1 * var(--s3));
+  padding-inline: var(--s3);
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
+.nav-label {
+  padding: 0 10px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
 .nav a {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--s3);
-  padding: 9px var(--s3);
-  border-radius: var(--r-sm);
+  gap: 11px;
+  padding: 5px 8px;
+  border-radius: 12px;
   color: var(--muted);
-  font-size: 14.5px;
+  font-size: 14px;
   transition:
     background var(--t-fast) var(--ease),
     color var(--t-fast) var(--ease);
 }
 
+.nav-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  transition: background var(--t-fast) var(--ease);
+}
+
 .nav a:hover {
   color: var(--text);
-  background: rgba(239, 231, 218, 0.04);
+  background: rgba(255, 255, 255, 0.04);
   text-decoration: none;
+}
+
+.nav a:hover .nav-tile {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.nav a:hover .nav-ic {
+  color: var(--text);
 }
 
 .nav a[aria-current='page'] {
   color: var(--text);
-  background: var(--accent-soft);
+  font-weight: 500;
+  background: linear-gradient(90deg, var(--accent-soft), transparent 92%);
+}
+
+.nav a[aria-current='page'] .nav-tile {
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+  box-shadow: 0 6px 16px color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
 .nav a[aria-current='page'] .nav-ic {
-  color: var(--accent);
+  color: var(--ink-on-accent);
+}
+
+.nav a[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(-1 * var(--s3));
+  inset-block: 9px;
+  inline-size: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
 }
 
 .nav-ic {
@@ -56,6 +172,26 @@
   block-size: 18px;
   flex: none;
   color: var(--faint);
+}
+
+.sb-foot {
+  padding: var(--s3) var(--s2) 0;
+  border-block-start: 1px solid var(--hairline);
+}
+
+.sb-foot .version-row.compact {
+  margin: 0;
+  padding: 0;
+  justify-content: space-between;
+}
+
+@media (max-height: 640px) {
+  .nav-label {
+    display: none;
+  }
+  .nav {
+    gap: var(--s2);
+  }
 }
 
 .main > * {
@@ -902,7 +1038,7 @@
 .mini {
   position: fixed;
   z-index: 45;
-  inset-inline: calc(232px + var(--s6)) var(--s6);
+  inset-inline: calc(var(--sidebar-w) + var(--s6)) var(--s6);
   inset-block-end: var(--s4);
   display: flex;
   align-items: center;
@@ -2697,10 +2833,9 @@
   }
 }
 
-/* Above the fixed aurora. The tab bar is left out: it is position: fixed on
-   a phone, and a later `position: relative` here is what pinned it to the
-   bottom of the page instead of the bottom of the screen. */
-.shell > .sidebar,
+/* Above the fixed aurora. Only .main: the sidebar is sticky and the tab bar
+   fixed, and a `position: relative` here would override both - which is
+   exactly how each of them once ended up scrolling away with the page. */
 .shell > .main {
   position: relative;
   z-index: 1;

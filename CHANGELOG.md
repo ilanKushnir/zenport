@@ -21,12 +21,14 @@ All notable changes to ZenPort are documented here. The format follows
 - Practice settings redesigned: illustrated sections with segmented choices, a bell preview, and a keep-screen-on switch in place of the unexplained moon button.
 - The reflection moment: a painted opening line with how long you sat, "how settled" as five water lines from choppy to flat, prompt starters, and title/tags/voice tucked behind "Add more".
 - Settings grouped into Look and feel, Practice, and Sound and playback, with switch rows for every on/off option.
+- The desktop sidebar is a floating glass panel: search under the logo, links in Practice / Reflect / Manage groups (Folders included), an accent tile and edge bar for the current page, and the version in a footer.
 - The wordmark is set in a bundled variable serif so "Port" can be properly light beside a bold "Zen".
 - Sit: the resting orb holds its readout, and the readout reads over the glow.
 
 ### Fixed
 
 - **Pages scrolled sideways.** Grid columns are `minmax(0, 1fr)` throughout, user-named titles wrap anywhere, and `html`/`body` carry an overflow guard that does not affect fixed or sticky elements.
+- **The desktop sidebar scrolled out of the window.** The same aurora-layering rule that once un-fixed the tab bar gave the sidebar `position: relative` over its `position: sticky`; the rule now touches only the main column, and a stylesheet test fails the build if anything overrides the sidebar's or the tab bar's position again, or brings back an unshrinkable grid column.
 - **The tab bar moved with the page on iOS.** Page-level overscroll bounce is off, so the fixed bar never rubber-bands.
 
 ## [0.4.1] — 2026-09-23

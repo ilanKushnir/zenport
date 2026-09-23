@@ -52,6 +52,10 @@ export const CHANGELOG: ChangelogRelease[] = [
         text: 'On a phone: a More tab reaches every page, nothing scrolls sideways, and the tab bar stays put.',
       },
       {
+        emoji: '🧭',
+        text: 'On a computer the sidebar has a new look and stays in place however far you scroll.',
+      },
+      {
         emoji: '✨',
         text: 'Redesigned practice settings, reflection moment and Settings page.',
       },

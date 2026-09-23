@@ -55,9 +55,17 @@ const NAV = [
   { to: '/plans', label: 'Plans', icon: 'plans' },
   { to: '/journal', label: 'Journal', icon: 'journal' },
   { to: '/stats', label: 'Practice', icon: 'stats' },
+  { to: '/library/folders', label: 'Folders', icon: 'folder' },
   { to: '/sources', label: 'Sources', icon: 'sources' },
   { to: '/integrations', label: 'Integrations', icon: 'plug' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
+];
+
+/** The sidebar, in three quiet groups rather than one long list. */
+const NAV_GROUPS = [
+  { label: 'Practice', items: NAV.slice(0, 4) },
+  { label: 'Reflect', items: NAV.slice(4, 6) },
+  { label: 'Manage', items: NAV.slice(6) },
 ];
 
 /**
@@ -102,28 +110,41 @@ function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <div className="app-aurora" aria-hidden="true" />
       <header className="sidebar">
-        <Lockup size={30} />
-        <nav className="nav" aria-label="Main">
-          {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.end}>
-              <Icon name={n.icon} />
-              {n.label}
-            </NavLink>
-          ))}
-        </nav>
-        <button
-          className="cmdk-hint"
-          onClick={() =>
-            window.dispatchEvent(
-              new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
-            )
-          }
-        >
-          <Icon name="search" size={15} />
-          Search
-          <kbd>⌘K</kbd>
-        </button>
-        <VersionRow compact />
+        <div className="sb-panel">
+          <div className="sb-brand">
+            <Lockup size={30} />
+          </div>
+          <button
+            className="sb-search"
+            onClick={() =>
+              window.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
+              )
+            }
+          >
+            <Icon name="search" size={15} />
+            <span>Search</span>
+            <kbd>⌘K</kbd>
+          </button>
+          <nav className="nav" aria-label="Main">
+            {NAV_GROUPS.map((g) => (
+              <div className="nav-group" key={g.label}>
+                <div className="nav-label">{g.label}</div>
+                {g.items.map((n) => (
+                  <NavLink key={n.to} to={n.to} end={n.end}>
+                    <span className="nav-tile">
+                      <Icon name={n.icon} size={17} />
+                    </span>
+                    {n.label}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
+          </nav>
+          <div className="sb-foot">
+            <VersionRow compact />
+          </div>
+        </div>
       </header>
       <main className="main" id="main">
         <div className="mobile-top">
