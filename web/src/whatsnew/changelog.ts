@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.5.2',
+    items: [
+      {
+        emoji: '🌬️',
+        text: 'Sit, redesigned: a light halo of rings that breathes with you instead of the ball, and your options tucked into three small tiles until you want them.',
+      },
+      {
+        emoji: '🎨',
+        text: 'Icons on the bright buttons are dark and crisp now, everywhere - they had been coming out grey.',
+      },
+    ],
+  },
+  {
     version: '0.5.1',
     items: [
       {

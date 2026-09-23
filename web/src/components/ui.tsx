@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { GeneratedCover } from './CoverArt.tsx';
 import { useScrollLock } from '../scrollLock.ts';
 
@@ -189,7 +190,10 @@ export function Sheet({
     };
   }, [onClose]);
 
-  return (
+  // Portalled to <body>: a page's entrance animation makes it the containing
+  // block for anything position: fixed inside it, which parked sheets mid-page
+  // and let them inherit the page's alignment.
+  return createPortal(
     <>
       <div className="scrim" onClick={onClose} />
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={id} ref={ref}>
@@ -201,7 +205,8 @@ export function Sheet({
         </div>
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 

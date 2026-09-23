@@ -167,10 +167,18 @@
   background-image: var(--accent-fill-grad);
 }
 
+/* An icon takes the colour of the control it sits in - dark ink on an accent
+   fill, the label's colour elsewhere. Only the navigation dims its icons.
+   (A global faint here once turned every icon on a filled button grey.) */
 .nav-ic {
   inline-size: 18px;
   block-size: 18px;
   flex: none;
+  color: inherit;
+}
+
+.nav .nav-ic,
+.mobile-tabs .nav-ic {
   color: var(--faint);
 }
 
@@ -3476,227 +3484,485 @@
 }
 
 /* ===================================================================
- * Timer
+ * Sit - the unguided timer
  * =================================================================== */
 
-.timer-page {
+.sit {
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-.timer-page .page-head {
   text-align: center;
-  align-self: stretch;
 }
 
-.timer-page .page-head .lede {
+.sit-head {
+  margin-block-end: var(--s4);
+}
+
+.sit-head .lede {
   margin-inline: auto;
-  max-width: 48ch;
 }
 
-.timer-stage {
+/* ── The halo ── */
+
+.halo {
   position: relative;
-  inline-size: min(340px, 78vw);
-  block-size: min(340px, 78vw);
-  display: grid;
-  place-items: center;
-  margin-block: var(--s6);
+  inline-size: min(340px, 82vw);
+  aspect-ratio: 1;
+  margin-block: var(--s2) var(--s6);
 }
 
-.timer-ring {
+.halo-svg {
   position: absolute;
   inset: 0;
   inline-size: 100%;
   block-size: 100%;
+  overflow: visible;
 }
 
-.timer-readout {
-  position: relative;
-  text-align: center;
+.halo-track {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1.5;
 }
 
-.t-big {
-  font-family: var(--font-display);
-  font-size: clamp(42px, 9vw, 60px);
+.halo-progress {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 260ms linear;
+  filter: drop-shadow(0 0 6px rgba(240, 76, 138, 0.45));
+}
+
+.halo-bead {
+  fill: #fff;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.9));
+  transition:
+    cx 260ms linear,
+    cy 260ms linear;
+}
+
+/* Rings are strokes, not fills: the colours stay light. Each scales about the
+   centre of the drawing. */
+.halo-r,
+.halo-glow {
+  transform-box: view-box;
+  transform-origin: 120px 120px;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.42, 0, 0.28, 1);
+}
+
+.halo-r circle {
+  stroke-width: 1.1;
+  vector-effect: non-scaling-stroke;
+}
+
+.halo-r0 {
+  opacity: 0.95;
+}
+
+.halo-r1 {
+  opacity: 0.5;
+}
+
+.halo-r2 {
+  opacity: 0.24;
+}
+
+/* Unguided: a slow drift, the rings a little apart, the gradient turning. */
+.halo:not(.guided) .halo-r0 {
+  animation: halo-drift 12s ease-in-out infinite;
+}
+
+.halo:not(.guided) .halo-r1 {
+  animation: halo-drift-1 12s ease-in-out infinite;
+}
+
+.halo:not(.guided) .halo-r2 {
+  animation: halo-drift-2 12s ease-in-out infinite;
+}
+
+.halo:not(.guided) .halo-glow {
+  animation: halo-drift 12s ease-in-out infinite;
+}
+
+@keyframes halo-drift {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.06) rotate(40deg);
+  }
+}
+
+@keyframes halo-drift-1 {
+  0%,
+  100% {
+    transform: scale(1.2) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.28) rotate(-30deg);
+  }
+}
+
+@keyframes halo-drift-2 {
+  0%,
+  100% {
+    transform: scale(1.4) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.5) rotate(24deg);
+  }
+}
+
+/* Breathing in warms the glow a touch; breathing out cools it. */
+.halo[data-breath='in'] .halo-glow,
+.halo[data-breath='hold'] .halo-glow {
+  filter: saturate(1.25) brightness(1.15);
+}
+
+.halo-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.sit-time {
+  font-family: 'Newsreader Variable', var(--font-display);
+  font-weight: 300;
+  font-size: clamp(48px, 13vw, 64px);
   line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.sit-breath {
+  font-family: 'Newsreader Variable', var(--font-display);
+  font-weight: 300;
+  font-size: clamp(28px, 8vw, 36px);
+  line-height: 1.1;
+  animation: sit-word 700ms var(--ease);
+}
+
+@keyframes sit-word {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+.sit-sub {
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sit-sub-time {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: none;
   font-variant-numeric: tabular-nums;
 }
 
-.t-sub {
-  margin-block-start: var(--s2);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.78);
+.sit-note {
+  max-width: 460px;
+  margin-block-end: var(--s4);
 }
 
-/* The readout sits on the lit orb: a soft shadow keeps it legible over the glow. */
-.timer-readout .t-big,
-.timer-readout .t-sub {
-  text-shadow: 0 1px 12px rgba(20, 10, 30, 0.55);
-}
+/* ── Setup ── */
 
-/* Before a sit starts the orb rests large enough to hold the readout; once
-   breathing begins, the inline transform takes over. */
-.timer-stage:not([data-phase]) .breath-orb:not(.breath-orb--idle) {
-  transform: scale(0.86);
-}
-
-.timer-setup {
-  width: min(460px, 100%);
-}
-
-.timer-actions {
+.sit-setup {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s4);
+  inline-size: min(420px, 100%);
+}
+
+.sit-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+  inline-size: 100%;
+}
+
+.sit-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: var(--s3) var(--s2);
+  border-radius: 16px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.sit-opt:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--border);
+}
+
+.sit-opt .v {
+  margin-block-start: 2px;
+  font-size: 15px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sit-opt .k {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.sit-opt.on .nav-ic {
+  color: var(--accent);
+}
+
+.sit-begin {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--s3);
-  margin-block-start: var(--s6);
+  gap: var(--s2);
+  inline-size: 100%;
+  min-height: 54px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+  box-shadow: 0 14px 34px color-mix(in oklab, var(--accent) 32%, transparent);
+  font: inherit;
+  font-size: 16.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.sit-begin:active {
+  transform: scale(0.98);
+}
+
+.sit-default {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+
+/* ── Live ── */
+
+.sit-live {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s4);
+  inline-size: min(360px, 100%);
+}
+
+.sit-end {
+  justify-self: end;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.sit-end:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.sit-toggle {
+  display: grid;
+  place-items: center;
+  inline-size: 72px;
+  block-size: 72px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.sit-toggle:active {
+  transform: scale(0.95);
+}
+
+.sit-live-meta {
+  justify-self: start;
+  display: flex;
+  gap: var(--s2);
+  color: var(--faint);
+}
+
+/* ── Sheets ── */
+
+.sit-sheet-lede {
+  color: var(--muted);
+  font-size: 14px;
+  margin-block-end: var(--s4);
+}
+
+.sit-len-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.sit-len {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--s3) 0;
+  border-radius: 16px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sit-len .n {
+  font-family: 'Newsreader Variable', var(--font-display);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.sit-len .u {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.sit-len.on {
+  border-color: transparent;
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+.sit-len.on .u {
+  color: var(--ink-on-accent);
+}
+
+.sit-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-block-end: var(--s3);
+}
+
+.sit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 50px;
+  padding: 0 var(--s4);
+  border: 0;
+  border-block-end: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sit-row:last-child {
+  border-block-end: 0;
+}
+
+.sit-row.on {
+  color: var(--accent);
+}
+
+.sit-pattern {
+  display: flex;
+  gap: 4px;
+  margin-block-end: var(--s4);
+}
+
+.sit-pattern span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: start;
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.sit-pattern b {
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.sit-switch {
+  margin-block-start: 0;
+  border-block-start: 0;
 }
 
 .btn-lg {
-  min-height: 48px;
+  min-height: 52px;
   padding-inline: var(--s6);
-  font-size: 15.5px;
+  font-size: 16px;
 }
 
-/* A live sit hides the surrounding furniture. */
+/* A live sit hides the surrounding furniture, and quiets the aurora. */
 .timer-live ~ * {
-  display: none;
+  opacity: 0.35;
+  transition: opacity var(--t-slow, 600ms) var(--ease);
 }
 
-/* ── the breathing orb ─────────────────────────────────────────────────── */
-
-.timer-ring__track {
-  stroke: rgba(240, 76, 138, 0.14);
-}
-
-/*
- * One element, three layers of gradient, and a transform the timer steers:
- * core light, a soft halo outside it, and a fine bright rim so the edge is
- * readable at any size. The transition length is set inline per phase, so
- * the same rule draws a 4s rise and a 6s fall. transform is the only thing
- * that animates - it stays on the compositor, so a slow phone breathes at
- * the same pace as a desk.
- */
-.breath-orb {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  inline-size: 68%;
-  block-size: 68%;
-  border-radius: 50%;
-  transform: scale(0.58);
-  transition-property: transform;
-  transition-timing-function: cubic-bezier(0.42, 0, 0.28, 1);
-  transition-duration: 0s;
-  will-change: transform;
-  filter: drop-shadow(0 0 28px rgba(240, 76, 138, 0.35));
-}
-
-.breath-orb__core {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      circle at 42% 38%,
-      rgba(255, 214, 140, 0.95) 0%,
-      rgba(255, 192, 74, 0.7) 18%,
-      transparent 46%
-    ),
-    radial-gradient(circle at 50% 55%, #f04c8a 0%, #b44bd8 55%, #7c3aed 100%);
-  box-shadow:
-    inset 0 -18px 40px rgba(60, 20, 90, 0.45),
-    inset 0 10px 30px rgba(255, 220, 160, 0.35);
-}
-
-.breath-orb__rim {
-  position: absolute;
-  inset: -6%;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 200, 220, 0.55);
-  box-shadow:
-    0 0 0 10px rgba(240, 76, 138, 0.09),
-    0 0 60px 18px rgba(180, 75, 216, 0.28);
-  mask-image: radial-gradient(circle, transparent 60%, #000 66%);
-}
-
-/* No guide: a slow idle swell so a running sit still feels alive. */
-.breath-orb--idle {
-  animation: orb-idle 9s ease-in-out infinite;
-}
-
-@keyframes orb-idle {
-  0%,
-  100% {
-    transform: scale(0.72);
-  }
-  50% {
-    transform: scale(0.8);
-  }
-}
-
-/* The idle swell is decorative and yields to calm/reduced motion; the guided
-   breath is the feature itself and keeps moving. */
-:root[data-calm='1'] .breath-orb--idle {
-  animation: none;
-  transform: scale(0.76);
-}
-
-/* Phase word inside the orb: the hero while the guide is on. */
-.t-phase {
-  font-family: var(--font-display);
-  font-size: clamp(22px, 4.6vw, 30px);
-  letter-spacing: 0.01em;
-  color: #fff8f0;
-  text-shadow: 0 2px 18px rgba(60, 20, 90, 0.55);
-  animation: phase-in 600ms var(--ease);
-}
-
-@keyframes phase-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-}
-
-/* Time demoted beneath the ring while breathing. */
-.timer-under {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s2);
-  color: var(--faint);
-  margin-block-start: calc(-1 * var(--s3));
-}
-
-.timer-under__time {
-  font-family: var(--font-display);
-  font-size: 22px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.timer-under__label {
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Quieter aurora while a sit runs: the stage is the only bright thing. */
-.timer-live ~ .app-aurora,
 .shell:has(.timer-live) .app-aurora {
   opacity: 0.45;
+  transition: opacity 1.2s var(--ease);
 }
 
-/* The phase tints the halo very slightly: warmer breathing in, cooler out. */
-.timer-stage[data-phase='in'] .breath-orb {
-  filter: drop-shadow(0 0 34px rgba(255, 160, 100, 0.4));
+/* Motion: the unguided drift is decoration and yields to calm/reduced motion;
+   the guided breath is the point and stays, only its ripple delay removed. */
+:root[data-calm='1'] .halo:not(.guided) :is(.halo-r0, .halo-r1, .halo-r2, .halo-glow) {
+  animation: none;
 }
-.timer-stage[data-phase='out'] .breath-orb {
-  filter: drop-shadow(0 0 26px rgba(124, 58, 237, 0.4));
+
+@media (prefers-reduced-motion: reduce) {
+  .halo:not(.guided) :is(.halo-r0, .halo-r1, .halo-r2, .halo-glow) {
+    animation: none;
+  }
+  .halo-r {
+    transition-delay: 0s !important;
+  }
+  .sit-breath {
+    animation: none;
+  }
 }
 
 /* ===================================================================
@@ -4522,5 +4788,23 @@
   .set-group-body,
   .set-tour {
     padding-inline: var(--s4);
+  }
+}
+
+/* A live sit: the halo is the whole screen's subject, centred in the space
+   between the top and the tab bar, and a little larger. */
+.sit.timer-live {
+  min-height: calc(100svh - 180px);
+  justify-content: center;
+  gap: var(--s4);
+}
+
+.sit.timer-live .halo {
+  inline-size: min(380px, 88vw, 58svh);
+}
+
+@media (max-width: 900px) {
+  .sit.timer-live {
+    min-height: calc(100svh - var(--tabbar-h) - 120px);
   }
 }

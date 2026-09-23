@@ -5,6 +5,17 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-09-23
+
+### Changed
+
+- **Sit, redesigned.** The filled gradient orb is replaced by a halo: a hairline progress ring with a glowing bead at its head, and inside it three thin gradient rings over a faint glow - strokes, not fills, so the colours stay light. With the breath guide on, the rings swell outward one after another on the in-breath and settle on the out-breath (a staggered ripple); without it they drift slowly. The time is set in the light serif. Length, bells and the breath guide collapse into three summary tiles that each open a sheet, leaving one Begin button on screen; a live sit centres the halo with End early and a round pause control.
+
+### Fixed
+
+- **Icons on accent-filled controls were grey.** Every icon carries `nav-ic`, and a global rule painted it the navigation's faint grey, overriding the dark on-accent ink on primary buttons, the player's play button, the mini-player, segmented choices and more. The faint colour now applies only inside the sidebar and the tab bar; elsewhere an icon takes its control's colour. Audited every solid accent fill on eight pages under all four accents: 109 icons and labels, none under 4.5:1.
+- **Sheets opened from a page could sit mid-screen.** A page's entrance animation made it the containing block for `position: fixed` descendants; sheets are now portalled to `<body>`.
+
 ## [0.5.1] — 2026-09-23
 
 ### Fixed

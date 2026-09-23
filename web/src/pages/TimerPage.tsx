@@ -23,7 +23,7 @@ import {
   breathPhaseAt,
   formatClock,
 } from '../player/breath.ts';
-import { Icon } from '../components/ui.tsx';
+import { Icon, Sheet, Switch } from '../components/ui.tsx';
 
 /**
  * Capped at 60 minutes because the practice API accepts at most 3600 listened
@@ -202,181 +202,125 @@ export function TimerPage() {
   const running = phase === 'running' || phase === 'paused';
   const breathing = breathGuide && running;
   const breathPhase = breathPhaseAt(elapsed);
-  const breathLabel = BREATH_LABEL[breathPhase];
-  // Where the orb is heading and how long it has to get there. On pause the
-  // transition length is zeroed, so it stops mid-breath instead of drifting.
-  const orbTarget = breathPhase === 'out' ? BREATH_MIN_SCALE : 1;
-  const orbSeconds = breathPhase === 'in' ? BREATH.in : breathPhase === 'out' ? BREATH.out : 0;
+  const [sheet, setSheet] = useState<null | 'length' | 'bells' | 'breath'>(null);
+
+  const pick = (fn: () => void) => {
+    touched.current = true;
+    fn();
+    setSheet(null);
+  };
+
+  const bellLabel = interval === null ? 'No bells' : `Every ${interval} min`;
 
   return (
-    <div className={`timer-page${running ? ' timer-live' : ''}`}>
+    <div className={`timer-page sit${running ? ' timer-live' : ''}`}>
       {!running && phase !== 'done' && (
-        <div className="page-head">
+        <div className="page-head sit-head">
           <h1>Sit</h1>
-          <p className="lede">
-            Nothing to listen to - a bowl to open, optional bells along the way, and one to close.
-            It counts toward your practice just like a recording does.
-          </p>
+          <p className="lede">A quiet timer. A bowl to open, one to close.</p>
         </div>
       )}
 
-      <div className="timer-stage" data-phase={breathing ? breathPhase : undefined}>
-        <TimerRing progress={progress} />
-        {/* The orb is one element whose transform follows the breath: the
-            target scale and the transition length change at every phase
-            boundary, so the browser draws the 4s rise and the 6s fall as one
-            smooth movement each rather than the timer stepping it. Paused, it
-            holds wherever it was. */}
-        <div
-          className={`breath-orb${phase === 'running' && !breathing ? ' breath-orb--idle' : ''}`}
-          style={
-            breathing
-              ? {
-                  transform: `scale(${orbTarget})`,
-                  transitionDuration: `${phase === 'running' ? orbSeconds : 0}s`,
-                }
-              : undefined
-          }
-          aria-hidden="true"
-        >
-          <span className="breath-orb__core" />
-          <span className="breath-orb__rim" />
-        </div>
-        <div className="timer-readout">
-          {phase === 'done' ? (
-            <>
-              <div className="t-big">Done</div>
-              <div className="t-sub">
-                {minutes} minute{minutes === 1 ? '' : 's'} sat
-              </div>
-            </>
-          ) : breathing ? (
-            <div className="t-phase" aria-live="polite" key={breathPhase}>
-              {phase === 'paused' ? 'Paused' : breathLabel}
+      <Halo
+        progress={phase === 'done' ? 1 : progress}
+        live={phase === 'running'}
+        started={running || phase === 'done'}
+        breath={breathing ? breathPhase : null}
+      >
+        {phase === 'done' ? (
+          <>
+            <div className="sit-time">Done</div>
+            <div className="sit-sub">
+              {minutes} minute{minutes === 1 ? '' : 's'} sat
             </div>
-          ) : (
-            <>
-              <div className="t-big" aria-live="off">
-                {formatClock(running ? remaining : total)}
-              </div>
-              <div className="t-sub">
-                {phase === 'paused' ? 'Paused' : running ? 'Remaining' : `${minutes} minute sit`}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      {breathing && (
-        <div className="timer-under" aria-live="off">
-          <span className="timer-under__time">{formatClock(remaining)}</span>
-          <span className="timer-under__label">remaining</span>
-        </div>
-      )}
+          </>
+        ) : breathing ? (
+          <>
+            <div className="sit-breath" aria-live="polite" key={breathPhase}>
+              {phase === 'paused' ? 'Paused' : BREATH_LABEL[breathPhase]}
+            </div>
+            <div className="sit-sub sit-sub-time">{formatClock(remaining)}</div>
+          </>
+        ) : (
+          <>
+            <div className="sit-time" aria-live="off">
+              {formatClock(running ? remaining : total)}
+            </div>
+            <div className="sit-sub">
+              {phase === 'paused' ? 'Paused' : running ? 'remaining' : 'minutes'}
+            </div>
+          </>
+        )}
+      </Halo>
 
-      {error && (
-        <p className="notice" style={{ maxWidth: 460, margin: '0 auto 16px' }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="notice sit-note">{error}</p>}
 
       {phase === 'idle' && (
-        <div className="timer-setup">
-          <div className="ob-field">
-            <label htmlFor="tm-len">Length</label>
-            <div className="chip-row" id="tm-len">
-              {PRESETS.map((m) => (
-                <button
-                  key={m}
-                  className="chip"
-                  aria-pressed={minutes === m}
-                  onClick={() => {
-                    touched.current = true;
-                    setMinutes(m);
-                  }}
-                >
-                  {m}m
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="ob-field">
-            <label htmlFor="tm-int">Bell along the way</label>
-            <div className="chip-row" id="tm-int">
-              {INTERVALS.map((v) => (
-                <button
-                  key={String(v)}
-                  className="chip"
-                  aria-pressed={interval === v}
-                  onClick={() => {
-                    touched.current = true;
-                    setIntervalMin(v);
-                  }}
-                >
-                  {v === null ? 'None' : `Every ${v}m`}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="ob-field">
-            <label>Breath guide</label>
-            <div className="chip-row">
-              <button
-                className="chip"
-                aria-pressed={breathGuide}
-                onClick={() => setBreathGuide((v) => !v)}
-              >
-                {breathGuide ? 'On' : 'Off'}
-              </button>
-              <span className="hint">
-                {BREATH.in} in · {BREATH.hold} hold · {BREATH.out} out
-              </span>
-            </div>
-          </div>
-
-          <div className="timer-actions">
-            <button className="btn btn-primary btn-lg" onClick={() => void begin()}>
-              <Icon name="play" size={17} />
-              Begin
+        <div className="sit-setup">
+          <div className="sit-opts" role="group" aria-label="Sit options">
+            <button className="sit-opt" onClick={() => setSheet('length')}>
+              <Icon name="timer" size={18} />
+              <span className="v">{minutes} min</span>
+              <span className="k">Length</span>
             </button>
-            {(minutes !== prefs.defaultTimerMinutes || interval !== prefs.intervalBellMinutes) && (
-              <button
-                className="btn btn-quiet"
-                onClick={() =>
-                  void save({ defaultTimerMinutes: minutes, intervalBellMinutes: interval })
-                }
-              >
-                Make this my default
-              </button>
-            )}
+            <button
+              className={`sit-opt${interval !== null ? ' on' : ''}`}
+              onClick={() => setSheet('bells')}
+            >
+              <Icon name="bell" size={18} />
+              <span className="v">{interval === null ? 'None' : `${interval} min`}</span>
+              <span className="k">Bells</span>
+            </button>
+            <button
+              className={`sit-opt${breathGuide ? ' on' : ''}`}
+              onClick={() => setSheet('breath')}
+            >
+              <Icon name="sprout" size={18} />
+              <span className="v">{breathGuide ? 'On' : 'Off'}</span>
+              <span className="k">Breath guide</span>
+            </button>
           </div>
+
+          <button className="sit-begin" onClick={() => void begin()}>
+            <Icon name="play" size={18} />
+            Begin
+          </button>
+          {(minutes !== prefs.defaultTimerMinutes || interval !== prefs.intervalBellMinutes) && (
+            <button
+              className="sit-default"
+              onClick={() =>
+                void save({ defaultTimerMinutes: minutes, intervalBellMinutes: interval })
+              }
+            >
+              Make {minutes} min{interval !== null ? `, ${bellLabel.toLowerCase()}` : ''} my default
+            </button>
+          )}
         </div>
       )}
 
       {running && (
-        <div className="timer-actions">
-          {phase === 'running' ? (
-            <button className="btn btn-ghost btn-lg" onClick={pause}>
-              <Icon name="pause" size={17} />
-              Pause
-            </button>
-          ) : (
-            <button className="btn btn-primary btn-lg" onClick={resume}>
-              <Icon name="play" size={17} />
-              Resume
-            </button>
-          )}
-          <button className="btn btn-quiet" onClick={() => void finish('abandoned')}>
+        <div className="sit-live">
+          <button className="sit-end" onClick={() => void finish('abandoned')}>
             End early
           </button>
+          <button
+            className="sit-toggle"
+            onClick={phase === 'running' ? pause : resume}
+            aria-label={phase === 'running' ? 'Pause' : 'Resume'}
+          >
+            <Icon name={phase === 'running' ? 'pause' : 'play'} size={26} />
+          </button>
+          <span className="sit-live-meta">
+            {interval !== null ? <Icon name="bell" size={15} /> : null}
+            {breathGuide ? <Icon name="sprout" size={15} /> : null}
+          </span>
         </div>
       )}
 
       {phase === 'done' && (
-        <div className="timer-actions">
+        <div className="sit-setup">
           <button
-            className="btn btn-primary btn-lg"
+            className="sit-begin"
             onClick={() => {
               setPhase('idle');
               setElapsed(0);
@@ -387,42 +331,180 @@ export function TimerPage() {
           </button>
         </div>
       )}
+
+      {sheet === 'length' && (
+        <Sheet title="Length" onClose={() => setSheet(null)} labelId="sit-len">
+          <div className="sit-len-grid" role="radiogroup" aria-label="Length">
+            {PRESETS.map((m) => (
+              <button
+                key={m}
+                role="radio"
+                aria-checked={minutes === m}
+                className={`sit-len${minutes === m ? ' on' : ''}`}
+                onClick={() => pick(() => setMinutes(m))}
+              >
+                <span className="n">{m}</span>
+                <span className="u">min</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+
+      {sheet === 'bells' && (
+        <Sheet title="Bells along the way" onClose={() => setSheet(null)} labelId="sit-bells">
+          <p className="sit-sheet-lede">
+            A soft bowl at a steady interval, so you know where you are without looking.
+          </p>
+          <div className="sit-list" role="radiogroup" aria-label="Interval bell">
+            {INTERVALS.map((v) => (
+              <button
+                key={String(v)}
+                role="radio"
+                aria-checked={interval === v}
+                className={`sit-row${interval === v ? ' on' : ''}`}
+                onClick={() => pick(() => setIntervalMin(v))}
+              >
+                <span>{v === null ? 'No bells' : `Every ${v} minutes`}</span>
+                {interval === v && <Icon name="check" size={18} />}
+              </button>
+            ))}
+          </div>
+          <button className="ps-try" onClick={() => playBell(prefs.bellVolume)}>
+            <Icon name="bell" size={14} /> Hear the bell
+          </button>
+        </Sheet>
+      )}
+
+      {sheet === 'breath' && (
+        <Sheet title="Breath guide" onClose={() => setSheet(null)} labelId="sit-breath">
+          <p className="sit-sheet-lede">
+            The halo swells as you breathe in and settles as you breathe out - a longer out-breath
+            than in, a common calming rhythm.
+          </p>
+          <div className="sit-pattern" aria-hidden="true">
+            <span style={{ flex: BREATH.in }}>
+              In <b>{BREATH.in}s</b>
+            </span>
+            <span style={{ flex: Math.max(BREATH.hold, 1.4) }}>
+              Hold <b>{BREATH.hold}s</b>
+            </span>
+            <span style={{ flex: BREATH.out }}>
+              Out <b>{BREATH.out}s</b>
+            </span>
+          </div>
+          <div className="set-switch sit-switch">
+            <div>
+              <div className="set-switch-t">Guide my breathing</div>
+              <div className="set-switch-h">
+                You can still just sit - the timer runs either way.
+              </div>
+            </div>
+            <Switch checked={breathGuide} onChange={setBreathGuide} label="Guide my breathing" />
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }
 
-function TimerRing({ progress }: { progress: number }) {
-  const r = 108;
-  const c = 2 * Math.PI * r;
+/**
+ * The halo: a hairline progress ring with a bead at its head, and inside it
+ * three thin rings over a faint glow. With the breath guide on, the rings
+ * swell outward one after another on the in-breath and settle back on the
+ * out-breath, a ripple rather than a ball; without it they drift, barely.
+ * Everything is stroke, not fill, so the colours stay light.
+ */
+function Halo({
+  progress,
+  live,
+  started,
+  breath,
+  children,
+}: {
+  progress: number;
+  live: boolean;
+  started: boolean;
+  breath: 'in' | 'hold' | 'out' | null;
+  children: React.ReactNode;
+}) {
+  const R = 112;
+  const C = 2 * Math.PI * R;
+  const angle = progress * 2 * Math.PI - Math.PI / 2;
+  const bx = 120 + R * Math.cos(angle);
+  const by = 120 + R * Math.sin(angle);
+
+  // Per-ring targets and timing while guided. Paused (live false), the
+  // transition is zeroed so the rings hold where they are.
+  const inhale = breath === 'in' || breath === 'hold';
+  const secs = breath === 'in' ? BREATH.in : breath === 'out' ? BREATH.out : 0;
+  const ring = (i: number) =>
+    breath
+      ? {
+          transform: `scale(${inhale ? [1.18, 1.32, 1.46][i] : [BREATH_MIN_SCALE + 0.2, 0.84, 0.9][i]})`,
+          transitionDuration: `${live ? secs : 0}s`,
+          transitionDelay: `${live ? i * 0.35 : 0}s`,
+        }
+      : undefined;
+
   return (
-    <svg className="timer-ring" viewBox="0 0 240 240" aria-hidden="true">
-      <defs>
-        <linearGradient
-          id="tm-sweep"
-          x1="24"
-          y1="48"
-          x2="216"
-          y2="192"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="#FFC04A" />
-          <stop offset="46%" stopColor="#F04C8A" />
-          <stop offset="100%" stopColor="#7C3AED" />
-        </linearGradient>
-      </defs>
-      <circle cx="120" cy="120" r={r} className="timer-ring__track" strokeWidth="6" fill="none" />
-      <circle
-        cx="120"
-        cy="120"
-        r={r}
-        stroke="url(#tm-sweep)"
-        strokeWidth="6"
-        strokeLinecap="round"
-        fill="none"
-        strokeDasharray={`${c * progress} ${c}`}
-        transform="rotate(-90 120 120)"
-        style={{ transition: 'stroke-dasharray 260ms linear' }}
-      />
-    </svg>
+    <div
+      className={`halo${breath ? ' guided' : ''}${live ? ' live' : ''}`}
+      data-breath={breath ?? undefined}
+    >
+      <svg className="halo-svg" viewBox="0 0 240 240" aria-hidden="true">
+        <defs>
+          <linearGradient
+            id="halo-sweep"
+            x1="20"
+            y1="40"
+            x2="220"
+            y2="200"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0%" stopColor="#FFC04A" />
+            <stop offset="50%" stopColor="#F04C8A" />
+            <stop offset="100%" stopColor="#8B5CF6" />
+          </linearGradient>
+          <radialGradient id="halo-glow">
+            <stop offset="0%" stopColor="#F04C8A" stopOpacity="0.2" />
+            <stop offset="55%" stopColor="#8B5CF6" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        <circle
+          className="halo-glow"
+          cx="120"
+          cy="120"
+          r="96"
+          fill="url(#halo-glow)"
+          style={ring(0)}
+        />
+        {[0, 1, 2].map((i) => (
+          <g key={i} className={`halo-r halo-r${i}`} style={ring(i)}>
+            <circle cx="120" cy="120" r="60" fill="none" stroke="url(#halo-sweep)" />
+          </g>
+        ))}
+
+        <circle className="halo-track" cx="120" cy="120" r={R} fill="none" />
+        {started && (
+          <>
+            <circle
+              className="halo-progress"
+              cx="120"
+              cy="120"
+              r={R}
+              fill="none"
+              stroke="url(#halo-sweep)"
+              strokeDasharray={`${C * progress} ${C}`}
+              transform="rotate(-90 120 120)"
+            />
+            <circle className="halo-bead" cx={bx} cy={by} r="3.2" />
+          </>
+        )}
+      </svg>
+      <div className="halo-center">{children}</div>
+    </div>
   );
 }
