@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { ContentType, LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
-import { useApi } from '../hooks.ts';
+import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { Cover, EmptyState, ErrorNote, Icon, SkeletonGrid } from '../components/ui.tsx';
 import {
@@ -104,6 +104,7 @@ export function SeriesCard({ series }: { series: Series }) {
 export function LibraryPage() {
   const { favorites } = usePrefs();
   const lib = useApi<LibraryDto>('/api/library');
+  useRefreshOn('zenport:progress', () => lib.reload());
   const [q, setQ] = useState('');
   const [creator, setCreator] = useState('');
   const [root, setRoot] = useState('');

@@ -9,7 +9,7 @@ import type { ContentType, LibraryDto, MeditationDetailDto } from '@zenport/shar
 import { formatDuration, naturalCompare } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
-import { useApi } from '../hooks.ts';
+import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { Cover, ErrorNote, Icon } from '../components/ui.tsx';
 import { groupSeries, progressLabel, TYPE_META } from '../content.ts';
@@ -19,6 +19,7 @@ import { CardBadges } from './LibraryPage.tsx';
 export function SeriesPage() {
   const { creator = '', name = '' } = useParams();
   const lib = useApi<LibraryDto>('/api/library');
+  useRefreshOn('zenport:progress', () => lib.reload());
   const player = usePlayer();
   const { user } = useAuth();
   const [picking, setPicking] = useState(false);

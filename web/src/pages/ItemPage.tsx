@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { DocumentDto, MeditationDetailDto, PlanDto } from '@zenport/shared';
 import { formatClock, formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
-import { useApi } from '../hooks.ts';
+import { useApi, useRefreshOn } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
@@ -14,6 +14,7 @@ import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
 export function ItemPage() {
   const { id = '' } = useParams();
   const detail = useApi<MeditationDetailDto>(`/api/items/${id}`);
+  useRefreshOn('zenport:progress', () => detail.reload());
   const player = usePlayer();
   const [showEvidence, setShowEvidence] = useState(false);
   const [showPlanSheet, setShowPlanSheet] = useState(false);

@@ -124,7 +124,6 @@ function PaintedCover({
         onLoad={() => setState('loaded')}
         onError={() => setState('failed')}
       />
-      <span className="cover-title">{title}</span>
     </div>
   );
 }

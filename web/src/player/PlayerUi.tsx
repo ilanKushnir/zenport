@@ -95,7 +95,7 @@ export function PlayerBar() {
         : p.item.creator;
 
   return (
-    <div className="mini" role="region" aria-label="Now practicing">
+    <div className="mini" role="region" aria-label={p.learning ? 'Now playing' : 'Now practicing'}>
       <div className="mini-progress" style={{ inlineSize: `${pct}%` }} aria-hidden="true" />
       <button className="mini-open" onClick={() => p.setFocus(true)} aria-label="Open the player">
         <Cover
@@ -147,8 +147,8 @@ export function PlayerBar() {
         <button
           className="icon-btn"
           onClick={() => p.stop('finish')}
-          aria-label="End practice"
-          title="End practice"
+          aria-label={p.learning ? 'Done for now' : 'End practice'}
+          title={p.learning ? 'Done for now' : 'End practice'}
         >
           <Icon name="x" />
         </button>
@@ -228,7 +228,9 @@ export function FocusMode() {
           <Icon name="chevron-down" size={22} />
         </button>
         <div className="fp-top-mid">
-          <span className="fp-kicker">Now practicing</span>
+          <span className="fp-kicker">
+            {p.learning ? (p.isVideo ? 'Now watching' : 'Now studying') : 'Now practicing'}
+          </span>
           {p.wakeLockOn && (
             <span className="fp-awake" title="The screen stays on while this plays">
               <Icon name="sun" size={12} /> Screen stays on
@@ -267,6 +269,7 @@ export function FocusMode() {
             )}
           </p>
           {multi && p.track && <p className="fp-track">{p.track.title}</p>}
+          {p.learning && multi && <CourseProgress />}
         </div>
 
         {settling ? (
@@ -379,9 +382,11 @@ export function FocusMode() {
       </div>
 
       <footer className="fp-foot">
-        <span className="fp-elapsed">{formatClock(p.practiceElapsed)} practiced</span>
+        <span className="fp-elapsed">
+          {formatClock(p.practiceElapsed)} {p.learning ? 'studied' : 'practiced'}
+        </span>
         <button className="fp-end" onClick={() => p.stop('finish')}>
-          End practice
+          {p.learning ? 'Done for now' : 'End practice'}
         </button>
       </footer>
 
@@ -411,9 +416,67 @@ function VideoStage({ el }: { el: HTMLVideoElement }) {
   return <div className="fp-video" ref={ref} />;
 }
 
+type WebkitVideo = HTMLVideoElement & {
+  webkitEnterFullscreen?: () => void;
+  webkitSupportsPresentationMode?: (mode: string) => boolean;
+  webkitSetPresentationMode?: (mode: string) => void;
+  webkitPresentationMode?: string;
+};
+
+const PIP_OFF_KEY = 'zenport-pip-unavailable';
+
+/** Where floating video can work at all: the standard API, or Safari's own. */
+function pipSupported(v: WebkitVideo): boolean {
+  try {
+    if (localStorage.getItem(PIP_OFF_KEY) === '1') return false;
+  } catch {
+    /* private mode */
+  }
+  const standard = 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
+  const webkit =
+    typeof v.webkitSupportsPresentationMode === 'function' &&
+    v.webkitSupportsPresentationMode('picture-in-picture');
+  return Boolean(standard || webkit) && !v.disablePictureInPicture;
+}
+
 function FullscreenChip({ el }: { el: HTMLVideoElement }) {
-  const v = el as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
-  const pip = 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
+  const v = el as WebkitVideo;
+  const [pip, setPip] = useState(() => pipSupported(v));
+  const [note, setNote] = useState<string | null>(null);
+
+  // Float the video. The standard call first; Safari's presentation mode if
+  // that is missing or refused. An installed iPhone app may still decline
+  // both - if nothing floated a moment later, say so and stop offering it.
+  const float = () => {
+    const floating = () =>
+      Boolean(document.pictureInPictureElement) ||
+      v.webkitPresentationMode === 'picture-in-picture';
+    if (floating()) {
+      if (document.pictureInPictureElement) void document.exitPictureInPicture().catch(() => {});
+      else v.webkitSetPresentationMode?.('inline');
+      return;
+    }
+    const webkitTry = () => {
+      if (typeof v.webkitSetPresentationMode === 'function')
+        v.webkitSetPresentationMode('picture-in-picture');
+    };
+    if (typeof el.requestPictureInPicture === 'function' && document.pictureInPictureEnabled) {
+      void el.requestPictureInPicture().catch(webkitTry);
+    } else {
+      webkitTry();
+    }
+    window.setTimeout(() => {
+      if (floating()) return;
+      setPip(false);
+      setNote('Floating video is not available here - Full screen works.');
+      try {
+        localStorage.setItem(PIP_OFF_KEY, '1');
+      } catch {
+        /* private mode */
+      }
+    }, 1200);
+  };
+
   return (
     <>
       <button
@@ -429,16 +492,47 @@ function FullscreenChip({ el }: { el: HTMLVideoElement }) {
         Full screen
       </button>
       {pip && (
-        <button
-          className="fp-chip"
-          onClick={() => void el.requestPictureInPicture().catch(() => {})}
-          aria-label="Picture in picture"
-        >
+        <button className="fp-chip" onClick={float} aria-label="Float the video over other apps">
           <Icon name="video" size={18} />
           Float
         </button>
       )}
+      {note && (
+        <span className="fp-chip-note" role="status">
+          {note}
+        </span>
+      )}
     </>
+  );
+}
+
+/** A course's lessons as a row of segments: done, current, still ahead. */
+function CourseProgress() {
+  const p = usePlayer();
+  if (!p.item) return null;
+  const tracks = p.item.tracks;
+  const done = tracks.filter((t) => p.completedIds.has(t.id)).length;
+  return (
+    <div className="fp-course" aria-label={`${done} of ${tracks.length} lessons done`}>
+      <div className="fp-course-bar">
+        {tracks.length <= 40 ? (
+          tracks.map((t, i) => (
+            <span
+              key={t.id}
+              className={p.completedIds.has(t.id) ? 'done' : i === p.trackIndex ? 'now' : ''}
+            />
+          ))
+        ) : (
+          <span
+            className="done"
+            style={{ flex: 'none', inlineSize: `${(done / tracks.length) * 100}%` }}
+          />
+        )}
+      </div>
+      <span className="fp-course-t">
+        {done} of {tracks.length} done
+      </span>
+    </div>
   );
 }
 
@@ -463,7 +557,13 @@ function TrackListSheet({ onClose }: { onClose: () => void }) {
                 }}
               >
                 <span className="tl-n">
-                  {current && p.playing ? <span className="tl-eq" aria-hidden="true" /> : i + 1}
+                  {current && p.playing ? (
+                    <span className="tl-eq" aria-hidden="true" />
+                  ) : p.completedIds.has(t.id) ? (
+                    <Icon name="check-circle" size={18} />
+                  ) : (
+                    i + 1
+                  )}
                 </span>
                 <span className="tl-t">{t.title}</span>
                 <span className="tl-d">{t.durationSec ? formatClock(t.durationSec) : ''}</span>

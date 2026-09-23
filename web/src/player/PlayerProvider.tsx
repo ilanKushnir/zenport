@@ -41,6 +41,10 @@ interface PlayerApi {
   playing: boolean;
   /** The current track is a video; the full player shows `videoEl`. */
   isVideo: boolean;
+  /** A course or talk: studied, not practised - wording, no reflection. */
+  learning: boolean;
+  /** Tracks of the current item this account has finished, kept live. */
+  completedIds: ReadonlySet<string>;
   videoEl: HTMLVideoElement | null;
   /** Audio wanted but not arriving yet (loading, or recovering from a dropout). */
   buffering: boolean;
@@ -106,6 +110,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const videoElRef = useRef<HTMLVideoElement | null>(null);
   const [isVideo, setIsVideo] = useState(false);
+  const [completedIds, setCompletedIds] = useState<ReadonlySet<string>>(new Set());
+  const completedRef = useRef<Set<string>>(new Set());
+  // Marks a track done once, tells the server, and tells any open page to
+  // refresh its progress.
+  const markDone = useCallback((trackId: string) => {
+    if (completedRef.current.has(trackId)) return;
+    completedRef.current.add(trackId);
+    setCompletedIds(new Set(completedRef.current));
+    void api
+      .put(`/api/tracks/${trackId}/completed`, { completed: true })
+      .then(() => window.dispatchEvent(new Event('zenport:progress')))
+      .catch(() => {});
+  }, []);
   const [item, setItem] = useState<MeditationDetailDto | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -177,6 +194,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const audio = (): HTMLMediaElement => audioRef.current ?? (audioRef.current = mediaFor('audio'));
 
   const track = item?.tracks[trackIndex] ?? null;
+  const learning = item?.type === 'course' || item?.type === 'talk';
 
   const updateSettings = useCallback((patch: Partial<PlayerSettings>) => {
     setSettings((prev) => {
@@ -257,13 +275,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         void api
           .post(`/api/practice/${sid}/finish`, { status, reason })
           .then(() => {
-            if (status === 'completed') {
+            // A reflection is for a sit, not a lesson: after studying, no prompt.
+            if (status === 'completed' && it.type !== 'course' && it.type !== 'talk') {
               setReflect({
                 sessionId: sid,
                 meditationId: it.id,
                 meditationTitle: it.title,
                 minutes,
-                learning: it.type === 'course' || it.type === 'talk',
               });
             }
           })
@@ -272,6 +290,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       sessionRef.current = null;
       startedAtRef.current = null;
       wantPlayRef.current = false;
+      window.dispatchEvent(new Event('zenport:progress'));
       setBuffering(false);
       for (const el of [audioElRef.current, videoElRef.current]) {
         if (el) {
@@ -301,6 +320,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // Close any previous session honestly before starting anew.
       if (sessionRef.current) finishInternal('abandoned', 'switched meditation');
       setItem(it);
+      completedRef.current = new Set(it.tracks.filter((t) => t.completed).map((t) => t.id));
+      setCompletedIds(new Set(completedRef.current));
       // Beginning a practice opens the full player; it can be minimised to
       // the bar and keeps playing while the rest of the app is used.
       setFocus(true);
@@ -506,6 +527,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setPosition(el.currentTime);
         if (el.currentTime > 0) lastGoodPosRef.current = el.currentTime;
         if (!el.paused) retriesRef.current = 0;
+        // Most of a lesson watched is a lesson done - the credits, a closing
+        // bell or a skip in the last few percent should not lose it.
+        const cur = itemRef.current?.tracks[trackIndexRef.current];
+        if (
+          cur &&
+          Number.isFinite(el.duration) &&
+          el.duration > 20 &&
+          el.currentTime / el.duration >= 0.95
+        ) {
+          markDone(cur.id);
+        }
       };
       const onLoaded = () => {
         if (!active()) return;
@@ -525,11 +557,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const idx = trackIndexRef.current;
         // Played to the end: a finished lesson (or track), for this account.
         const doneTrack = it.tracks[idx];
-        if (doneTrack) {
-          void api
-            .put(`/api/tracks/${doneTrack.id}/completed`, { completed: true })
-            .catch(() => {});
-        }
+        if (doneTrack) markDone(doneTrack.id);
         if (idx < it.tracks.length - 1) {
           if (!autoplayRef.current) {
             // "Continue to the next track" is off: stop here rather than rolling
@@ -624,7 +652,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       offAudio();
       offVideo();
     };
-  }, [loadTrack, finishInternal]);
+  }, [loadTrack, finishInternal, markDone]);
 
   // Periodic work: heartbeats, progress saves, bells, end timer, elapsed.
   useEffect(() => {
@@ -774,6 +802,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       trackIndex,
       playing,
       isVideo,
+      learning,
+      completedIds,
       videoEl: videoElRef.current,
       buffering,
       position,
@@ -806,6 +836,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       trackIndex,
       playing,
       isVideo,
+      learning,
+      completedIds,
       buffering,
       position,
       duration,

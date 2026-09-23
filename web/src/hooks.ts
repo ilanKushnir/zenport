@@ -39,3 +39,18 @@ export function useApi<T>(path: string | null): Loadable<T> {
   useEffect(load, [load]);
   return { data, loading, error, reload: load };
 }
+
+/**
+ * Re-run `fn` when a window event fires - the player announces
+ * "zenport:progress" when a lesson is finished or a session ends, so pages
+ * showing progress stay current without a reload.
+ */
+export function useRefreshOn(event: string, fn: () => void): void {
+  const ref = useRef(fn);
+  ref.current = fn;
+  useEffect(() => {
+    const handler = () => ref.current();
+    window.addEventListener(event, handler);
+    return () => window.removeEventListener(event, handler);
+  }, [event]);
+}

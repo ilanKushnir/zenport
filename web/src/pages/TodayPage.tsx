@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { LibraryDto, PlanOccurrenceDto, PracticeSessionDto, StatsDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
-import { useApi } from '../hooks.ts';
+import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { planNext } from './PlansPage.tsx';
 import { itemLabel, TYPE_META } from '../content.ts';
@@ -26,6 +26,7 @@ export function TodayPage() {
   const navigate = useNavigate();
   const { prefs, favorites } = usePrefs();
   const lib = useApi<LibraryDto>('/api/library');
+  useRefreshOn('zenport:progress', () => lib.reload());
   const stats = useApi<StatsDto>('/api/stats');
   const history = useApi<PracticeSessionDto[]>('/api/practice/history?limit=20');
   const plans = useApi<{ today: string; occurrences: PlanOccurrenceDto[] }>(

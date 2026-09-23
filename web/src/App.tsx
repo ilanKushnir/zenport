@@ -20,6 +20,7 @@ import { PlayerProvider } from './player/PlayerProvider.tsx';
 import { FocusMode, PlayerBar } from './player/PlayerUi.tsx';
 import { ReflectionSheet } from './components/Reflection.tsx';
 import { MORE_LINKS, MoreSheet } from './components/MoreSheet.tsx';
+import { UpdateWatcher } from './updater.tsx';
 import { FoldersPage } from './pages/FoldersPage.tsx';
 import { SeriesPage } from './pages/SeriesPage.tsx';
 import { LoginPage, SetupPage } from './pages/AuthPages.tsx';
@@ -178,6 +179,7 @@ function Shell({ children }: { children: ReactNode }) {
       <ReflectionSheet />
       <CommandPalette />
       <WhatsNew />
+      <UpdateWatcher />
     </div>
   );
 }

@@ -25,6 +25,25 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.6.4',
+    items: [
+      {
+        emoji: '📚',
+        text: 'Courses feel like studying: the player shows your progress through the lessons, says "Done for now" instead of ending a practice, and skips the reflection.',
+      },
+      { emoji: '✅', text: 'A lesson counts as done once you have watched almost all of it.' },
+      {
+        emoji: '🎬',
+        text: 'Float works where your device allows it, and hides where it does not.',
+      },
+      {
+        emoji: '🔄',
+        text: 'The app updates itself to the newest version when you come back to it.',
+      },
+      { emoji: '🎨', text: 'Placeholder covers are quieter, with no title printed on them.' },
+    ],
+  },
+  {
     version: '0.6.3',
     items: [
       {

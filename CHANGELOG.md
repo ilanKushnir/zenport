@@ -5,6 +5,19 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.4] — 2026-09-23
+
+### Changed
+
+- **Courses and talks are studied, not practised.** The player says Now watching / Now studying, counts time "studied", ends with **Done for now**, shows a segment per lesson with how many are done, ticks finished lessons in the list, and no reflection prompt follows.
+- **A lesson is done at 95%** of its length (or at its end), not only when it plays out; course, series, Library and Today pages refresh as lessons finish.
+- **Painted placeholder covers are quieter** - less saturated under a soft veil - and carry no title, which the card already shows beneath.
+
+### Fixed
+
+- **Float did nothing on an iPhone.** The standard picture-in-picture call is refused in an installed app; Float now falls back to Safari's presentation mode, and if nothing floats it says so and stops offering the button on that device.
+- **An installed app could run an old release for days.** iOS resumes a home-screen app from memory; the app now checks the server's version when it returns to the foreground and every half hour, reloading when nothing is playing and offering an Update bar when something is.
+
 ## [0.6.3] — 2026-09-23
 
 ### Fixed
