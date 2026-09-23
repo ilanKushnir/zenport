@@ -11,15 +11,11 @@
  *   its longest unbreakable word, and folder names are exactly that. Columns
  *   are written minmax(0, 1fr) (or with an explicit minimum) instead.
  */
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import appCss from './app.css?raw';
+import themeCss from './theme.css?raw';
 
-const here = path.dirname(new URL(import.meta.url).pathname);
-const css = ['app.css', 'theme.css']
-  .map((f) => readFileSync(path.join(here, f), 'utf8'))
-  .join('\n')
-  .replace(/\/\*[\s\S]*?\*\//g, '');
+const css = [appCss, themeCss].join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** Innermost `selector { declarations }` blocks, including those inside @media. */
 function rules(): { selectors: string[]; body: string }[] {
