@@ -11,11 +11,14 @@
  *   its longest unbreakable word, and folder names are exactly that. Columns
  *   are written minmax(0, 1fr) (or with an explicit minimum) instead.
  */
+/// <reference types="node" />
+// Read from disk: under Vitest every CSS import, ?raw included, is an empty
+// string, which would let these checks pass on nothing.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import appCss from './app.css?raw';
-import themeCss from './theme.css?raw';
 
-const css = [appCss, themeCss].join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8');
+const css = [read('./app.css'), read('./theme.css')].join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** Innermost `selector { declarations }` blocks, including those inside @media. */
 function rules(): { selectors: string[]; body: string }[] {
@@ -33,6 +36,12 @@ function rules(): { selectors: string[]; body: string }[] {
 const positionOf = (body: string) => body.match(/(?:^|;|\s)position\s*:\s*([a-z-]+)/)?.[1];
 
 describe('layout invariants', () => {
+  it('actually has the stylesheets to check', () => {
+    expect(css.length).toBeGreaterThan(20_000);
+    expect(css).toContain('.sidebar');
+    expect(css).toContain('.mobile-tabs');
+  });
+
   it('nothing overrides the sidebar being sticky', () => {
     for (const r of rules()) {
       const hits = r.selectors.filter((s) => /(^|[\s>])\.sidebar$/.test(s));
