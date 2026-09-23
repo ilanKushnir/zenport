@@ -7,6 +7,9 @@ import { useApi } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
+import { useAuth } from '../App.tsx';
+import { TypeSheet } from '../components/TypeSheet.tsx';
+import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
 
 export function ItemPage() {
   const { id = '' } = useParams();
@@ -15,6 +18,11 @@ export function ItemPage() {
   const [showEvidence, setShowEvidence] = useState(false);
   const [showPlanSheet, setShowPlanSheet] = useState(false);
   const [openDoc, setOpenDoc] = useState<DocumentDto | null>(null);
+  const [picking, setPicking] = useState(false);
+  const { user } = useAuth();
+  const lib = useApi<{ items: { id: string; creator: string; collection: string | null }[] }>(
+    '/api/library',
+  );
 
   if (detail.loading) {
     return (
@@ -32,6 +40,43 @@ export function ItemPage() {
   }
   const item = detail.data;
   const resumeTrack = item.resume ? item.tracks.find((t) => t.id === item.resume?.trackId) : null;
+  const meta = TYPE_META[item.type];
+  const learning = item.type === 'course' || item.type === 'talk';
+  const nextTrack = item.tracks.find((t) => !t.completed && !t.missing);
+  const doneCount = item.tracks.filter((t) => t.completed).length;
+  const seriesSize = item.collection
+    ? (lib.data?.items ?? []).filter(
+        (i) => i.creator === item.creator && i.collection === item.collection,
+      ).length
+    : 0;
+  const toggleDone = async (trackId: string, completed: boolean) => {
+    await api.put(`/api/tracks/${trackId}/completed`, { completed }).catch(() => {});
+    detail.reload();
+  };
+  // A course picks up at the first unfinished lesson; everything else begins at the top.
+  const begin = () => {
+    if (learning && nextTrack && doneCount > 0) {
+      const resume =
+        item.resume && item.resume.trackId === nextTrack.id ? item.resume.positionSec : undefined;
+      player.start(item, { trackId: nextTrack.id, resumeSec: resume });
+    } else {
+      player.start(item);
+    }
+  };
+  const beginLabel =
+    item.type === 'course'
+      ? doneCount === 0
+        ? 'Start the course'
+        : nextTrack
+          ? `Continue · ${meta.part[0]!.toUpperCase()}${meta.part.slice(1)} ${nextTrack.ord}`
+          : 'Watch again'
+      : item.type === 'talk'
+        ? item.hasVideo
+          ? 'Watch'
+          : 'Listen'
+        : item.type === 'soundscape'
+          ? 'Play'
+          : 'Begin practice';
 
   return (
     <>
@@ -42,7 +87,11 @@ export function ItemPage() {
         {item.collection && (
           <>
             <span className="sep">/</span>
-            <span>{item.collection}</span>
+            {seriesSize > 1 ? (
+              <Link to={seriesPath(item.creator, item.collection)}>{item.collection}</Link>
+            ) : (
+              <span>{item.collection}</span>
+            )}
           </>
         )}
         <span className="sep">/</span>
@@ -55,6 +104,25 @@ export function ItemPage() {
         </div>
 
         <div className="detail-body">
+          <div className="type-line">
+            <span className={`type-pill t-${item.type}`}>
+              <Icon name={meta.icon} size={14} />
+              {meta.label}
+              {item.hasVideo && (
+                <>
+                  <span className="dot" aria-hidden="true">
+                    ·
+                  </span>
+                  <Icon name="video" size={14} /> Video
+                </>
+              )}
+            </span>
+            {user?.role === 'admin' && (
+              <button className="type-change" onClick={() => setPicking(true)}>
+                {item.typeSource === 'auto' ? 'Not right?' : 'Change'}
+              </button>
+            )}
+          </div>
           <p className="eyebrow">
             <Link to={`/creators/${encodeURIComponent(item.creator)}`}>{item.creator}</Link>
             {item.collection ? ` · ${item.collection}` : ''}
@@ -62,7 +130,12 @@ export function ItemPage() {
           <h1 className="detail-title">{item.title}</h1>
           <p className="detail-facts">
             {item.totalDurationSec ? <span>{formatDuration(item.totalDurationSec)}</span> : null}
-            {item.trackCount > 1 ? <span>{item.trackCount} tracks</span> : null}
+            {item.trackCount > 1 ? (
+              <span>
+                {progressLabel(doneCount, item.trackCount, item.type) ??
+                  `${item.trackCount} ${meta.parts}`}
+              </span>
+            ) : null}
             {item.documentCount > 0 ? (
               <span>
                 {item.documentCount} note{item.documentCount === 1 ? '' : 's'}
@@ -77,24 +150,27 @@ export function ItemPage() {
             </p>
           ) : (
             <div className="detail-actions">
-              <button className="btn btn-primary btn-lg" onClick={() => player.start(item)}>
-                <Icon name="play" /> Begin practice
+              <button className="btn btn-primary btn-lg" onClick={begin}>
+                <Icon name="play" /> {beginLabel}
               </button>
-              {resumeTrack && item.resume && item.resume.positionSec > 10 && (
-                <button
-                  className="btn btn-ghost"
-                  onClick={() =>
-                    player.start(item, {
-                      trackId: item.resume!.trackId,
-                      resumeSec: item.resume!.positionSec,
-                    })
-                  }
-                >
-                  <Icon name="history" size={16} /> Resume{' '}
-                  {item.trackCount > 1 ? `${resumeTrack.title} ` : ''}at{' '}
-                  {formatClock(item.resume.positionSec)}
-                </button>
-              )}
+              {!(learning && doneCount > 0) &&
+                resumeTrack &&
+                item.resume &&
+                item.resume.positionSec > 10 && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      player.start(item, {
+                        trackId: item.resume!.trackId,
+                        resumeSec: item.resume!.positionSec,
+                      })
+                    }
+                  >
+                    <Icon name="history" size={16} /> Resume{' '}
+                    {item.trackCount > 1 ? `${resumeTrack.title} ` : ''}at{' '}
+                    {formatClock(item.resume.positionSec)}
+                  </button>
+                )}
               <button className="btn btn-ghost" onClick={() => setShowPlanSheet(true)}>
                 <Icon name="plans" size={16} /> Add to a plan
               </button>
@@ -103,16 +179,45 @@ export function ItemPage() {
 
           <section className="section" aria-labelledby="sec-tracks">
             <div className="section-head">
-              <h2 id="sec-tracks">{item.trackCount > 1 ? 'Tracks' : 'Audio'}</h2>
+              <h2 id="sec-tracks">
+                {item.trackCount > 1
+                  ? meta.parts[0]!.toUpperCase() + meta.parts.slice(1)
+                  : item.hasVideo
+                    ? 'Video'
+                    : 'Audio'}
+              </h2>
+              {learning && item.trackCount > 1 && (
+                <span className="section-note">Tick a {meta.part} to mark it done</span>
+              )}
             </div>
             <div className="rowlist">
               {item.tracks.map((t) => (
-                <div className="row" key={t.id}>
-                  <span className="num">{t.ord}</span>
+                <div
+                  className={`row${t.completed ? ' done' : ''}${learning && t.id === nextTrack?.id && doneCount > 0 ? ' next' : ''}`}
+                  key={t.id}
+                >
+                  {learning ? (
+                    <button
+                      className="done-toggle"
+                      aria-pressed={t.completed}
+                      aria-label={t.completed ? `Mark ${t.title} not done` : `Mark ${t.title} done`}
+                      onClick={() => void toggleDone(t.id, !t.completed)}
+                    >
+                      <Icon name={t.completed ? 'check-circle' : 'circle'} size={20} />
+                    </button>
+                  ) : (
+                    <span className="num">{t.ord}</span>
+                  )}
                   <div className="grow">
                     <div>{t.title}</div>
                     <div className="sub">
-                      .{t.ext}
+                      {t.video ? (
+                        <>
+                          <Icon name="video" size={12} /> video
+                        </>
+                      ) : (
+                        `.${t.ext}`
+                      )}
                       {t.durationSec ? ` · ${formatClock(t.durationSec)}` : ''}
                       {t.missing ? ' · missing' : ''}
                     </div>
@@ -223,6 +328,20 @@ export function ItemPage() {
         </Sheet>
       )}
 
+      {picking && (
+        <TypeSheet
+          itemId={item.id}
+          current={item.type}
+          auto={item.typeSource === 'auto'}
+          seriesSize={seriesSize}
+          onClose={() => setPicking(false)}
+          onSaved={() => {
+            setPicking(false);
+            detail.reload();
+            lib.reload();
+          }}
+        />
+      )}
       {showPlanSheet && (
         <AddToPlanSheet meditationId={item.id} onClose={() => setShowPlanSheet(false)} />
       )}

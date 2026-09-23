@@ -1,11 +1,19 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
+import type { ContentType, LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { Cover, EmptyState, ErrorNote, Icon, SkeletonGrid } from '../components/ui.tsx';
+import {
+  groupSeries,
+  progressLabel,
+  seriesPath,
+  TYPE_META,
+  TYPES,
+  type Series,
+} from '../content.ts';
 
 type SortKey = 'creator' | 'title' | 'recent' | 'duration';
 
@@ -14,7 +22,11 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
   const starred = isFavorite(item.id);
   return (
     <Link className="med-card" to={`/m/${item.id}`}>
-      <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
+      <div className="card-art">
+        <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
+        <CardBadges type={item.type} video={item.hasVideo} />
+        <CardProgress done={item.completedCount} total={item.trackCount} />
+      </div>
       <button
         className="fav-btn"
         aria-pressed={starred}
@@ -39,6 +51,56 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
   );
 }
 
+/** Type pill (and a video mark) over a cover's corner. Meditation, the default, goes unlabelled. */
+export function CardBadges({ type, video }: { type: ContentType; video: boolean }) {
+  if (type === 'meditation' && !video) return null;
+  return (
+    <span className="card-badges" aria-hidden="true">
+      {type !== 'meditation' && (
+        <span className={`card-badge t-${type}`}>
+          <Icon name={TYPE_META[type].icon} size={13} />
+          {TYPE_META[type].label}
+        </span>
+      )}
+      {video && (
+        <span className="card-badge card-badge-video" title="Video">
+          <Icon name="video" size={13} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function CardProgress({ done, total }: { done: number; total: number }) {
+  if (done <= 0 || total <= 1) return null;
+  return (
+    <span className="card-progress" aria-hidden="true">
+      <span style={{ inlineSize: `${Math.min(100, (done / total) * 100)}%` }} />
+    </span>
+  );
+}
+
+/** A series (course modules, a meditation programme) as one card. */
+export function SeriesCard({ series }: { series: Series }) {
+  const m = TYPE_META[series.type];
+  const progress = progressLabel(series.completedCount, series.trackCount, series.type);
+  return (
+    <Link className="med-card series-card" to={seriesPath(series.creator, series.name)}>
+      <div className="card-art">
+        <div className="series-stack" aria-hidden="true" />
+        <Cover coverId={series.coverId} title={series.name} creator={series.creator} />
+        <CardBadges type={series.type} video={series.hasVideo} />
+        <CardProgress done={series.completedCount} total={series.trackCount} />
+      </div>
+      <div className="t">{series.name}</div>
+      <div className="c">
+        {progress ??
+          `${series.items.length} ${series.type === 'course' ? 'modules' : m.plural.toLowerCase()} · ${series.creator}`}
+      </div>
+    </Link>
+  );
+}
+
 export function LibraryPage() {
   const { favorites } = usePrefs();
   const lib = useApi<LibraryDto>('/api/library');
@@ -52,14 +114,46 @@ export function LibraryPage() {
     new URLSearchParams(window.location.search).has('favorites'),
   );
   const [sort, setSort] = useState<SortKey>('creator');
+  const [type, setTypeState] = useState<'all' | ContentType>(() => {
+    const t = new URLSearchParams(window.location.search).get('type');
+    return (TYPES as readonly string[]).includes(t ?? '') ? (t as ContentType) : 'all';
+  });
+  const setType = (t: 'all' | ContentType) => {
+    setTypeState(t);
+    const u = new URL(window.location.href);
+    if (t === 'all') u.searchParams.delete('type');
+    else u.searchParams.set('type', t);
+    window.history.replaceState(null, '', u);
+  };
   const [rescanning, setRescanning] = useState(false);
 
   const items = lib.data?.items ?? [];
   const filtersActive =
     q !== '' || creator !== '' || root !== '' || format !== '' || withDocs || onlyFavs;
 
+  const present = useMemo(() => items.filter((i) => !i.missing), [items]);
+  const typeCounts = useMemo(() => {
+    const m = new Map<ContentType, number>();
+    for (const i of present) m.set(i.type, (m.get(i.type) ?? 0) + 1);
+    return m;
+  }, [present]);
+  // Courses and series someone is part-way through.
+  const continuing = useMemo(() => {
+    const { series, singles } = groupSeries(present);
+    const open = (done: number, total: number) => done > 0 && done < total;
+    return [
+      ...series
+        .filter((s) => open(s.completedCount, s.trackCount))
+        .map((s) => ({ kind: 'series' as const, s })),
+      ...singles
+        .filter((i) => i.type !== 'meditation' && open(i.completedCount, i.trackCount))
+        .map((i) => ({ kind: 'item' as const, i })),
+    ].slice(0, 8);
+  }, [present]);
+
   const filtered = useMemo(() => {
-    let out = items.filter((i) => !i.missing);
+    let out = present;
+    if (type !== 'all') out = out.filter((i) => i.type === type);
     if (q) {
       const needle = q.toLowerCase();
       out = out.filter(
@@ -88,7 +182,8 @@ export function LibraryPage() {
         break; // server order is creator/title already
     }
     return out;
-  }, [items, q, creator, root, format, withDocs, onlyFavs, favorites, sort]);
+  }, [present, type, q, creator, root, format, withDocs, onlyFavs, favorites, sort]);
+  const grouped = useMemo(() => groupSeries(filtered), [filtered]);
 
   const missingCount = items.filter((i) => i.missing).length;
   const formats = useMemo(() => [...new Set(items.flatMap((i) => i.formats))].sort(), [items]);
@@ -149,12 +244,44 @@ export function LibraryPage() {
         <h1>Library</h1>
         <p className="lede">
           {items.length === 0
-            ? 'Your mounted meditation folders will appear here.'
-            : `${items.length - missingCount} meditations from ${lib.data!.creators.length} ${
+            ? 'Your mounted folders will appear here.'
+            : `${TYPES.filter((t) => typeCounts.get(t))
+                .map((t) => {
+                  const n = typeCounts.get(t)!;
+                  return `${n} ${(n === 1 ? TYPE_META[t].label : TYPE_META[t].plural).toLowerCase()}`;
+                })
+                .join(' · ')} from ${lib.data!.creators.length} ${
                 lib.data!.creators.length === 1 ? 'creator' : 'creators'
-              }, straight from your own files.`}
+              }.`}
         </p>
       </div>
+
+      {present.length > 0 && typeCounts.size > 1 && (
+        <div className="type-tabs" role="tablist" aria-label="What to show">
+          <button
+            role="tab"
+            aria-selected={type === 'all'}
+            className="type-tab"
+            onClick={() => setType('all')}
+          >
+            All
+            <span className="n">{present.length}</span>
+          </button>
+          {TYPES.filter((t) => typeCounts.get(t)).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={type === t}
+              className={`type-tab t-${t}`}
+              onClick={() => setType(t)}
+            >
+              <Icon name={TYPE_META[t].icon} size={16} />
+              {TYPE_META[t].plural}
+              <span className="n">{typeCounts.get(t)}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {scan.warnings.length > 0 && (
         <p className="notice" style={{ marginBottom: 24 }}>
@@ -191,30 +318,49 @@ export function LibraryPage() {
         </EmptyState>
       ) : (
         <>
-          <section className="section" aria-labelledby="sec-creators">
-            <div className="section-head">
-              <h2 id="sec-creators">Creators</h2>
-            </div>
-            <div className="card-grid">
-              {lib.data!.creators.map((c) => (
-                <Link
-                  key={c.name}
-                  className="med-card"
-                  to={`/creators/${encodeURIComponent(c.name)}`}
-                >
-                  <CreatorMosaic coverIds={c.coverIds} name={c.name} />
-                  <div className="t">{c.name}</div>
-                  <div className="c">
-                    {c.itemCount} meditation{c.itemCount > 1 ? 's' : ''}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
+          {type === 'all' && !filtersActive && continuing.length > 0 && (
+            <section className="section" aria-labelledby="sec-continue">
+              <div className="section-head">
+                <h2 id="sec-continue">Continue</h2>
+              </div>
+              <div className="card-grid">
+                {continuing.map((c) =>
+                  c.kind === 'series' ? (
+                    <SeriesCard key={c.s.key} series={c.s} />
+                  ) : (
+                    <MedCard key={c.i.id} item={c.i} />
+                  ),
+                )}
+              </div>
+            </section>
+          )}
+
+          {type === 'all' && (
+            <section className="section" aria-labelledby="sec-creators">
+              <div className="section-head">
+                <h2 id="sec-creators">Creators</h2>
+              </div>
+              <div className="card-grid">
+                {lib.data!.creators.map((c) => (
+                  <Link
+                    key={c.name}
+                    className="med-card"
+                    to={`/creators/${encodeURIComponent(c.name)}`}
+                  >
+                    <CreatorMosaic coverIds={c.coverIds} name={c.name} />
+                    <div className="t">{c.name}</div>
+                    <div className="c">
+                      {c.itemCount} item{c.itemCount > 1 ? 's' : ''}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="section" aria-labelledby="sec-all">
             <div className="section-head">
-              <h2 id="sec-all">All meditations</h2>
+              <h2 id="sec-all">{type === 'all' ? 'Everything' : TYPE_META[type].plural}</h2>
               <div className="section-actions">
                 <Link className="btn btn-sm btn-quiet" to="/library/folders">
                   <Icon name="folder" size={15} />
@@ -235,7 +381,11 @@ export function LibraryPage() {
               <input
                 className="search"
                 type="search"
-                placeholder="Search titles, creators, collections…"
+                placeholder={
+                  type === 'all'
+                    ? 'Search titles, creators, series…'
+                    : `Search ${TYPE_META[type].plural.toLowerCase()}…`
+                }
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 aria-label="Search the library"
@@ -346,8 +496,29 @@ export function LibraryPage() {
                     </button>
                   </p>
                 )}
+                {grouped.series.length > 0 && (
+                  <>
+                    <h3 className="shelf-title">
+                      {type === 'course' ? 'Courses in parts' : 'Series'}
+                      <span>{grouped.series.length}</span>
+                    </h3>
+                    <div className="card-grid shelf">
+                      {grouped.series.map((sr) => (
+                        <SeriesCard key={sr.key} series={sr} />
+                      ))}
+                    </div>
+                    {grouped.singles.length > 0 && (
+                      <h3 className="shelf-title">
+                        {type === 'all'
+                          ? 'Single items'
+                          : `Single ${TYPE_META[type].plural.toLowerCase()}`}
+                        <span>{grouped.singles.length}</span>
+                      </h3>
+                    )}
+                  </>
+                )}
                 <div className="card-grid">
-                  {filtered.map((item) => (
+                  {grouped.singles.map((item) => (
                     <MedCard key={item.id} item={item} />
                   ))}
                 </div>

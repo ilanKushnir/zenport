@@ -28,6 +28,9 @@ import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
+import { AiPlanSheet } from '../components/AiPlanSheet.tsx';
+import { itemLabel, TYPE_META } from '../content.ts';
+import { isPracticeType } from '@zenport/shared';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DOW_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -80,6 +83,22 @@ function cadenceLabel(p: PlanDto): string {
   return p.daysOfWeek.map((d) => DOW[d]).join(' · ');
 }
 
+/**
+ * What a plan's occurrence points at. A practice plan's first chosen
+ * meditation; a learning plan's first course or talk that is not finished yet,
+ * so the plan walks through its list in order.
+ */
+export function planNext(
+  ids: string[],
+  byId: Map<string, MeditationSummaryDto>,
+  focus: PlanDto['focus'],
+): MeditationSummaryDto | null {
+  const list = ids.map((id) => byId.get(id)).filter(Boolean) as MeditationSummaryDto[];
+  if (focus === 'learning')
+    return list.find((i) => i.completedCount < i.trackCount) ?? list[0] ?? null;
+  return list[0] ?? null;
+}
+
 export function PlansPage() {
   const plans = useApi<PlanDto[]>('/api/plans');
   const occ = useApi<{ today: string; occurrences: PlanOccurrenceDto[] }>(
@@ -88,6 +107,7 @@ export function PlansPage() {
   const lib = useApi<LibraryDto>('/api/library');
   const [editing, setEditing] = useState<PlanDto | 'new' | null>(null);
   const [rescheduling, setRescheduling] = useState<PlanOccurrenceDto | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const reloadAll = () => {
     plans.reload();
@@ -97,6 +117,10 @@ export function PlansPage() {
   const items = useMemo(() => (lib.data?.items ?? []).filter((i) => !i.missing), [lib.data]);
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const today = occ.data?.today ?? isoDate(new Date());
+  const focusOf = useMemo(
+    () => new Map((plans.data ?? []).map((p) => [p.id, p.focus] as const)),
+    [plans.data],
+  );
 
   /** Occurrences by date, moved ones shown only at their destination. */
   const byDate = useMemo(() => {
@@ -162,9 +186,14 @@ export function PlansPage() {
           </p>
         </div>
         {(plans.data ?? []).length > 0 && (
-          <button className="btn btn-primary" onClick={() => setEditing('new')}>
-            <Icon name="plus" size={16} /> New plan
-          </button>
+          <div className="plans-head-actions">
+            <button className="btn btn-ghost" onClick={() => setAiOpen(true)}>
+              <Icon name="sparkle" size={16} /> Plan with AI
+            </button>
+            <button className="btn btn-primary" onClick={() => setEditing('new')}>
+              <Icon name="plus" size={16} /> New plan
+            </button>
+          </div>
         )}
       </div>
 
@@ -173,9 +202,14 @@ export function PlansPage() {
           title="No plans yet"
           art="ob-rhythm"
           action={
-            <button className="btn btn-primary" onClick={() => setEditing('new')}>
-              Plan your first stretch
-            </button>
+            <div className="empty-actions">
+              <button className="btn btn-primary" onClick={() => setEditing('new')}>
+                Plan your first stretch
+              </button>
+              <button className="btn btn-ghost" onClick={() => setAiOpen(true)}>
+                <Icon name="sparkle" size={16} /> Plan it with AI
+              </button>
+            </div>
           }
         >
           Pick the days, how long, and if you like which recordings - ZenPort lays out the path
@@ -233,9 +267,12 @@ export function PlansPage() {
                             <Occurrence
                               key={`${o.planId}-${o.date}`}
                               o={o}
-                              first={
-                                o.meditationIds.map((id) => byId.get(id)).find(Boolean) ?? null
-                              }
+                              first={planNext(
+                                o.meditationIds,
+                                byId,
+                                focusOf.get(o.planId) ?? 'practice',
+                              )}
+                              focus={focusOf.get(o.planId) ?? 'practice'}
                               onAct={act}
                               onMove={() => setRescheduling(o)}
                             />
@@ -277,6 +314,15 @@ export function PlansPage() {
         </>
       )}
 
+      {aiOpen && (
+        <AiPlanSheet
+          onClose={() => setAiOpen(false)}
+          onCreated={() => {
+            setAiOpen(false);
+            reloadAll();
+          }}
+        />
+      )}
       {editing && (
         <PlanSheet
           plan={editing === 'new' ? null : editing}
@@ -338,7 +384,10 @@ function PlanCard({
   const meds = plan.meditationIds
     .map((id) => byId.get(id))
     .filter(Boolean) as MeditationSummaryDto[];
-  const first = meds[0] ?? null;
+  const first = planNext(plan.meditationIds, byId, plan.focus);
+  const learning = plan.focus === 'learning';
+  const learnDone = learning ? meds.reduce((n, m) => n + m.completedCount, 0) : 0;
+  const learnTotal = learning ? meds.reduce((n, m) => n + m.trackCount, 0) : 0;
   const pct = stats.total > 0 ? stats.done / stats.total : 0;
   const nextLabel = stats.next
     ? stats.next.status === 'today'
@@ -352,6 +401,10 @@ function PlanCard({
     <article className="plan-card">
       <header className="plan-card__head">
         <div className="plan-card__title">
+          <span className={`plan-focus ${learning ? 't-course' : 't-meditation'}`}>
+            <Icon name={learning ? 'book' : 'lotus'} size={13} />
+            {learning ? 'Learning' : 'Practice'}
+          </span>
           <h3>{plan.name}</h3>
           {plan.intention && <p className="plan-card__intention">“{plan.intention}”</p>}
         </div>
@@ -400,8 +453,12 @@ function PlanCard({
             ))}
           </div>
           <span className="plan-card__medlabel">
-            {meds.length === 1 ? meds[0]!.title : `${meds.length} recordings`}
-            {meds.length === 1 && meds[0]!.totalDurationSec
+            {learning
+              ? `${meds.length} to follow · ${learnDone} of ${learnTotal} done`
+              : meds.length === 1
+                ? itemLabel(meds[0]!)
+                : `${meds.length} recordings`}
+            {!learning && meds.length === 1 && meds[0]!.totalDurationSec
               ? ` · ${formatDuration(meds[0]!.totalDurationSec)}`
               : ''}
           </span>
@@ -424,7 +481,7 @@ function PlanCard({
           </button>
           {first && (
             <Link className="btn btn-sm btn-primary" to={`/m/${first.id}`}>
-              <Icon name="play" size={14} /> Begin
+              <Icon name="play" size={14} /> {learning ? 'Continue' : 'Begin'}
             </Link>
           )}
         </div>
@@ -436,11 +493,13 @@ function PlanCard({
 function Occurrence({
   o,
   first,
+  focus,
   onAct,
   onMove,
 }: {
   o: PlanOccurrenceDto;
   first: MeditationSummaryDto | null;
+  focus: PlanDto['focus'];
   onAct: (o: PlanOccurrenceDto, a: 'complete' | 'skip' | 'unmark') => Promise<void>;
   onMove: () => void;
 }) {
@@ -452,9 +511,18 @@ function Occurrence({
         {STATUS_LABEL[o.status]}
       </span>
       <div className="occ-body">
-        <span className="occ-name">{o.planName}</span>
+        <span className="occ-name">
+          <Icon name={focus === 'learning' ? 'book' : 'lotus'} size={14} />
+          {o.planName}
+        </span>
         <span className="occ-sub">
-          {first ? first.title : 'Any meditation you choose'}
+          {first
+            ? `${itemLabel(first)}${
+                focus === 'learning' && first.trackCount > 1
+                  ? ` · ${first.completedCount >= first.trackCount ? 'review' : `${TYPE_META[first.type].part} ${first.completedCount + 1}`}`
+                  : ''
+              }`
+            : 'Any meditation you choose'}
           {o.movedFrom ? ` · moved from ${o.movedFrom.slice(5)}` : ''}
         </span>
       </div>
@@ -578,6 +646,8 @@ function PlanSheet({
   const [target, setTarget] = useState<number | null>(plan?.targetMinutes ?? null);
   const [notes, setNotes] = useState(plan?.notes ?? '');
   const [meds, setMeds] = useState<string[]>(plan?.meditationIds ?? []);
+  const [focus, setFocus] = useState<PlanDto['focus']>(plan?.focus ?? 'practice');
+  const learning = focus === 'learning';
   const [medQuery, setMedQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -614,14 +684,18 @@ function PlanSheet({
 
   const filteredItems = useMemo(() => {
     const q = medQuery.trim().toLowerCase();
+    const ofFocus = items.filter((i) => isPracticeType(i.type) !== learning);
     const list = q
-      ? items.filter(
-          (i) => i.title.toLowerCase().includes(q) || i.creator.toLowerCase().includes(q),
+      ? ofFocus.filter(
+          (i) =>
+            i.title.toLowerCase().includes(q) ||
+            i.creator.toLowerCase().includes(q) ||
+            (i.collection ?? '').toLowerCase().includes(q),
         )
-      : items;
+      : ofFocus;
     // Chosen ones first, so the selection is always visible above the fold.
     return [...list].sort((a, b) => Number(meds.includes(b.id)) - Number(meds.includes(a.id)));
-  }, [items, medQuery, meds]);
+  }, [items, medQuery, meds, learning]);
 
   const save = async () => {
     if (!name.trim()) {
@@ -644,6 +718,7 @@ function PlanSheet({
       targetMinutes: target,
       notes: notes.trim() || null,
       meditationIds: meds,
+      focus,
     };
     try {
       if (plan) await api.patch(`/api/plans/${plan.id}`, payload);
@@ -672,6 +747,39 @@ function PlanSheet({
 
   return (
     <Sheet title={plan ? 'Edit plan' : 'New plan'} onClose={onClose}>
+      <div className="field">
+        <label>What is this plan for?</label>
+        <div className="seg focus-seg" role="radiogroup" aria-label="Plan focus">
+          {(['practice', 'learning'] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              role="radio"
+              aria-checked={focus === f}
+              className={`seg-opt${focus === f ? ' on' : ''}`}
+              onClick={() => {
+                if (f === focus) return;
+                setFocus(f);
+                // Items of the other kind do not belong in this plan.
+                setMeds((prev) =>
+                  prev.filter((id) => {
+                    const it = items.find((x) => x.id === id);
+                    return it ? isPracticeType(it.type) === (f === 'practice') : false;
+                  }),
+                );
+              }}
+            >
+              <Icon name={f === 'learning' ? 'book' : 'lotus'} size={15} />
+              {f === 'learning' ? 'Learning' : 'Practice'}
+            </button>
+          ))}
+        </div>
+        <p className="hint" style={{ marginTop: 6 }}>
+          {learning
+            ? 'Courses and talks, followed in the order you pick them.'
+            : 'Meditations and soundscapes - or just the habit, with nothing chosen.'}
+        </p>
+      </div>
       {!plan && (
         <div className="field">
           <label>Start from a shape</label>
@@ -829,7 +937,9 @@ function PlanSheet({
 
       <div className="field">
         <label htmlFor="pl-meds-q">
-          Recordings in this plan - optional, a plan can just hold the habit
+          {learning
+            ? 'What to follow, in order'
+            : 'Recordings in this plan - optional, a plan can just hold the habit'}
         </label>
         {items.length > 6 && (
           <input
@@ -855,12 +965,12 @@ function PlanSheet({
                 <Cover coverId={i.coverId} title={i.title} creator={i.creator} />
                 <span className="med-pick__t">{i.title}</span>
                 <span className="med-pick__c">
-                  {i.creator}
+                  {TYPE_META[i.type].label} · {i.creator}
                   {i.totalDurationSec ? ` · ${formatDuration(i.totalDurationSec)}` : ''}
                 </span>
                 {on && (
                   <span className="med-pick__check" aria-hidden="true">
-                    <Icon name="check" size={13} />
+                    {learning ? meds.indexOf(i.id) + 1 : <Icon name="check" size={13} />}
                   </span>
                 )}
               </button>

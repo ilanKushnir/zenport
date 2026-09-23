@@ -114,6 +114,29 @@ function Overview() {
         </div>
       </div>
 
+      {(s.learning.sessions > 0 || s.learning.lessonsCompleted > 0) && (
+        <section className="section" aria-labelledby="s-learning">
+          <div className="section-head">
+            <h2 id="s-learning">Learning</h2>
+            <span className="section-note">Courses and talks - counted apart from practice</span>
+          </div>
+          <div className="stat-tiles learn-tiles">
+            <div className="stat-tile">
+              <div className="v">{formatMinutes(s.learning.totalMinutes)}</div>
+              <div className="l">spent learning</div>
+            </div>
+            <div className="stat-tile">
+              <div className="v">{s.learning.lessonsCompleted}</div>
+              <div className="l">lessons finished</div>
+            </div>
+            <div className="stat-tile">
+              <div className="v">{s.learning.sessions}</div>
+              <div className="l">study sessions</div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="section" aria-labelledby="s-week">
         <div className="section-head">
           <h2 id="s-week">This week</h2>
@@ -352,4 +375,11 @@ function CorrectSessionSheet({
       </div>
     </Sheet>
   );
+}
+
+function formatMinutes(m: number): string {
+  if (m < 60) return `${Math.round(m)} min`;
+  const h = Math.floor(m / 60);
+  const r = Math.round(m % 60);
+  return r ? `${h}h ${r}m` : `${h}h`;
 }

@@ -3,14 +3,14 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../context.js';
 import { itemDetail, libraryDto } from '../../library/queries.js';
-import type { LibraryFoldersDto } from '@zenport/shared';
+import { CONTENT_TYPES, type LibraryFoldersDto } from '@zenport/shared';
 import { lastFolderTree, readScanState, runScan } from '../../scanner/scan.js';
 
 export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { db, config } = ctx;
   let scanning: Promise<unknown> | null = null;
 
-  app.get('/api/library', async () => libraryDto(db, config));
+  app.get('/api/library', async (req) => libraryDto(db, config, req.user!.id));
 
   app.get('/api/library/scan-state', async () => readScanState(db));
 
@@ -107,6 +107,76 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
          ON CONFLICT(track_id) DO UPDATE SET duration_sec = excluded.duration_sec,
            reported_at = excluded.reported_at`,
       ).run(id, body.data.durationSec, new Date().toISOString());
+    }
+    return { ok: true };
+  });
+
+  // What an item is for. The owner's correction is stored apart from the
+  // scanner's guess, so a rescan never undoes it; null goes back to the guess.
+  // scope 'collection' applies it to every item in the same series.
+  app.put('/api/items/:id/type', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const { id } = req.params as { id: string };
+    const body = z
+      .object({
+        type: z.enum(CONTENT_TYPES).nullable(),
+        scope: z.enum(['item', 'collection']).default('item'),
+      })
+      .safeParse(req.body);
+    if (!body.success)
+      return reply.code(400).send({ error: 'type must be one of ' + CONTENT_TYPES.join(', ') });
+    const item = db
+      .prepare('SELECT id, root_id, creator, collection FROM items WHERE id = ?')
+      .get(id) as
+      { id: string; root_id: number; creator: string; collection: string | null } | undefined;
+    if (!item) return reply.code(404).send({ error: 'meditation not found' });
+    const ids =
+      body.data.scope === 'collection' && item.collection
+        ? (
+            db
+              .prepare('SELECT id FROM items WHERE root_id = ? AND creator = ? AND collection = ?')
+              .all(item.root_id, item.creator, item.collection) as { id: string }[]
+          ).map((r) => r.id)
+        : [item.id];
+    db.exec('BEGIN');
+    try {
+      for (const itemId of ids) {
+        if (body.data.type === null) {
+          db.prepare('DELETE FROM item_types WHERE item_id = ?').run(itemId);
+        } else {
+          db.prepare(
+            `INSERT INTO item_types (item_id, type, updated_at) VALUES (?, ?, ?)
+             ON CONFLICT(item_id) DO UPDATE SET type = excluded.type, updated_at = excluded.updated_at`,
+          ).run(itemId, body.data.type, new Date().toISOString());
+        }
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    return { ok: true, updated: ids.length };
+  });
+
+  // A lesson (or any track) finished. The player marks it when a track plays
+  // to its end; people can also tick or untick it by hand.
+  app.put('/api/tracks/:id/completed', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = z.object({ completed: z.boolean() }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'completed required' });
+    const track = db.prepare('SELECT item_id FROM tracks WHERE id = ?').get(id) as
+      { item_id: string } | undefined;
+    if (!track) return reply.code(404).send({ error: 'track not found' });
+    if (body.data.completed) {
+      db.prepare(
+        `INSERT INTO track_completions (user_id, track_id, item_id) VALUES (?, ?, ?)
+         ON CONFLICT(user_id, track_id) DO NOTHING`,
+      ).run(req.user!.id, id, track.item_id);
+    } else {
+      db.prepare('DELETE FROM track_completions WHERE user_id = ? AND track_id = ?').run(
+        req.user!.id,
+        id,
+      );
     }
     return { ok: true };
   });

@@ -25,6 +25,35 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.6.0',
+    items: [
+      {
+        emoji: '📚',
+        text: 'Your library knows meditations from courses, talks and soundscapes - with tabs to browse each, and series shown as one thing with one progress.',
+      },
+      {
+        emoji: '✏️',
+        text: 'Guessed wrong? Tap "Not right?" on any item to change its type, for one item or a whole series. A rescan keeps your choice.',
+      },
+      {
+        emoji: '🎬',
+        text: 'Video courses and talks play in the player, with full screen and picture-in-picture. Lessons tick themselves done as you finish them.',
+      },
+      {
+        emoji: '🗓️',
+        text: 'Plans can be for practice or for learning. A learning plan walks through its courses in order and Today shows the next lesson.',
+      },
+      {
+        emoji: '✨',
+        text: 'Plan with AI: add your OpenAI key in Settings, tell it what you want and how much time you have, and it builds a practice and learning plan from your own library.',
+      },
+      {
+        emoji: '📈',
+        text: 'Practice stats count practice only; learning has its own minutes and lessons finished.',
+      },
+    ],
+  },
+  {
     version: '0.5.2',
     items: [
       {

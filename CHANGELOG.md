@@ -5,6 +5,23 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-23
+
+### Added
+
+- **Content types.** Every item is a meditation, course, talk or soundscape. The scanner guesses from names (nearest folder first, English and Hebrew) and then from the files (a run of episode-numbered videos is a course, a lone video a talk); `items.inferred_type` holds the guess with its reason, and the owner's correction lives apart in `item_types` so a rescan never undoes it (migration v6). Library tabs per type, type badges and video marks on cards, and a type pill with **Not right?** on every item page, for one item or its whole series.
+- **Series.** Items sharing a creator and a collection show as one card with combined progress, and open a series page with the modules in order and a Continue button that goes to the first unfinished lesson.
+- **Lessons and progress.** Tracks are marked done per account when they play to the end, or by hand (`track_completions`); courses show "3 of 12 lessons", pick up at the next lesson, and the Library has a Continue shelf.
+- **Video.** Video tracks play in the full player - 16:9 stage, full screen, picture-in-picture - through a dedicated video element; audio keeps its own element, so a meditation still plays with the screen locked.
+- **Plans with a focus.** A plan is for practice or for learning; learning plans follow courses and talks in order, and Today and Plans show the next lesson. Plans hold up to 400 ordered items.
+- **Plan with AI.** An account can save its own OpenAI key (validated against OpenAI, stored AES-GCM-encrypted, never returned) and choose a model. A three-step sheet - intention, time, library - sends a compact catalogue of the library (types, titles, creators, series, lesson names, lengths, progress; short handles, never ids) and gets back an ordered practice track and learning track fitted to the time given, with a reason per item and a weekly outline. Unknown or wrong-kind items in the answer are dropped. Accepting creates one plan per track.
+- **Learning stats.** Streaks and practice minutes count practice only; learning minutes, sessions and lessons finished are shown apart.
+
+### Fixed
+
+- A creator's own sorting folders (*Courses, Livestreams, Meditations…*) no longer become part of a series name, and a sorting folder of separate recordings gives one item per recording instead of one item named after the folder. Several series side by side (*Kindness Series, Focus Series*) stay under their creator instead of being read as creators. An item regrouped this way is retired quietly rather than reported missing.
+- Section headings wrap their actions instead of pushing a phone page sideways.
+
 ## [0.5.2] — 2026-09-23
 
 ### Changed

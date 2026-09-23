@@ -34,6 +34,28 @@ A folder that directly contains audio is a **meditation** ("media leaf"). Around
 
 A creator folder that _only_ contains programs (no direct-audio meditation folder at all, e.g. `X/{Program A/S1/a.mp3, Program B/S1/b.mp3}`) matches the category shape and will read its programs as creators. The evidence trail shows exactly which rule fired; a future release may add an override UI.
 
+## Content types
+
+Every item is one of four types, shown on its card and page and used by the Library tabs, Plans and Stats:
+
+| Type           | What it is                                      | Counts as |
+| -------------- | ----------------------------------------------- | --------- |
+| **Meditation** | A guided practice, intro tracks included        | Practice  |
+| **Soundscape** | Music, sound baths, ambient or sleep sound      | Practice  |
+| **Course**     | Lessons worked through in order, video or audio | Learning  |
+| **Talk**       | A single lecture, livestream, workshop or Q&A   | Learning  |
+
+The scanner guesses (`server/src/library/contentType.ts`) from two kinds of evidence, in order:
+
+1. **Names, nearest first.** Walking up from the item, the first folder or file whose name says what it is wins: _Courses, Lessons, Class_ → course; _Livestreams, Lecture, Talk, Q&A, Webinar_ → talk; _Sound bath, Music, Ambient_ → soundscape; _Meditations, Guided_ → meditation. Hebrew equivalents are recognised too. Nearest first, so `Courses/<course>/Week 1/Meditation.mp3` is a course and `Meditations/<album> Workshop Meditations` is a meditation.
+2. **The files.** A run of episode-numbered videos (`S1E1`, `Session 2`, `Part 3`…) is a course; one or two videos are a talk; audio is a meditation.
+
+The owner can correct any item - or a whole series - from its page. A correction is stored apart from the guess (`item_types`), so a rescan never undoes it; "Let ZenPort decide" removes it.
+
+**Series** are items sharing a creator and a collection; the Library and a series page show them as one thing with one progress. A creator's own sorting folders (_Courses, Livestreams, Meditations…_) are not collections, and a sorting folder holding separate recordings yields one item per recording.
+
+**Video.** `mp4`, `m4v`, `webm` and `mov` play as video in the player (with full screen and picture-in-picture); audio always plays through an audio element so it keeps going with the screen locked. `mpg` and `flv` are not playable in a browser and are skipped.
+
 ## Scan lifecycle
 
 - A scan runs at boot and every `ZP_SCAN_INTERVAL_MINUTES` (0 = off), plus on demand via the **Rescan** button (`POST /api/library/rescan`).

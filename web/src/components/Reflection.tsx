@@ -46,11 +46,15 @@ export function ReflectionSheet() {
       <div className="rf-hero">
         <img src="/art/reflect.webp" alt="" width={280} height={280} />
         <p>
-          You sat with <strong>{prompt.meditationTitle}</strong>
+          {prompt.learning ? 'You finished ' : 'You sat with '}
+          <strong>{prompt.meditationTitle}</strong>
           {prompt.minutes
-            ? ` for ${prompt.minutes} ${prompt.minutes === 1 ? 'minute' : 'minutes'}`
+            ? ` - ${prompt.minutes} ${prompt.minutes === 1 ? 'minute' : 'minutes'}`
             : ''}
-          . A line now is worth pages later - or skip it, the sit already counts.
+          .{' '}
+          {prompt.learning
+            ? 'What do you want to keep from it? A line now is worth pages later.'
+            : 'A line now is worth pages later - or skip it, the sit already counts.'}
         </p>
       </div>
       <ReflectionForm

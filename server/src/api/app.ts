@@ -9,6 +9,7 @@ import { registerMediaRoutes } from './routes/media.js';
 import { registerPracticeRoutes } from './routes/practice.js';
 import { registerPlanRoutes } from './routes/plans.js';
 import { registerStatsRoutes } from './routes/stats.js';
+import { registerAiRoutes } from './routes/ai.js';
 import { registerJournalRoutes } from './routes/journal.js';
 import { registerYouTubeRoutes } from './routes/youtube.js';
 import { registerPrefsRoutes } from './routes/prefs.js';
@@ -96,6 +97,7 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   registerPracticeRoutes(app, ctx);
   registerPlanRoutes(app, ctx);
   registerStatsRoutes(app, ctx);
+  registerAiRoutes(app, ctx);
   registerJournalRoutes(app, ctx);
   registerYouTubeRoutes(app, ctx);
   registerPrefsRoutes(app, ctx);

@@ -26,6 +26,27 @@ afterEach(() => {
   rmSync(libRoot, { recursive: true, force: true });
 });
 
+describe('regrouping', () => {
+  it('an item whose tracks moved to new items is retired quietly, not reported missing', async () => {
+    const t0 = 'Mira Solen/Livestreams/Evening Gathering.mp3';
+    const t1 = 'Mira Solen/Livestreams/Morning Questions.mp3';
+    put(t0);
+    put(t1);
+    await runScan(db, roots());
+    // Simulate an older scanner's grouping: one "Livestreams" item owning both.
+    db.prepare(
+      `INSERT INTO items (id, root_id, item_key, kind, title, creator, collection, breadcrumbs, evidence, missing, added_at)
+       VALUES ('old-lump', 0, 'Mira Solen/Livestreams', 'folder', 'Livestreams', 'Mira Solen', NULL, '[]', '[]', 0, '')`,
+    ).run();
+    db.prepare("UPDATE tracks SET item_id = 'old-lump'").run();
+    const state = await runScan(db, roots());
+    expect(state.counts.items).toBe(2);
+    expect(state.counts.missing).toBe(0);
+    const old = db.prepare("SELECT missing, excluded FROM items WHERE id = 'old-lump'").get();
+    expect(old).toEqual({ missing: 1, excluded: 1 });
+  });
+});
+
 describe('excluded folders', () => {
   it('leaves an excluded folder out entirely, then brings the same items back', async () => {
     put('Mira Solen/Morning/01.mp3');

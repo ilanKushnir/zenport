@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { MeditationDetailDto, TrackDto } from '@zenport/shared';
+import { isVideoExt } from '@zenport/shared';
 import { api } from '../api.ts';
 import { usePrefs } from '../prefs.tsx';
 import { playBell } from './bell.ts';
@@ -19,6 +20,8 @@ export interface ReflectPrompt {
   meditationTitle: string;
   /** How long the sit lasted, for the reflection's opening line. */
   minutes?: number;
+  /** A course or talk reads "you finished", a practice "you sat with". */
+  learning?: boolean;
 }
 
 export interface PlayerSettings {
@@ -36,6 +39,9 @@ interface PlayerApi {
   track: TrackDto | null;
   trackIndex: number;
   playing: boolean;
+  /** The current track is a video; the full player shows `videoEl`. */
+  isVideo: boolean;
+  videoEl: HTMLVideoElement | null;
   /** Audio wanted but not arriving yet (loading, or recovering from a dropout). */
   buffering: boolean;
   position: number;
@@ -93,7 +99,13 @@ function loadSettings(): PlayerSettings {
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { prefs } = usePrefs();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // The active media element. Audio tracks play through an <audio> element and
+  // video through a <video>: on iOS only audio keeps going with the screen
+  // locked, so a long meditation must never be routed through a video element.
+  const audioRef = useRef<HTMLMediaElement | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
+  const [isVideo, setIsVideo] = useState(false);
   const [item, setItem] = useState<MeditationDetailDto | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -132,14 +144,37 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const wakeLockSupported = typeof navigator !== 'undefined' && 'wakeLock' in navigator;
 
-  const audio = () => {
-    if (!audioRef.current) {
-      const el = new Audio();
-      el.preload = 'auto';
-      audioRef.current = el;
+  const mediaFor = (kind: 'audio' | 'video'): HTMLMediaElement => {
+    if (kind === 'audio') {
+      if (!audioElRef.current) {
+        const el = new Audio();
+        el.preload = 'auto';
+        audioElRef.current = el;
+      }
+      return audioElRef.current;
     }
-    return audioRef.current;
+    if (!videoElRef.current) {
+      const el = document.createElement('video');
+      el.preload = 'auto';
+      el.playsInline = true;
+      el.setAttribute('playsinline', '');
+      el.className = 'zp-video';
+      // Parked in the document while no stage shows it, so it keeps playing
+      // (a media element removed from the document pauses).
+      let home = document.getElementById('zp-video-home');
+      if (!home) {
+        home = document.createElement('div');
+        home.id = 'zp-video-home';
+        home.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(home);
+      }
+      home.appendChild(el);
+      videoElRef.current = el;
+    }
+    return videoElRef.current;
   };
+
+  const audio = (): HTMLMediaElement => audioRef.current ?? (audioRef.current = mediaFor('audio'));
 
   const track = item?.tracks[trackIndex] ?? null;
 
@@ -179,7 +214,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     (it: MeditationDetailDto, index: number, startAt = 0, autoplay = true) => {
       const tr = it.tracks[index];
       if (!tr) return;
-      const el = audio();
+      const kind = isVideoExt(tr.ext) ? 'video' : 'audio';
+      const el = mediaFor(kind);
+      const prev = audioRef.current;
+      if (prev && prev !== el) {
+        prev.pause();
+        prev.removeAttribute('src');
+        prev.load();
+      }
+      audioRef.current = el;
+      setIsVideo(kind === 'video');
       el.src = `/api/media/track/${tr.id}`;
       el.currentTime = startAt;
       el.volume = settings.volume;
@@ -219,6 +263,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                 meditationId: it.id,
                 meditationTitle: it.title,
                 minutes,
+                learning: it.type === 'course' || it.type === 'talk',
               });
             }
           })
@@ -228,12 +273,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       startedAtRef.current = null;
       wantPlayRef.current = false;
       setBuffering(false);
-      const el = audioRef.current;
-      if (el) {
-        el.pause();
-        el.removeAttribute('src');
-        el.load();
+      for (const el of [audioElRef.current, videoElRef.current]) {
+        if (el) {
+          el.pause();
+          el.removeAttribute('src');
+          el.load();
+        }
       }
+      setIsVideo(false);
       setPlaying(false);
       setItem(null);
       setFocus(false);
@@ -443,113 +490,139 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     updateSettings({ keepAwake: !settings.keepAwake });
   }, [updateSettings, settings.keepAwake]);
 
-  // Wire the audio element once.
+  // Wire both media elements once. Each handler ignores the element that is
+  // not the active one, so a video parked after a switch cannot move state.
   useEffect(() => {
-    const el = audio();
-    const onTime = () => {
-      const now = performance.now();
-      if (!el.paused && lastTickRef.current !== null) {
-        const dt = (now - lastTickRef.current) / 1000;
-        if (dt > 0 && dt < 2.5) listenedRef.current += dt;
-      }
-      lastTickRef.current = now;
-      setPosition(el.currentTime);
-      if (el.currentTime > 0) lastGoodPosRef.current = el.currentTime;
-      if (!el.paused) retriesRef.current = 0;
-    };
-    const onLoaded = () => {
-      setDuration(el.duration || 0);
-      const it = itemRef.current;
-      const tr = it?.tracks[trackIndexRef.current];
-      if (tr && Number.isFinite(el.duration) && el.duration > 0 && tr.durationSec === null) {
-        void api
-          .patch(`/api/tracks/${tr.id}/duration`, { durationSec: Math.round(el.duration) })
-          .catch(() => {});
-      }
-    };
-    const onEnded = () => {
-      const it = itemRef.current;
-      if (!it) return;
-      const idx = trackIndexRef.current;
-      if (idx < it.tracks.length - 1) {
-        if (!autoplayRef.current) {
-          // "Continue to the next track" is off: stop here rather than rolling
-          // on. The session stays open so Next or Play resumes it — ending the
-          // practice would throw away a multi-part sit the person paused in
-          // the middle of on purpose.
-          setPlaying(false);
+    const wire = (el: HTMLMediaElement) => {
+      const active = () => el === audioRef.current;
+      const onTime = () => {
+        if (!active()) return;
+        const now = performance.now();
+        if (!el.paused && lastTickRef.current !== null) {
+          const dt = (now - lastTickRef.current) / 1000;
+          if (dt > 0 && dt < 2.5) listenedRef.current += dt;
+        }
+        lastTickRef.current = now;
+        setPosition(el.currentTime);
+        if (el.currentTime > 0) lastGoodPosRef.current = el.currentTime;
+        if (!el.paused) retriesRef.current = 0;
+      };
+      const onLoaded = () => {
+        if (!active()) return;
+        setDuration(el.duration || 0);
+        const it = itemRef.current;
+        const tr = it?.tracks[trackIndexRef.current];
+        if (tr && Number.isFinite(el.duration) && el.duration > 0 && tr.durationSec === null) {
+          void api
+            .patch(`/api/tracks/${tr.id}/duration`, { durationSec: Math.round(el.duration) })
+            .catch(() => {});
+        }
+      };
+      const onEnded = () => {
+        if (!active()) return;
+        const it = itemRef.current;
+        if (!it) return;
+        const idx = trackIndexRef.current;
+        // Played to the end: a finished lesson (or track), for this account.
+        const doneTrack = it.tracks[idx];
+        if (doneTrack) {
+          void api
+            .put(`/api/tracks/${doneTrack.id}/completed`, { completed: true })
+            .catch(() => {});
+        }
+        if (idx < it.tracks.length - 1) {
+          if (!autoplayRef.current) {
+            // "Continue to the next track" is off: stop here rather than rolling
+            // on. The session stays open so Next or Play resumes it — ending the
+            // practice would throw away a multi-part sit the person paused in
+            // the middle of on purpose.
+            setPlaying(false);
+            return;
+          }
+          loadTrack(it, idx + 1, 0, true);
+        } else {
+          finishInternal('completed', 'finished');
+        }
+      };
+      const onPause = () => {
+        if (active()) setPlaying(false);
+      };
+      const onPlay = () => {
+        if (!active()) return;
+        lastTickRef.current = performance.now();
+        setPlaying(true);
+      };
+      const onWaiting = () => {
+        if (!active()) return;
+        if (wantPlayRef.current) setBuffering(true);
+      };
+      const onFlowing = () => {
+        if (active()) setBuffering(false);
+      };
+      // A long sit over Wi-Fi will meet a dropout sooner or later. When the
+      // stream errors or stalls while the person still wants to be playing,
+      // reload the same file and pick up at the last good second - with a
+      // growing pause between tries so a server that is really down is not
+      // hammered.
+      let retryTimer: ReturnType<typeof setTimeout> | null = null;
+      const recover = () => {
+        if (!active() || !wantPlayRef.current || !itemRef.current || retryTimer) return;
+        if (retriesRef.current >= 6) {
+          setBuffering(false);
           return;
         }
-        loadTrack(it, idx + 1, 0, true);
-      } else {
-        finishInternal('completed', 'finished');
-      }
+        const attempt = ++retriesRef.current;
+        setBuffering(true);
+        retryTimer = setTimeout(
+          () => {
+            retryTimer = null;
+            const tr = itemRef.current?.tracks[trackIndexRef.current];
+            if (!tr || !wantPlayRef.current) return;
+            const at = lastGoodPosRef.current;
+            el.src = `/api/media/track/${tr.id}`;
+            el.currentTime = at;
+            void el.play().catch(() => {});
+          },
+          Math.min(15000, 1000 * 2 ** (attempt - 1)),
+        );
+      };
+      const onStalled = () => {
+        if (!active()) return;
+        // Stalled is often transient; only act if nothing moves for a while.
+        const before = el.currentTime;
+        setTimeout(() => {
+          if (wantPlayRef.current && el.currentTime === before && !el.paused) recover();
+        }, 8000);
+      };
+      el.addEventListener('timeupdate', onTime);
+      el.addEventListener('loadedmetadata', onLoaded);
+      el.addEventListener('ended', onEnded);
+      el.addEventListener('pause', onPause);
+      el.addEventListener('play', onPlay);
+      el.addEventListener('waiting', onWaiting);
+      el.addEventListener('playing', onFlowing);
+      el.addEventListener('canplay', onFlowing);
+      el.addEventListener('error', recover);
+      el.addEventListener('stalled', onStalled);
+      return () => {
+        if (retryTimer) clearTimeout(retryTimer);
+        el.removeEventListener('waiting', onWaiting);
+        el.removeEventListener('playing', onFlowing);
+        el.removeEventListener('canplay', onFlowing);
+        el.removeEventListener('error', recover);
+        el.removeEventListener('stalled', onStalled);
+        el.removeEventListener('timeupdate', onTime);
+        el.removeEventListener('loadedmetadata', onLoaded);
+        el.removeEventListener('ended', onEnded);
+        el.removeEventListener('pause', onPause);
+        el.removeEventListener('play', onPlay);
+      };
     };
-    const onPause = () => setPlaying(false);
-    const onPlay = () => {
-      lastTickRef.current = performance.now();
-      setPlaying(true);
-    };
-    const onWaiting = () => {
-      if (wantPlayRef.current) setBuffering(true);
-    };
-    const onFlowing = () => setBuffering(false);
-    // A long sit over Wi-Fi will meet a dropout sooner or later. When the
-    // stream errors or stalls while the person still wants to be playing,
-    // reload the same file and pick up at the last good second - with a
-    // growing pause between tries so a server that is really down is not
-    // hammered.
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    const recover = () => {
-      if (!wantPlayRef.current || !itemRef.current || retryTimer) return;
-      if (retriesRef.current >= 6) {
-        setBuffering(false);
-        return;
-      }
-      const attempt = ++retriesRef.current;
-      setBuffering(true);
-      retryTimer = setTimeout(
-        () => {
-          retryTimer = null;
-          const tr = itemRef.current?.tracks[trackIndexRef.current];
-          if (!tr || !wantPlayRef.current) return;
-          const at = lastGoodPosRef.current;
-          el.src = `/api/media/track/${tr.id}`;
-          el.currentTime = at;
-          void el.play().catch(() => {});
-        },
-        Math.min(15000, 1000 * 2 ** (attempt - 1)),
-      );
-    };
-    const onStalled = () => {
-      // Stalled is often transient; only act if nothing moves for a while.
-      const before = el.currentTime;
-      setTimeout(() => {
-        if (wantPlayRef.current && el.currentTime === before && !el.paused) recover();
-      }, 8000);
-    };
-    el.addEventListener('timeupdate', onTime);
-    el.addEventListener('loadedmetadata', onLoaded);
-    el.addEventListener('ended', onEnded);
-    el.addEventListener('pause', onPause);
-    el.addEventListener('play', onPlay);
-    el.addEventListener('waiting', onWaiting);
-    el.addEventListener('playing', onFlowing);
-    el.addEventListener('canplay', onFlowing);
-    el.addEventListener('error', recover);
-    el.addEventListener('stalled', onStalled);
+    const offAudio = wire(mediaFor('audio'));
+    const offVideo = wire(mediaFor('video'));
     return () => {
-      if (retryTimer) clearTimeout(retryTimer);
-      el.removeEventListener('waiting', onWaiting);
-      el.removeEventListener('playing', onFlowing);
-      el.removeEventListener('canplay', onFlowing);
-      el.removeEventListener('error', recover);
-      el.removeEventListener('stalled', onStalled);
-      el.removeEventListener('timeupdate', onTime);
-      el.removeEventListener('loadedmetadata', onLoaded);
-      el.removeEventListener('ended', onEnded);
-      el.removeEventListener('pause', onPause);
-      el.removeEventListener('play', onPlay);
+      offAudio();
+      offVideo();
     };
   }, [loadTrack, finishInternal]);
 
@@ -700,6 +773,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       track,
       trackIndex,
       playing,
+      isVideo,
+      videoEl: videoElRef.current,
       buffering,
       position,
       duration,
@@ -730,6 +805,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       track,
       trackIndex,
       playing,
+      isVideo,
       buffering,
       position,
       duration,

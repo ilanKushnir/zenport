@@ -5,7 +5,7 @@ import type {
   MeditationSummaryDto,
   ResumeStateDto,
 } from '@zenport/shared';
-import { naturalCompare } from '@zenport/shared';
+import { CONTENT_TYPES, isVideoExt, naturalCompare, type ContentType } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 import type { Config } from '../config.js';
 import { documentKind } from '../scanner/classify.js';
@@ -23,13 +23,15 @@ interface ItemRow {
   evidence: string;
   missing: number;
   added_at: string;
+  inferred_type: string;
+  type_reason: string | null;
 }
 
 function rootLabel(config: Config, rootId: number): string {
   return config.libraryRoots.find((r) => r.id === rootId)?.label ?? `Library ${rootId + 1}`;
 }
 
-function summarize(db: Db, config: Config, row: ItemRow): MeditationSummaryDto {
+function summarize(db: Db, config: Config, row: ItemRow, userId: number): MeditationSummaryDto {
   const tracks = db
     .prepare(
       `SELECT COUNT(*) AS n, SUM(duration_sec) AS total,
@@ -52,6 +54,17 @@ function summarize(db: Db, config: Config, row: ItemRow): MeditationSummaryDto {
       .prepare(`SELECT DISTINCT ext FROM tracks WHERE item_id = ? AND missing = 0 ORDER BY ext`)
       .all(row.id) as { ext: string }[]
   ).map((r) => r.ext);
+  const manual = db.prepare('SELECT type FROM item_types WHERE item_id = ?').get(row.id) as
+    { type: string } | undefined;
+  const type = asType(manual?.type ?? row.inferred_type);
+  const completedCount = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM track_completions c JOIN tracks t ON t.id = c.track_id
+         WHERE c.user_id = ? AND c.item_id = ? AND t.missing = 0`,
+      )
+      .get(userId, row.id) as { n: number }
+  ).n;
   return {
     id: row.id,
     title: row.title,
@@ -66,14 +79,22 @@ function summarize(db: Db, config: Config, row: ItemRow): MeditationSummaryDto {
     formats,
     missing: row.missing === 1,
     addedAt: row.added_at,
+    type,
+    typeSource: manual ? 'manual' : 'auto',
+    hasVideo: formats.some(isVideoExt),
+    completedCount,
   };
 }
 
-export function libraryDto(db: Db, config: Config): LibraryDto {
+function asType(t: string): ContentType {
+  return (CONTENT_TYPES as readonly string[]).includes(t) ? (t as ContentType) : 'meditation';
+}
+
+export function libraryDto(db: Db, config: Config, userId: number): LibraryDto {
   const rows = db
     .prepare('SELECT * FROM items WHERE excluded = 0 ORDER BY creator, title')
     .all() as unknown as ItemRow[];
-  const items = rows.map((r) => summarize(db, config, r));
+  const items = rows.map((r) => summarize(db, config, r, userId));
   items.sort((a, b) => naturalCompare(a.creator, b.creator) || naturalCompare(a.title, b.title));
 
   const creators = new Map<string, CreatorDto>();
@@ -110,7 +131,14 @@ export function itemDetail(
 ): MeditationDetailDto | null {
   const row = db.prepare('SELECT * FROM items WHERE id = ?').get(itemId) as ItemRow | undefined;
   if (!row) return null;
-  const summary = summarize(db, config, row);
+  const summary = summarize(db, config, row, userId);
+  const done = new Set(
+    (
+      db
+        .prepare('SELECT track_id FROM track_completions WHERE user_id = ? AND item_id = ?')
+        .all(userId, itemId) as { track_id: string }[]
+    ).map((r) => r.track_id),
+  );
   const tracks = (
     db
       .prepare(
@@ -134,6 +162,8 @@ export function itemDetail(
     ext: t.ext,
     durationSec: t.duration_sec,
     missing: t.missing === 1,
+    video: isVideoExt(t.ext),
+    completed: done.has(t.id),
   }));
   const documents = (
     db
@@ -182,8 +212,20 @@ export function itemDetail(
     breadcrumbs: JSON.parse(row.breadcrumbs),
     tracks,
     documents,
-    evidence: JSON.parse(row.evidence),
-    related: relatedRows.map((r) => summarize(db, config, r)),
+    evidence: [
+      ...JSON.parse(row.evidence),
+      ...(row.type_reason
+        ? [
+            {
+              field: 'type' as const,
+              value: row.inferred_type,
+              rule: 'content-type',
+              evidence: row.type_reason,
+            },
+          ]
+        : []),
+    ],
+    related: relatedRows.map((r) => summarize(db, config, r, userId)),
     resume,
   };
 }

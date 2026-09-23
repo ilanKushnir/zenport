@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { FolderNodeDto, ScanStateDto } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 import { inferLibrary, type InferredTrack } from '../library/infer.js';
+import { inferContentType } from '../library/contentType.js';
 import { extractEmbeddedArt } from './artwork.js';
 import { safeWalk, type WalkedFile } from './walk.js';
 
@@ -188,12 +189,13 @@ export async function runScan(
     db.exec('BEGIN');
     try {
       const upsertItem = db.prepare(
-        `INSERT INTO items (id, root_id, item_key, kind, title, creator, collection, breadcrumbs, evidence, missing, added_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+        `INSERT INTO items (id, root_id, item_key, kind, title, creator, collection, breadcrumbs, evidence, missing, added_at, inferred_type, type_reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
          ON CONFLICT(root_id, item_key) DO UPDATE SET
            kind = excluded.kind, title = excluded.title, creator = excluded.creator,
            collection = excluded.collection, breadcrumbs = excluded.breadcrumbs,
-           evidence = excluded.evidence, missing = 0, excluded = 0`,
+           evidence = excluded.evidence, missing = 0, excluded = 0,
+           inferred_type = excluded.inferred_type, type_reason = excluded.type_reason`,
       );
       const upsertTrack = db.prepare(
         `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing)
@@ -212,6 +214,13 @@ export async function runScan(
       for (const item of items) {
         const itemId = sid(`item:${root.id}:${item.itemKey}`);
         seenItems.add(itemId);
+        const guess = inferContentType({
+          breadcrumbs: item.breadcrumbs,
+          tracks: item.tracks.map((t) => ({
+            name: t.relPath.split('/').at(-1) ?? t.relPath,
+            ext: t.ext,
+          })),
+        });
         upsertItem.run(
           itemId,
           root.id,
@@ -223,6 +232,8 @@ export async function runScan(
           JSON.stringify(item.breadcrumbs),
           JSON.stringify(item.decisions),
           nowIso(),
+          guess.type,
+          guess.reason,
         );
         for (const track of item.tracks) {
           const trackId = sid(`track:${root.id}:${track.relPath}`);
@@ -295,10 +306,19 @@ export async function runScan(
         .prepare('SELECT id, item_key FROM items WHERE root_id = ?')
         .all(rootId) as { id: string; item_key: string }[]) {
         if (!seenItems.has(row.id)) {
-          // Left out on purpose, or genuinely gone - the shelves hide both,
-          // but only the second is worth a notice.
+          // Left out on purpose, regrouped, or genuinely gone. The shelves hide
+          // all three, but only the last is worth a notice. An item whose
+          // tracks all belong to other items now was regrouped by a smarter
+          // scan (a "Livestreams" folder read as separate talks) - its files
+          // are still here, so it is retired quietly, not reported missing.
+          const regrouped =
+            (
+              db.prepare('SELECT COUNT(*) AS n FROM tracks WHERE item_id = ?').get(row.id) as {
+                n: number;
+              }
+            ).n === 0;
           db.prepare('UPDATE items SET missing = 1, excluded = ? WHERE id = ?').run(
-            underAny(row.item_key, exclusions) ? 1 : 0,
+            underAny(row.item_key, exclusions) || regrouped ? 1 : 0,
             row.id,
           );
         }

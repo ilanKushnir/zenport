@@ -1,5 +1,6 @@
 import type { Config } from './config.js';
 import type { Db } from './db/index.js';
+import type { OpenAiClient } from './ai/openai.js';
 
 export interface VideoMeta {
   title: string;
@@ -19,6 +20,8 @@ export interface ExternalDeps {
     | null;
   /** POST audio to a Whisper-compatible endpoint. Null when transcription is disabled. */
   transcribe: ((file: Buffer, mime: string, fileName: string) => Promise<string>) | null;
+  /** OpenAI with the account's own key: model listing and one structured completion per plan. */
+  openai: OpenAiClient;
 }
 
 export interface AppContext {

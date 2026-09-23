@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { PlanDto, PlanOccurrenceDto } from '@zenport/shared';
+import type { PlanDto, PlanFocus, PlanOccurrenceDto } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { dayKey } from '../../stats/compute.js';
 import {
@@ -21,7 +21,9 @@ const planSchema = z.object({
   preferredTime: z.string().regex(TIME).nullish(),
   targetMinutes: z.number().int().min(1).max(600).nullish(),
   notes: z.string().max(2000).nullish(),
-  meditationIds: z.array(z.string()).max(50).default([]),
+  // Ordered: a learning plan follows its items in this order.
+  meditationIds: z.array(z.string()).max(400).default([]),
+  focus: z.enum(['practice', 'learning']).default('practice'),
 });
 
 interface PlanRow {
@@ -37,6 +39,7 @@ interface PlanRow {
   status: string;
   meditation_ids: string;
   created_at: string;
+  focus: string;
 }
 
 function toDto(row: PlanRow): PlanDto {
@@ -51,6 +54,7 @@ function toDto(row: PlanRow): PlanDto {
     targetMinutes: row.target_minutes,
     notes: row.notes,
     status: row.status as PlanDto['status'],
+    focus: row.focus === 'learning' ? 'learning' : 'practice',
     meditationIds: JSON.parse(row.meditation_ids),
     createdAt: row.created_at,
   };
@@ -81,8 +85,8 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
     const res = db
       .prepare(
         `INSERT INTO plans (user_id, name, intention, start_date, end_date, days_of_week,
-           preferred_time, target_minutes, notes, status, meditation_ids, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+           preferred_time, target_minutes, notes, status, meditation_ids, created_at, focus)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
       )
       .run(
         req.user!.id,
@@ -96,6 +100,7 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
         p.notes ?? null,
         JSON.stringify(p.meditationIds),
         new Date().toISOString(),
+        p.focus,
       );
     return { id: Number(res.lastInsertRowid) };
   });
@@ -125,6 +130,7 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
     if (p.notes !== undefined) push('notes', p.notes);
     if (p.status !== undefined) push('status', p.status);
     if (p.meditationIds !== undefined) push('meditation_ids', JSON.stringify(p.meditationIds));
+    if (p.focus !== undefined) push('focus', p.focus);
     if (sets.length === 0) return { ok: true };
     vals.push(id);
     db.prepare(`UPDATE plans SET ${sets.join(', ')} WHERE id = ?`).run(...(vals as never[]));
@@ -171,7 +177,8 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
         movedFrom: e.moved_from,
         sessionId: e.session_id,
       }));
-      all.push(...expandOccurrences(plan, entries, today, horizon));
+      const focus: PlanFocus = row.focus === 'learning' ? 'learning' : 'practice';
+      all.push(...expandOccurrences(plan, entries, today, horizon).map((o) => ({ ...o, focus })));
     }
     all.sort((a, b) => a.date.localeCompare(b.date) || a.planName.localeCompare(b.planName));
     return { today, occurrences: all };

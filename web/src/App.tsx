@@ -21,6 +21,7 @@ import { FocusMode, PlayerBar } from './player/PlayerUi.tsx';
 import { ReflectionSheet } from './components/Reflection.tsx';
 import { MORE_LINKS, MoreSheet } from './components/MoreSheet.tsx';
 import { FoldersPage } from './pages/FoldersPage.tsx';
+import { SeriesPage } from './pages/SeriesPage.tsx';
 import { LoginPage, SetupPage } from './pages/AuthPages.tsx';
 import { TodayPage } from './pages/TodayPage.tsx';
 import { LibraryPage } from './pages/LibraryPage.tsx';
@@ -204,6 +205,7 @@ function SignedInApp() {
             <Route path="/" element={<TodayPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/folders" element={<FoldersPage />} />
+            <Route path="/series/:creator/:name" element={<SeriesPage />} />
             <Route path="/timer" element={<TimerPage />} />
             <Route path="/creators/:name" element={<CreatorPage />} />
             <Route path="/m/:id" element={<ItemPage />} />

@@ -199,6 +199,9 @@ export function FocusMode() {
   const multi = it.tracks.length > 1;
   const s = p.settings;
   const settling = p.leadInRemaining !== null;
+  // Bells and the end timer are practice tools; a lesson does not need them in reach.
+  const learning = it.type === 'course' || it.type === 'talk';
+  const part = it.type === 'course' ? 'Lesson' : 'Track';
 
   return (
     <div
@@ -242,8 +245,12 @@ export function FocusMode() {
       </header>
 
       <div className="fp-body">
-        <div className={`fp-art${p.playing ? ' is-playing' : ''}`}>
-          <Cover coverId={it.coverId} title={it.title} creator={it.creator} size={640} />
+        <div className={`fp-art${p.playing ? ' is-playing' : ''}${p.isVideo ? ' is-video' : ''}`}>
+          {p.isVideo && p.videoEl ? (
+            <VideoStage el={p.videoEl} />
+          ) : (
+            <Cover coverId={it.coverId} title={it.title} creator={it.creator} size={640} />
+          )}
         </div>
 
         <div className="fp-info">
@@ -255,7 +262,7 @@ export function FocusMode() {
                 <span className="dot" aria-hidden="true">
                   ·
                 </span>
-                Track {p.trackIndex + 1} of {it.tracks.length}
+                {part} {p.trackIndex + 1} of {it.tracks.length}
               </>
             )}
           </p>
@@ -335,28 +342,37 @@ export function FocusMode() {
             <Icon name="gauge" size={18} />
             {speedLabel(s.speed)}
           </button>
-          <button
-            className={`fp-chip${s.bellsEveryMin ? ' on' : ''}`}
-            onClick={() => setSheet('settings')}
-            aria-label={`Interval bell: ${s.bellsEveryMin ? `every ${s.bellsEveryMin} minutes` : 'off'}`}
-          >
-            <Icon name="bell" size={18} />
-            {s.bellsEveryMin ? `${s.bellsEveryMin} min` : 'Bells'}
-          </button>
-          <button
-            className={`fp-chip${s.endAfterMin ? ' on' : ''}`}
-            onClick={() => setSheet('settings')}
-            aria-label={`End timer: ${s.endAfterMin ? `after ${s.endAfterMin} minutes` : 'off'}`}
-          >
-            <Icon name="moon" size={18} />
-            {s.endAfterMin
-              ? `${minLabel(Math.max(1, Math.ceil(s.endAfterMin - p.practiceElapsed / 60)))} left`
-              : 'Timer'}
-          </button>
+          {!learning && (
+            <>
+              <button
+                className={`fp-chip${s.bellsEveryMin ? ' on' : ''}`}
+                onClick={() => setSheet('settings')}
+                aria-label={`Interval bell: ${s.bellsEveryMin ? `every ${s.bellsEveryMin} minutes` : 'off'}`}
+              >
+                <Icon name="bell" size={18} />
+                {s.bellsEveryMin ? `${s.bellsEveryMin} min` : 'Bells'}
+              </button>
+              <button
+                className={`fp-chip${s.endAfterMin ? ' on' : ''}`}
+                onClick={() => setSheet('settings')}
+                aria-label={`End timer: ${s.endAfterMin ? `after ${s.endAfterMin} minutes` : 'off'}`}
+              >
+                <Icon name="moon" size={18} />
+                {s.endAfterMin
+                  ? `${minLabel(Math.max(1, Math.ceil(s.endAfterMin - p.practiceElapsed / 60)))} left`
+                  : 'Timer'}
+              </button>
+            </>
+          )}
+          {p.isVideo && p.videoEl && <FullscreenChip el={p.videoEl} />}
           {multi && (
-            <button className="fp-chip" onClick={() => setSheet('tracks')} aria-label="Tracks">
+            <button
+              className="fp-chip"
+              onClick={() => setSheet('tracks')}
+              aria-label={it.type === 'course' ? 'Lessons' : 'Tracks'}
+            >
               <Icon name="list" size={18} />
-              Tracks
+              {it.type === 'course' ? 'Lessons' : 'Tracks'}
             </button>
           )}
         </div>
@@ -372,6 +388,57 @@ export function FocusMode() {
       {sheet === 'settings' && <PracticeSettingsSheet onClose={() => setSheet(null)} />}
       {sheet === 'tracks' && <TrackListSheet onClose={() => setSheet(null)} />}
     </div>
+  );
+}
+
+// ── Video ──────────────────────────────────────────────────────────────────
+
+/**
+ * Shows the player's one video element. It lives in the provider and is only
+ * moved here while the full player is open, then parked again - it is never
+ * removed from the document, so minimising does not stop a talk.
+ */
+function VideoStage({ el }: { el: HTMLVideoElement }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const stage = ref.current;
+    if (!stage) return;
+    stage.appendChild(el);
+    return () => {
+      document.getElementById('zp-video-home')?.appendChild(el);
+    };
+  }, [el]);
+  return <div className="fp-video" ref={ref} />;
+}
+
+function FullscreenChip({ el }: { el: HTMLVideoElement }) {
+  const v = el as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+  const pip = 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
+  return (
+    <>
+      <button
+        className="fp-chip"
+        onClick={() => {
+          if (el.requestFullscreen)
+            void el.requestFullscreen().catch(() => v.webkitEnterFullscreen?.());
+          else v.webkitEnterFullscreen?.();
+        }}
+        aria-label="Full screen"
+      >
+        <Icon name="expand" size={18} />
+        Full screen
+      </button>
+      {pip && (
+        <button
+          className="fp-chip"
+          onClick={() => void el.requestPictureInPicture().catch(() => {})}
+          aria-label="Picture in picture"
+        >
+          <Icon name="video" size={18} />
+          Float
+        </button>
+      )}
+    </>
   );
 }
 

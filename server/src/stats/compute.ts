@@ -44,7 +44,11 @@ const qualifies = (s: SessionForStats) => s.status === 'completed' || s.listened
  * All statistics derive from durable session records — nothing is seeded or
  * invented. Empty in, zeros out.
  */
-export function computeStats(sessions: SessionForStats[], timezone: string, now: Date): StatsDto {
+export function computeStats(
+  sessions: SessionForStats[],
+  timezone: string,
+  now: Date,
+): Omit<StatsDto, 'learning'> {
   const today = dayKey(now.toISOString(), timezone);
 
   const qualifying = sessions.filter(qualifies);

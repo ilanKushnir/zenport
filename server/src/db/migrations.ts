@@ -373,6 +373,49 @@ const MIGRATIONS: string[] = [
   );
   ALTER TABLE items ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0;
   `,
+
+  // v6: what each item is for, how far each account got through it, what a
+  // plan is for, and the account's own AI key.
+  //
+  // `items.inferred_type` is the scanner's guess and is rewritten on every
+  // scan. The owner's correction lives in `item_types`, apart from it, so a
+  // rescan can never undo a choice someone made on purpose; no foreign key,
+  // for the same reason favourites have none (an unmounted item must keep it).
+  //
+  // `track_completions` is per account: a lesson one person finished is not
+  // finished for the household.
+  //
+  // `ai_settings.api_key_enc` is AES-GCM ciphertext under a key derived from
+  // the session secret. The plaintext key is never returned by the API.
+  `
+  ALTER TABLE items ADD COLUMN inferred_type TEXT NOT NULL DEFAULT 'meditation';
+  ALTER TABLE items ADD COLUMN type_reason TEXT;
+
+  CREATE TABLE item_types (
+    item_id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+
+  CREATE TABLE track_completions (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    track_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    PRIMARY KEY (user_id, track_id)
+  );
+  CREATE INDEX idx_track_completions_item ON track_completions(user_id, item_id);
+
+  ALTER TABLE plans ADD COLUMN focus TEXT NOT NULL DEFAULT 'practice';
+
+  CREATE TABLE ai_settings (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    api_key_enc TEXT NOT NULL,
+    key_hint TEXT NOT NULL,
+    model TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

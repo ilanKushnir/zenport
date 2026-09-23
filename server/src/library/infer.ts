@@ -152,9 +152,15 @@ function isCategory(node: DirNode): boolean {
     if (directAudio(child).length > 0) return false;
     if (!child.hasAudioDescendant) return false;
     if (GENERIC_WRAPPERS.test(child.name) || CREATOR_SUBFOLDERS.test(child.name)) return false;
+    // "Quiet Harbor/{Kindness Series 1, Focus Series}": series, seasons,
+    // waves and volumes are one creator's own work, not creators.
+    if (SERIES_NAME.test(child.name)) return false;
   }
   return true;
 }
+
+const SERIES_NAME =
+  /(^|[^\p{L}])(series|season|seasons|wave|vol\.?|volume|part|chapter|level|book)($|[^\p{L}])/iu;
 
 /** Is `node` a wrapper (sole child of its parent, no creator-shaped children)? */
 function isSoleWrapper(node: DirNode): boolean {
@@ -165,6 +171,7 @@ function isSoleWrapper(node: DirNode): boolean {
   if (directAudio(node).length > 0) return false;
   for (const child of node.children.values()) {
     if (directAudio(child).length > 0) return false; // children are meditations => node is a creator
+    if (SERIES_NAME.test(child.name)) return false; // children are its series => node is a creator
   }
   return true;
 }
@@ -215,11 +222,16 @@ function resolveAncestry(chain: DirNode[]): AncestryResult {
     break;
   }
   // A generic wrapper between the creator and the piece ("Mira Solen/
-  // Meditations/<album>") is not a collection either; it collapses wherever
-  // it sits, and the collection is only the folders that actually name one.
+  // Meditations/<album>"), or a creator's own sorting folder ("Courses",
+  // "Livestreams"), is not a collection either; it collapses wherever it sits,
+  // and the collection is only the folders that actually name one - so a
+  // course's series is "The Long Road", not "Courses / The Long Road".
   const remaining: string[] = [];
   for (const node of chain.slice(i)) {
-    if (remaining.length > 0 && GENERIC_WRAPPERS.test(node.name)) {
+    if (
+      remaining.length > 0 &&
+      (GENERIC_WRAPPERS.test(node.name) || CREATOR_SUBFOLDERS.test(node.name))
+    ) {
       decisions.push({
         field: 'grouping',
         value: node.name,
@@ -274,9 +286,19 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
     const B = ancestry.remaining;
     const companions = node.files.some((f) => f.kind !== 'audio');
     const tracksLike = looksLikeTrackSet(stems);
+    // "Mira Solen/Livestreams/{a.mp4, b.mp4}": a sorting folder holding
+    // separate recordings. Each is its own item under the creator above it,
+    // not one item called "Livestreams" with the talks as its tracks.
+    const wrapperLeaf =
+      !isRoot &&
+      B.length > 0 &&
+      !tracksLike &&
+      (sortedAudio.length >= 2 || (sortedAudio.length === 1 && !companions)) &&
+      (GENERIC_WRAPPERS.test(node.name) || CREATOR_SUBFOLDERS.test(node.name));
 
     const asFileItems =
       isRoot ||
+      wrapperLeaf ||
       (B.length === 0 &&
         !tracksLike &&
         (sortedAudio.length >= 2 || (sortedAudio.length === 1 && !companions)));
@@ -284,7 +306,7 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
     if (asFileItems) {
       for (const file of sortedAudio) {
         const stem = stemOf(file.name);
-        const creator = isRoot ? UNKNOWN_CREATOR : node.name;
+        const creator = isRoot ? UNKNOWN_CREATOR : wrapperLeaf ? (B[0] as string) : node.name;
         const decisions: InferenceDecision[] = [...ancestry.decisions];
         decisions.push({
           field: 'title',
@@ -292,7 +314,9 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
           rule: 'file-as-item',
           evidence: isRoot
             ? `"${file.name}" sits directly in the library root`
-            : `"${node.name}" holds separate recordings, so each file is its own meditation`,
+            : wrapperLeaf
+              ? `"${node.name}" is a sorting folder of separate recordings, so each file is its own item`
+              : `"${node.name}" holds separate recordings, so each file is its own meditation`,
         });
         decisions.push(
           isRoot
@@ -329,7 +353,7 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
           kind: 'file',
           title: titleFromStem(stem),
           creator,
-          collection: null,
+          collection: wrapperLeaf && B.length > 1 ? B.slice(1).join(' / ') : null,
           breadcrumbs: file.relPath.split('/'),
           tracks: [
             {

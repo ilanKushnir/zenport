@@ -343,9 +343,10 @@
 
 .section-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--s4);
+  gap: var(--s2) var(--s4);
   margin-block-end: var(--s4);
 }
 
@@ -4807,4 +4808,928 @@
   .sit.timer-live {
     min-height: calc(100svh - var(--tabbar-h) - 120px);
   }
+}
+
+/* ── Video in the player ── */
+#zp-video-home {
+  position: fixed;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+}
+
+.fp-video {
+  inline-size: min(100cqw, calc(100cqh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  box-shadow:
+    0 30px 60px rgba(6, 4, 12, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.fp-video video {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+/* A desk or tablet: the video gets the wide side of the grid. */
+@media (min-width: 900px) and (min-height: 620px) {
+  .fp-art.is-video .fp-video {
+    inline-size: min(640px, 48vw, calc(60vh * 16 / 9));
+  }
+}
+
+/* ===================================================================
+ * Content types: tabs, badges, progress, series, the type picker
+ * =================================================================== */
+
+:root {
+  /* One quiet hue per type, used only as a tint behind its icon. */
+  --t-meditation: #f98bb8;
+  --t-course: #ffc04a;
+  --t-talk: #b9a0ff;
+  --t-soundscape: #7fd1c7;
+}
+
+.t-meditation {
+  --tc: var(--t-meditation);
+}
+.t-course {
+  --tc: var(--t-course);
+}
+.t-talk {
+  --tc: var(--t-talk);
+}
+.t-soundscape {
+  --tc: var(--t-soundscape);
+}
+
+.type-tabs {
+  display: flex;
+  gap: var(--s2);
+  margin-block-end: var(--s6);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block-end: 2px;
+}
+
+.type-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .type-tabs {
+    margin-inline: calc(-1 * var(--s4));
+    padding-inline: var(--s4);
+  }
+}
+
+.type-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.type-tab .nav-ic {
+  color: var(--tc, var(--muted));
+}
+
+.type-tab .n {
+  font-size: 12px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.type-tab:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.type-tab[aria-selected='true'] {
+  color: var(--text);
+  border-color: color-mix(in oklab, var(--tc, var(--accent)) 55%, transparent);
+  background: color-mix(in oklab, var(--tc, var(--accent)) 14%, transparent);
+}
+
+.type-tab[aria-selected='true'] .n {
+  color: var(--muted);
+}
+
+/* Cards: a wrapper so badges and progress can sit on the cover. */
+.card-art {
+  position: relative;
+  margin-block-end: var(--s3);
+}
+
+.card-art .cover {
+  margin-block-end: 0;
+}
+
+.card-badges {
+  position: absolute;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(16, 12, 22, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.card-badge .nav-ic {
+  color: var(--tc, #fff);
+}
+
+.card-badge-video {
+  padding: 3px 6px;
+}
+
+.card-progress {
+  position: absolute;
+  inset-inline: 8px;
+  inset-block-end: 8px;
+  block-size: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  z-index: 2;
+}
+
+.card-progress span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+/* A series card reads as a small stack of covers. */
+.series-card .card-art {
+  padding-block-start: 8px;
+}
+
+.series-stack {
+  position: absolute;
+  inset-inline: 10px;
+  inset-block-start: 0;
+  block-size: 20px;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  background: color-mix(in oklab, var(--surface) 70%, #fff 6%);
+  border: 1px solid var(--hairline);
+  border-block-end: 0;
+}
+
+.series-stack::before {
+  content: '';
+  position: absolute;
+  inset-inline: 10px;
+  inset-block-start: -5px;
+  block-size: 8px;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  background: color-mix(in oklab, var(--surface) 50%, #fff 4%);
+}
+
+.shelf-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  font-size: 15px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--muted);
+  margin-block: var(--s2) var(--s3);
+}
+
+.shelf-title span {
+  font-weight: 400;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.card-grid.shelf {
+  margin-block-end: var(--s6);
+}
+
+.section-note {
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+/* Item page: what this is, and a way to say otherwise. */
+.type-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-block-end: var(--s2);
+}
+
+.type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px 4px 8px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in oklab, var(--tc) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--tc) 35%, transparent);
+}
+
+.type-pill .nav-ic {
+  color: var(--tc);
+}
+
+.type-pill .dot {
+  opacity: 0.5;
+}
+
+.type-change {
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  color: var(--faint);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.type-change:hover {
+  color: var(--text);
+}
+
+.type-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eyebrow-video {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: var(--s2);
+  color: var(--muted);
+}
+
+/* Lessons: tick to mark done; the next one is lit. */
+.done-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.done-toggle[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.row.done .grow > div:first-child {
+  color: var(--muted);
+}
+
+.row.next {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  border-radius: var(--r-md);
+}
+
+.row .sub .nav-ic {
+  vertical-align: -2px;
+}
+
+/* Series page */
+.series-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-block-start: var(--s4);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.series-progress .bar {
+  flex: 1;
+  max-inline-size: 260px;
+  block-size: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.series-progress .bar span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+.series-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.series-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-lg);
+  color: var(--text);
+  transition: background var(--t-fast) var(--ease);
+}
+
+.series-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+}
+
+.series-row.next {
+  background: color-mix(in oklab, var(--accent) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+.series-n {
+  flex: none;
+  inline-size: 28px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+.series-n .nav-ic {
+  color: var(--accent);
+}
+
+.series-cover {
+  flex: none;
+  inline-size: 52px;
+}
+
+.series-cover .cover {
+  border-radius: 10px;
+}
+
+.series-cover .cover-title {
+  display: none;
+}
+
+.series-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.series-meta .t {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.series-meta .s {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.series-row .card-badges {
+  position: static;
+}
+
+/* The type picker */
+.type-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s2);
+  margin-block-end: var(--s4);
+}
+
+.type-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.type-choice:hover {
+  border-color: var(--border);
+}
+
+.type-choice.on {
+  border-color: color-mix(in oklab, var(--tc) 60%, transparent);
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--tc) 16%, transparent), transparent 80%),
+    var(--surface);
+}
+
+.type-choice-ic {
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 12px;
+  margin-block-end: 4px;
+  color: var(--tc);
+  background: color-mix(in oklab, var(--tc) 14%, transparent);
+}
+
+.type-choice-t {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.type-choice-h {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* ===================================================================
+ * Plans: focus, and planning with AI
+ * =================================================================== */
+
+.plans-head-actions,
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  justify-content: center;
+}
+
+.plan-focus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: color-mix(in oklab, var(--tc) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--tc) 30%, transparent);
+  margin-block-end: 6px;
+  inline-size: fit-content;
+}
+
+.plan-focus .nav-ic {
+  color: var(--tc);
+}
+
+.occ-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.occ-name .nav-ic {
+  color: var(--faint);
+}
+
+.focus-seg .seg-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  font-size: 14px;
+}
+
+.med-pick__check {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.begin-learn {
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--t-course) 12%, transparent), transparent 60%),
+    var(--surface);
+}
+
+.begin-learn .why {
+  color: var(--t-course);
+}
+
+.begin-learn .begin-go {
+  background: color-mix(in oklab, var(--t-course) 22%, transparent);
+  background-image: none;
+  color: var(--t-course);
+}
+
+/* The AI planner */
+.ai-steps {
+  display: flex;
+  gap: var(--s2);
+  list-style: none;
+  margin: 0 0 var(--s5);
+  padding: 0;
+}
+
+.ai-steps li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--faint);
+  padding-block-end: 8px;
+  border-block-end: 2px solid var(--hairline);
+}
+
+.ai-steps li span {
+  display: grid;
+  place-items: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
+
+.ai-steps li.on {
+  color: var(--text);
+  border-block-end-color: var(--accent);
+}
+
+.ai-steps li.on span {
+  border-color: transparent;
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+}
+
+.ai-step textarea {
+  inline-size: 100%;
+}
+
+.ai-block {
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+  margin-block-end: var(--s3);
+}
+
+.ai-block .set-switch-t {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-block-start: var(--s3);
+}
+
+.ai-row .hint {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.ai-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.ai-stepper button {
+  display: grid;
+  place-items: center;
+  inline-size: 38px;
+  block-size: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ai-stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ai-stepper span {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ai-stepper b {
+  font-family: 'Newsreader Variable', var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+  margin-inline-end: 2px;
+}
+
+.ai-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-block-start: var(--s5);
+  flex-wrap: wrap;
+}
+
+.ai-privacy {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-block-start: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border);
+}
+
+.ai-privacy .nav-ic {
+  flex: none;
+  color: var(--accent);
+  margin-block-start: 2px;
+}
+
+.ai-thinking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  padding-block: var(--s8);
+  text-align: center;
+}
+
+.ai-thinking p {
+  font-family: 'Newsreader Variable', var(--font-display);
+  font-size: 20px;
+  font-weight: 300;
+  animation: sit-word 700ms var(--ease);
+}
+
+.ai-orb {
+  position: relative;
+  inline-size: 120px;
+  block-size: 120px;
+}
+
+.ai-orb span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.2px solid transparent;
+  border-block-start-color: #ffc04a;
+  border-inline-end-color: #f04c8a;
+  animation: spin 2.4s linear infinite;
+}
+
+.ai-orb span:nth-child(2) {
+  inset: 14px;
+  border-block-start-color: #f04c8a;
+  border-inline-end-color: #8b5cf6;
+  animation-duration: 3.2s;
+  animation-direction: reverse;
+}
+
+.ai-orb span:nth-child(3) {
+  inset: 30px;
+  border-block-start-color: #8b5cf6;
+  border-inline-end-color: #ffc04a;
+  animation-duration: 4.2s;
+}
+
+.ai-name {
+  inline-size: 100%;
+  font-family: var(--font-display);
+  font-size: 22px;
+  border: 0;
+  border-block-end: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+  padding: 4px 0;
+  color: var(--text);
+}
+
+.ai-intention {
+  margin-block-start: var(--s2);
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--muted);
+}
+
+.ai-summary {
+  margin-block: var(--s2) var(--s4);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ai-outline {
+  list-style: none;
+  margin: 0 0 var(--s4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-outline li {
+  display: flex;
+  gap: var(--s3);
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.ai-outline li span {
+  flex: none;
+  inline-size: 60px;
+  color: var(--faint);
+  font-size: 12.5px;
+}
+
+.ai-track {
+  margin-block-end: var(--s4);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+}
+
+.ai-track header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-block-end: var(--s3);
+}
+
+.ai-track .plan-focus {
+  margin: 0;
+}
+
+.ai-track-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.ai-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.ai-items li {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+}
+
+.ai-n {
+  flex: none;
+  inline-size: 18px;
+  padding-block-start: 12px;
+  font-size: 12px;
+  color: var(--faint);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-cover {
+  flex: none;
+  inline-size: 46px;
+}
+
+.ai-cover .cover {
+  border-radius: 10px;
+}
+
+.ai-cover .cover-title {
+  display: none;
+}
+
+.ai-item-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ai-item-body .t {
+  font-size: 14.5px;
+  overflow-wrap: anywhere;
+}
+
+.ai-item-body .s {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.ai-item-body .why {
+  font-size: 13px;
+  color: var(--muted);
+  margin-block-start: 2px;
+}
+
+.ai-key {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.ai-key-art {
+  align-self: center;
+  inline-size: 96px;
+  block-size: auto;
+}
+
+.ai-key-row {
+  display: flex;
+  gap: var(--s2);
+}
+
+.ai-key-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-key .hint {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.ai-series {
+  color: var(--muted);
 }

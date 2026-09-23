@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ScanStateDto, UserInfo } from '@zenport/shared';
+import type { AiSettingsDto, ScanStateDto, UserInfo } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { useAuth } from '../App.tsx';
@@ -8,6 +8,7 @@ import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { REPO_URL, VersionRow, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
 import { ErrorNote, Icon, Sheet, Switch } from '../components/ui.tsx';
+import { AiKeyForm } from '../components/AiPlanSheet.tsx';
 
 const COMMON_TIMEZONES = [
   'UTC',
@@ -59,6 +60,7 @@ export function SettingsPage() {
       </div>
 
       <PreferencesSection />
+      <AiSection />
 
       <section className="section" aria-labelledby="s-profile">
         <div className="section-head">
@@ -523,6 +525,96 @@ function PreferencesSection() {
         this account actually started.
       */}
       {replay && <Onboarding onDone={() => setReplay(false)} />}
+    </section>
+  );
+}
+
+/** An account's own AI key: add, see that it is set, choose a model, remove. */
+function AiSection() {
+  const ai = useApi<AiSettingsDto>('/api/ai/settings');
+  const [busy, setBusy] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const d = ai.data;
+  const setModel = async (model: string) => {
+    setBusy(true);
+    await api.put('/api/ai/settings', { model }).catch(() => {});
+    ai.reload();
+    setBusy(false);
+  };
+  const remove = async () => {
+    if (!window.confirm('Remove your OpenAI key from ZenPort?')) return;
+    await api.del('/api/ai/settings').catch(() => {});
+    ai.reload();
+  };
+  return (
+    <section className="section" aria-labelledby="s-ai">
+      <div className="section-head">
+        <h2 id="s-ai">AI planning</h2>
+      </div>
+      <div className="set-groups">
+        <div className="set-group">
+          <header className="set-group-head">
+            <span className="set-group-ic">
+              <Icon name="sparkle" size={19} />
+            </span>
+            <div>
+              <h3>Your OpenAI key</h3>
+              <p>Lets ZenPort read your library and draft plans around your time.</p>
+            </div>
+          </header>
+          <div className="set-group-body">
+            {!d ? (
+              <div className="skeleton" style={{ height: 44 }} />
+            ) : d.configured && !replacing ? (
+              <>
+                <div className="set-switch" style={{ borderTop: 0, marginTop: 0, paddingTop: 0 }}>
+                  <div>
+                    <div className="set-switch-t">Key saved {d.keyHint}</div>
+                    <div className="set-switch-h">
+                      Encrypted on this server; never shown or sent to the browser.
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn btn-sm btn-quiet" onClick={() => setReplacing(true)}>
+                      Replace
+                    </button>
+                    <button className="btn btn-sm btn-quiet" onClick={() => void remove()}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <div className="field" style={{ marginTop: 12 }}>
+                  <label htmlFor="ai-model">Model</label>
+                  <select
+                    id="ai-model"
+                    value={d.model ?? ''}
+                    disabled={busy}
+                    onChange={(e) => void setModel(e.target.value)}
+                  >
+                    {(d.models.length ? d.models : [d.model ?? '']).map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="hint" style={{ marginTop: 6 }}>
+                    The first in the list is the recommended one. Plans open from Plans → Plan with
+                    AI.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <AiKeyForm
+                compact
+                onSaved={() => {
+                  setReplacing(false);
+                  ai.reload();
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

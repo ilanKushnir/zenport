@@ -65,6 +65,10 @@ export interface TrackDto {
   ext: string;
   durationSec: number | null;
   missing: boolean;
+  /** Played as video rather than audio. */
+  video: boolean;
+  /** This account finished it (played to the end, or marked done). */
+  completed: boolean;
 }
 
 export type DocumentKind = 'pdf' | 'text' | 'markdown' | 'html';
@@ -78,11 +82,33 @@ export interface DocumentDto {
 }
 
 export interface InferenceDecision {
-  field: 'creator' | 'title' | 'collection' | 'tracks' | 'cover' | 'grouping';
+  field: 'creator' | 'title' | 'collection' | 'tracks' | 'cover' | 'grouping' | 'type';
   value: string;
   rule: string;
   evidence: string;
 }
+
+// --- Content types ---
+
+/**
+ * What a library item is for. Two practise, two teach:
+ *  - meditation: a guided practice (intro tracks included)
+ *  - soundscape: music, sound baths, ambient or sleep sound
+ *  - course:     a series of lessons worked through in order
+ *  - talk:       a single lecture, livestream, workshop or Q&A
+ */
+export const CONTENT_TYPES = ['meditation', 'course', 'talk', 'soundscape'] as const;
+export type ContentType = (typeof CONTENT_TYPES)[number];
+
+/** Types that count as practice (streaks, practice minutes); the rest are learning. */
+export const PRACTICE_TYPES: readonly ContentType[] = ['meditation', 'soundscape'];
+export const isPracticeType = (t: ContentType): boolean => PRACTICE_TYPES.includes(t);
+
+/** Containers a browser plays as video. (mpg/flv are not playable and never indexed.) */
+export const VIDEO_EXTS: readonly string[] = ['mp4', 'm4v', 'webm', 'mov'];
+export const isVideoExt = (ext: string): boolean => VIDEO_EXTS.includes(ext.toLowerCase());
+
+export type PlanFocus = 'practice' | 'learning';
 
 export interface MeditationSummaryDto {
   id: string;
@@ -98,6 +124,13 @@ export interface MeditationSummaryDto {
   formats: string[];
   missing: boolean;
   addedAt: string;
+  /** Effective type: the owner's choice if they made one, else the scanner's. */
+  type: ContentType;
+  typeSource: 'auto' | 'manual';
+  /** At least one track is a video container. */
+  hasVideo: boolean;
+  /** Tracks this account has finished (lessons done, for a course). */
+  completedCount: number;
 }
 
 export interface MeditationDetailDto extends MeditationSummaryDto {
@@ -173,6 +206,8 @@ export interface PlanDto {
   targetMinutes: number | null;
   notes: string | null;
   status: PlanStatus;
+  /** Practice plans hold meditations; learning plans follow courses and talks. */
+  focus: PlanFocus;
   meditationIds: string[];
   createdAt: string;
 }
@@ -190,6 +225,8 @@ export interface PlanOccurrenceDto {
   /** Set when this occurrence exists because another date moved here. */
   movedFrom: string | null;
   completedSessionId: number | null;
+  /** The plan's focus; optional so the pure expander need not know it. */
+  focus?: PlanFocus;
 }
 
 // --- Stats ---
@@ -223,6 +260,16 @@ export interface StatsDto {
     periodDays: number;
     current: { minutes: number; sessions: number };
     previous: { minutes: number; sessions: number };
+  };
+  /**
+   * Courses and talks, kept apart: everything above counts practice only
+   * (meditations, soundscapes, unguided sits), so study never inflates a streak.
+   */
+  learning: {
+    totalMinutes: number;
+    sessions: number;
+    lessonsCompleted: number;
+    weekTrend: TrendBucket[];
   };
 }
 
@@ -327,4 +374,55 @@ export interface UserPrefsDto {
 export interface FavoriteDto {
   itemId: string;
   createdAt: string;
+}
+
+// --- AI planning ---
+
+export interface AiSettingsDto {
+  configured: boolean;
+  /** Last four characters of the key, e.g. "…a1b2". Never the key. */
+  keyHint: string | null;
+  model: string | null;
+  /** Chat models this key can use, newest-preferred first. */
+  models: string[];
+}
+
+export type PlanLevel = 'new' | 'some' | 'experienced';
+
+export interface AiPlanRequest {
+  /** In the person's own words: what they want from the next weeks. */
+  goal: string;
+  weeks: number;
+  startDate: string; // YYYY-MM-DD
+  practice: { daysPerWeek: number; minutes: number } | null;
+  learning: { minutesPerWeek: number; daysPerWeek: number } | null;
+  timeOfDay: 'morning' | 'midday' | 'evening' | 'any';
+  level: PlanLevel;
+  /** Only these creators, if any are given. */
+  creators: string[];
+  /** Include meditations/courses/talks/soundscapes the account already finished. */
+  includeFinished: boolean;
+}
+
+export interface AiPlanItemDto {
+  id: string;
+  why: string;
+  item: MeditationSummaryDto;
+}
+
+export interface AiPlanTrackDto {
+  daysOfWeek: number[];
+  minutesPerSession: number;
+  preferredTime: string | null;
+  items: AiPlanItemDto[];
+}
+
+export interface AiPlanProposalDto {
+  name: string;
+  intention: string;
+  summary: string;
+  practice: AiPlanTrackDto | null;
+  learning: AiPlanTrackDto | null;
+  outline: { week: number; focus: string }[];
+  model: string;
 }

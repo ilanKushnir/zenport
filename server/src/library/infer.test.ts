@@ -165,7 +165,7 @@ describe('inferLibrary', () => {
     expect(byTitle.get('Slow Tide (2019)')?.creator).toBe('Mira Solen');
     expect(byTitle.get('Slow Tide (2019)')?.tracks).toHaveLength(2);
     expect(byTitle.get('Week 1')?.creator).toBe('Mira Solen');
-    expect(byTitle.get('Week 1')?.collection).toBe('Courses / The Long Road');
+    expect(byTitle.get('Week 1')?.collection).toBe('The Long Road');
     expect(byTitle.get('Part 1')?.creator).toBe('Quiet Harbor');
     expect(items.every((i) => i.creator !== 'Unknown creator')).toBe(true);
     expect(items.some((i) => i.decisions.some((d) => d.rule === 'category-detected'))).toBe(false);
@@ -207,6 +207,37 @@ describe('inferLibrary', () => {
     expect(by('Wave I - First Light').creator).toBe('The Lantern Sessions');
     expect(by('Wave I - First Light').tracks).toHaveLength(2);
     expect(by('Body Scan').creator).toBe('Orin Vale');
+  });
+
+  it('16. a sorting folder of separate recordings gives one item per recording', () => {
+    const items = inferLibrary(
+      files(
+        'Mira Solen/Livestreams/Evening Gathering.mp4',
+        'Mira Solen/Livestreams/A Night of Questions.mp4',
+        'Mira Solen/Courses/The Long Road/Session 1.mp4',
+        'Mira Solen/Courses/The Long Road/Session 2.mp4',
+      ),
+    );
+    const titles = items.map((i) => i.title).sort();
+    expect(titles).toEqual(['A Night of Questions', 'Evening Gathering', 'The Long Road']);
+    for (const i of items) expect(i.creator).toBe('Mira Solen');
+    expect(items.find((i) => i.title === 'The Long Road')?.tracks).toHaveLength(2);
+    expect(items.find((i) => i.title === 'The Long Road')?.collection).toBeNull();
+  });
+
+  it('17. several series side by side stay under their creator', () => {
+    const items = inferLibrary(
+      files(
+        'Quiet Harbor/Kindness Series 1/Part 1/day-1.mp3',
+        'Quiet Harbor/Kindness Series 1/Part 2/day-2.mp3',
+        'Quiet Harbor/Focus Series/Part 1/day-1.mp3',
+        'Quiet Harbor/Focus Series/Part 2/day-2.mp3',
+      ),
+    );
+    for (const i of items) expect(i.creator).toBe('Quiet Harbor');
+    expect(new Set(items.map((i) => i.collection))).toEqual(
+      new Set(['Kindness Series 1', 'Focus Series']),
+    );
   });
 
   it('11. output is deterministic regardless of input order', () => {

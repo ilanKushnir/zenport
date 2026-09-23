@@ -17,6 +17,8 @@ import type { LibraryDto, PlanOccurrenceDto, PracticeSessionDto, StatsDto } from
 import { formatDuration } from '@zenport/shared';
 import { useApi } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
+import { planNext } from './PlansPage.tsx';
+import { itemLabel, TYPE_META } from '../content.ts';
 import { Cover, EmptyState, Icon, SkeletonGrid } from '../components/ui.tsx';
 import { MedCard } from './LibraryPage.tsx';
 
@@ -69,8 +71,10 @@ export function TodayPage() {
    * then a favourite, then whatever was added most recently.
    */
   const suggestion = useMemo(() => {
-    const planned = todayOcc.flatMap((o) => o.meditationIds).map((id) => byId.get(id));
-    const fromPlan = planned.find(Boolean);
+    const fromPlan = todayOcc
+      .filter((o) => o.focus !== 'learning')
+      .map((o) => planNext(o.meditationIds, byId, 'practice'))
+      .find(Boolean);
     if (fromPlan) return { item: fromPlan, why: 'From your plan for today' };
     if (recent[0]) return { item: recent[0], why: 'You were here last' };
     if (starred[0]) return { item: starred[0], why: 'One of your favourites' };
@@ -78,6 +82,24 @@ export function TodayPage() {
     if (newest) return { item: newest, why: 'Most recently added to your library' };
     return null;
   }, [todayOcc, byId, recent, starred, items]);
+
+  /**
+   * The next lesson: a learning plan due today first, else the course or talk
+   * most recently part-way through.
+   */
+  const learnNext = useMemo(() => {
+    const fromPlan = todayOcc
+      .filter((o) => o.focus === 'learning')
+      .map((o) => planNext(o.meditationIds, byId, 'learning'))
+      .find(Boolean);
+    if (fromPlan) return { item: fromPlan, why: 'Learning plan for today' };
+    const going = (history.data ?? [])
+      .map((h) => byId.get(h.meditationId))
+      .find(
+        (i) => i && (i.type === 'course' || i.type === 'talk') && i.completedCount < i.trackCount,
+      );
+    return going ? { item: going, why: 'Continue learning' } : null;
+  }, [todayOcc, byId, history.data]);
 
   if (lib.loading) {
     return (
@@ -137,7 +159,7 @@ export function TodayPage() {
                   />
                   <div className="begin-text">
                     <span className="why">{suggestion.why}</span>
-                    <span className="ttl">{suggestion.item!.title}</span>
+                    <span className="ttl">{itemLabel(suggestion.item!)}</span>
                     <span className="sub">
                       {suggestion.item!.creator}
                       {suggestion.item!.totalDurationSec
@@ -147,6 +169,32 @@ export function TodayPage() {
                   </div>
                   <span className="begin-go" aria-hidden="true">
                     <Icon name="play" size={20} />
+                  </span>
+                </button>
+              )}
+
+              {learnNext && learnNext.item.id !== suggestion?.item?.id && (
+                <button
+                  className="begin-card begin-learn"
+                  onClick={() => navigate(`/m/${learnNext.item.id}`)}
+                >
+                  <Cover
+                    coverId={learnNext.item.coverId}
+                    title={learnNext.item.title}
+                    creator={learnNext.item.creator}
+                    className="begin-cover"
+                  />
+                  <div className="begin-text">
+                    <span className="why">{learnNext.why}</span>
+                    <span className="ttl">{itemLabel(learnNext.item)}</span>
+                    <span className="sub">
+                      {learnNext.item.trackCount > 1
+                        ? `${TYPE_META[learnNext.item.type].part[0]!.toUpperCase()}${TYPE_META[learnNext.item.type].part.slice(1)} ${Math.min(learnNext.item.completedCount + 1, learnNext.item.trackCount)} of ${learnNext.item.trackCount}`
+                        : learnNext.item.creator}
+                    </span>
+                  </div>
+                  <span className="begin-go" aria-hidden="true">
+                    <Icon name="book" size={19} />
                   </span>
                 </button>
               )}
@@ -183,14 +231,21 @@ export function TodayPage() {
               </div>
               <div className="rowlist card" style={{ padding: '4px 16px' }}>
                 {todayOcc.map((o) => {
-                  const first = o.meditationIds.map((id) => byId.get(id)).find(Boolean);
+                  const learning = o.focus === 'learning';
+                  const first = planNext(o.meditationIds, byId, learning ? 'learning' : 'practice');
                   return (
                     <div className="row" key={`${o.planId}-${o.date}`}>
-                      <Icon name="plans" />
+                      <Icon name={learning ? 'book' : 'lotus'} />
                       <div className="grow">
                         <div>{o.planName}</div>
                         <div className="sub">
-                          {first ? first.title : 'Any meditation you choose'}
+                          {first
+                            ? `${itemLabel(first)}${
+                                learning && first.trackCount > 1
+                                  ? ` · ${TYPE_META[first.type].part} ${Math.min(first.completedCount + 1, first.trackCount)}`
+                                  : ''
+                              }`
+                            : 'Any meditation you choose'}
                         </div>
                       </div>
                       {first && (

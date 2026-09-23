@@ -1,0 +1,187 @@
+/**
+ * A series: a course in parts, a meditation programme, a set of talks - the
+ * items that share a creator and a collection, shown as one thing with one
+ * progress and one "continue".
+ */
+import { useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import type { ContentType, LibraryDto, MeditationDetailDto } from '@zenport/shared';
+import { formatDuration, naturalCompare } from '@zenport/shared';
+import { api } from '../api.ts';
+import { useAuth } from '../App.tsx';
+import { useApi } from '../hooks.ts';
+import { usePlayer } from '../player/PlayerProvider.tsx';
+import { Cover, ErrorNote, Icon } from '../components/ui.tsx';
+import { groupSeries, progressLabel, TYPE_META } from '../content.ts';
+import { TypeSheet } from '../components/TypeSheet.tsx';
+import { CardBadges } from './LibraryPage.tsx';
+
+export function SeriesPage() {
+  const { creator = '', name = '' } = useParams();
+  const lib = useApi<LibraryDto>('/api/library');
+  const player = usePlayer();
+  const { user } = useAuth();
+  const [picking, setPicking] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const series = useMemo(() => {
+    const items = (lib.data?.items ?? []).filter(
+      (i) => !i.missing && i.creator === creator && i.collection === name,
+    );
+    items.sort((a, b) => naturalCompare(a.title, b.title));
+    return items.length ? { ...groupSeries(items).series[0], items } : null;
+  }, [lib.data, creator, name]);
+
+  if (lib.loading && !lib.data) return <div className="skeleton" style={{ height: 320 }} />;
+  if (lib.error) return <ErrorNote message={lib.error} onRetry={lib.reload} />;
+  if (!series || !series.items) {
+    return (
+      <div className="page-head">
+        <h1>Not found</h1>
+        <p className="lede">
+          This series is not in the library any more. <Link to="/library">Back to the library</Link>
+        </p>
+      </div>
+    );
+  }
+
+  const items = series.items;
+  const type: ContentType = series.type ?? items[0]!.type;
+  const meta = TYPE_META[type];
+  const total = items.reduce((n, i) => n + i.trackCount, 0);
+  const done = items.reduce((n, i) => n + i.completedCount, 0);
+  const duration = items.every((i) => i.totalDurationSec !== null)
+    ? items.reduce((n, i) => n + (i.totalDurationSec ?? 0), 0)
+    : null;
+  const next = items.find((i) => i.completedCount < i.trackCount) ?? items[0]!;
+
+  const continueNext = async () => {
+    setStarting(true);
+    try {
+      const detail = await api.get<MeditationDetailDto>(`/api/items/${next.id}`);
+      const track = detail.tracks.find((t) => !t.completed && !t.missing) ?? detail.tracks[0];
+      const resume =
+        detail.resume && detail.resume.trackId === track?.id
+          ? detail.resume.positionSec
+          : undefined;
+      player.start(detail, { trackId: track?.id, resumeSec: resume });
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  return (
+    <>
+      <nav className="breadcrumbs" aria-label="Breadcrumb" style={{ marginBottom: 20 }}>
+        <Link to="/library">Library</Link>
+        <span className="sep">/</span>
+        <Link to={`/creators/${encodeURIComponent(creator)}`}>{creator}</Link>
+      </nav>
+
+      <div className="detail-grid series-head">
+        <div className="detail-cover">
+          <Cover coverId={series.coverId ?? null} title={name} creator={creator} size={640} />
+        </div>
+        <div className="detail-body">
+          <p className="eyebrow type-eyebrow">
+            <Icon name={meta.icon} size={14} />
+            {type === 'course' ? 'Course' : `${meta.label} series`}
+            {series.hasVideo && (
+              <span className="eyebrow-video">
+                <Icon name="video" size={14} /> Video
+              </span>
+            )}
+          </p>
+          <h1 className="detail-title">{name}</h1>
+          <p className="detail-facts">
+            <span>{creator}</span>
+            <span>
+              {items.length} {type === 'course' ? 'modules' : 'parts'}
+            </span>
+            <span>
+              {total} {meta.parts}
+            </span>
+            {duration ? <span>{formatDuration(duration)}</span> : null}
+          </p>
+
+          <div className="series-progress" aria-label={`${done} of ${total} ${meta.parts} done`}>
+            <div className="bar">
+              <span style={{ inlineSize: `${total ? (done / total) * 100 : 0}%` }} />
+            </div>
+            <span>
+              {progressLabel(done, total, type) ?? `Not started · ${total} ${meta.parts}`}
+            </span>
+          </div>
+
+          <div className="detail-actions">
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={() => void continueNext()}
+              disabled={starting}
+            >
+              <Icon name="play" size={17} />
+              {done === 0 ? 'Start' : done >= total ? 'Begin again' : 'Continue'} · {next.title}
+            </button>
+            {user?.role === 'admin' && (
+              <button className="btn btn-ghost" onClick={() => setPicking(true)}>
+                <Icon name={meta.icon} size={16} />
+                Change type
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <section className="section" aria-labelledby="series-parts">
+        <div className="section-head">
+          <h2 id="series-parts">{type === 'course' ? 'Modules' : 'In this series'}</h2>
+        </div>
+        <ol className="series-list">
+          {items.map((i, n) => {
+            const finished = i.trackCount > 0 && i.completedCount >= i.trackCount;
+            return (
+              <li key={i.id}>
+                <Link
+                  to={`/m/${i.id}`}
+                  className={`series-row${i.id === next.id && !finished ? ' next' : ''}`}
+                >
+                  <span className="series-n">
+                    {finished ? <Icon name="check-circle" size={20} /> : n + 1}
+                  </span>
+                  <span className="series-cover">
+                    <Cover coverId={i.coverId} title={i.title} creator={i.creator} />
+                  </span>
+                  <span className="series-meta">
+                    <span className="t">{i.title}</span>
+                    <span className="s">
+                      {progressLabel(i.completedCount, i.trackCount, i.type) ??
+                        `${i.trackCount} ${i.trackCount === 1 ? TYPE_META[i.type].part : TYPE_META[i.type].parts}`}
+                      {i.totalDurationSec ? ` · ${formatDuration(i.totalDurationSec)}` : ''}
+                    </span>
+                  </span>
+                  <CardBadges type={i.type === type ? 'meditation' : i.type} video={i.hasVideo} />
+                  <Icon name="chevron-right" size={16} />
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      {picking && (
+        <TypeSheet
+          itemId={items[0]!.id}
+          current={type}
+          auto={items.every((i) => i.typeSource === 'auto')}
+          seriesSize={items.length}
+          defaultScope="collection"
+          onClose={() => setPicking(false)}
+          onSaved={() => {
+            setPicking(false);
+            lib.reload();
+          }}
+        />
+      )}
+    </>
+  );
+}

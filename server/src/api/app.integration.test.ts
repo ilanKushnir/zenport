@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { openDb, type Db } from '../db/index.js';
+import { AiError, type OpenAiClient } from '../ai/openai.js';
 import { runScan } from '../scanner/scan.js';
 import type { Config } from '../config.js';
 
@@ -50,6 +51,51 @@ async function setupAndLogin(): Promise<void> {
 
 const auth = () => ({ cookie: `zp_session=${cookie}`, ...CSRF });
 
+/** OpenAI without the network: any key starting "sk-good" works, and the plan
+ * answer picks from whatever catalogue it was shown. */
+let lastPrompt = '';
+function fakeOpenAi(): OpenAiClient {
+  return {
+    listModels: async (key) => {
+      if (!key.startsWith('sk-good')) throw new AiError('OpenAI did not accept that key.', 400);
+      return ['gpt-5.5', 'gpt-4o', 'gpt-image-2'];
+    },
+    chatJson: async ({ user }) => {
+      lastPrompt = user;
+      const handle = (word: string) =>
+        user
+          .split('\n')
+          .find((l) => l.includes(word))
+          ?.split(' | ')[0]
+          ?.trim();
+      return {
+        name: 'Four weeks of mornings',
+        intention: 'Arrive before the day does.',
+        summary: 'Practice most mornings, learn twice a week.',
+        practice: {
+          daysOfWeek: [1, 2, 3, 4, 5],
+          minutesPerSession: 20,
+          preferredTime: null,
+          items: [
+            { handle: handle('Morning Ritual'), why: 'Begin here.' },
+            { handle: 'm404', why: 'invented' },
+          ],
+        },
+        learning: {
+          daysOfWeek: [2, 4],
+          minutesPerSession: 45,
+          preferredTime: null,
+          items: [
+            { handle: handle('The Long Road'), why: 'Foundations.' },
+            { handle: handle('Evening Gathering'), why: 'Then the talk.' },
+          ],
+        },
+        outline: [{ week: 1, focus: 'Settle in' }],
+      };
+    },
+  };
+}
+
 beforeEach(async () => {
   libRoot = mkdtempSync(path.join(tmpdir(), 'zp-api-lib-'));
   dataDir = mkdtempSync(path.join(tmpdir(), 'zp-api-data-'));
@@ -77,6 +123,7 @@ beforeEach(async () => {
         { videoId: 'bbbbbbbbbbb', title: 'Two', creator: 'T' },
       ],
       transcribe: null,
+      openai: fakeOpenAi(),
     },
   });
   await app.ready();
@@ -95,7 +142,12 @@ describe('first-start flow with a setup token', () => {
       db: openDb(':memory:'),
       config: { ...makeConfig(), setupToken: 'claim-me-please' },
       version: 'test',
-      deps: { fetchVideoMeta: async () => null, listPlaylist: null, transcribe: null },
+      deps: {
+        fetchVideoMeta: async () => null,
+        listPlaylist: null,
+        transcribe: null,
+        openai: fakeOpenAi(),
+      },
     });
     await locked.ready();
     try {
@@ -541,5 +593,146 @@ describe('youtube sources', () => {
       kind: 'playlist',
       ref: preview.ref,
     });
+  });
+});
+
+describe('content types, lessons and AI planning', () => {
+  const put = (rel: string, content: string | Buffer = 'bytes-0123456789') => {
+    const abs = path.join(libRoot, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, content);
+  };
+
+  beforeEach(async () => {
+    put('Mira Solen/Courses/The Long Road/Session 1.mp4');
+    put('Mira Solen/Courses/The Long Road/Session 2.mp4');
+    put('Mira Solen/Courses/The Long Road/Session 3.mp4');
+    put('Mira Solen/Livestreams/Evening Gathering.mp4');
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+  });
+
+  it('recognises each type, lets the admin correct one, and a rescan keeps the correction', async () => {
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const by = (t: string) => lib.items.find((i: { title: string }) => i.title === t);
+    expect(by('Morning Ritual').type).toBe('meditation');
+    expect(by('The Long Road')).toMatchObject({ type: 'course', hasVideo: true, trackCount: 3 });
+    expect(by('Evening Gathering').type).toBe('talk');
+
+    const put1 = await app.inject({
+      method: 'PUT',
+      url: `/api/items/${by('Evening Gathering').id}/type`,
+      headers: auth(),
+      payload: { type: 'course' },
+    });
+    expect(put1.statusCode).toBe(200);
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    const after = (
+      await app.inject({ method: 'GET', url: '/api/library', headers: auth() })
+    ).json();
+    expect(
+      after.items.find((i: { title: string }) => i.title === 'Evening Gathering'),
+    ).toMatchObject({
+      type: 'course',
+      typeSource: 'manual',
+    });
+  });
+
+  it('marks lessons done per account and counts them', async () => {
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const course = lib.items.find((i: { title: string }) => i.title === 'The Long Road');
+    const detail = (
+      await app.inject({ method: 'GET', url: `/api/items/${course.id}`, headers: auth() })
+    ).json();
+    expect(detail.tracks.every((t: { video: boolean }) => t.video)).toBe(true);
+    await app.inject({
+      method: 'PUT',
+      url: `/api/tracks/${detail.tracks[0].id}/completed`,
+      headers: auth(),
+      payload: { completed: true },
+    });
+    const again = (
+      await app.inject({ method: 'GET', url: `/api/items/${course.id}`, headers: auth() })
+    ).json();
+    expect(again.completedCount).toBe(1);
+    expect(again.tracks[0].completed).toBe(true);
+    const stats = (await app.inject({ method: 'GET', url: '/api/stats', headers: auth() })).json();
+    expect(stats.learning.lessonsCompleted).toBe(1);
+  });
+
+  it('keeps the AI key secret and plans only with real library items', async () => {
+    await setupAndLogin();
+    const bad = await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-bad-000000000000000000' },
+    });
+    expect(bad.statusCode).toBe(400);
+    const ok = await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-1111111111111111abcd' },
+    });
+    expect(ok.json()).toMatchObject({
+      configured: true,
+      keyHint: '…abcd',
+      model: 'gpt-5.5',
+      models: ['gpt-5.5', 'gpt-4o'],
+    });
+    const settings = await app.inject({ method: 'GET', url: '/api/ai/settings', headers: auth() });
+    expect(settings.body).not.toContain('sk-good');
+    const stored = db.prepare('SELECT api_key_enc FROM ai_settings').get() as {
+      api_key_enc: string;
+    };
+    expect(stored.api_key_enc).not.toContain('sk-good');
+
+    const plan = await app.inject({
+      method: 'POST',
+      url: '/api/ai/plan',
+      headers: auth(),
+      payload: {
+        goal: 'calm mornings and some study',
+        weeks: 4,
+        startDate: '2026-10-01',
+        practice: { daysPerWeek: 5, minutes: 20 },
+        learning: { minutesPerWeek: 90, daysPerWeek: 2 },
+        timeOfDay: 'morning',
+        level: 'some',
+        creators: [],
+        includeFinished: false,
+      },
+    });
+    expect(plan.statusCode).toBe(200);
+    const p = plan.json();
+    expect(p.practice.items.map((i: { item: { title: string } }) => i.item.title)).toEqual([
+      'Morning Ritual',
+    ]);
+    expect(p.learning.items.map((i: { item: { title: string } }) => i.item.title)).toEqual([
+      'The Long Road',
+      'Evening Gathering',
+    ]);
+    expect(p.practice.preferredTime).toBe('07:00');
+    expect(lastPrompt).toContain('Practice: 5 days a week, about 20 minutes each.');
+    expect(lastPrompt).not.toMatch(/[0-9a-f]{20}/); // real ids never leave the server
+
+    // Accepting is ordinary plan creation, with a focus.
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/plans',
+      headers: auth(),
+      payload: {
+        name: p.name,
+        startDate: '2026-10-01',
+        daysOfWeek: p.learning.daysOfWeek,
+        focus: 'learning',
+        meditationIds: p.learning.items.map((i: { id: string }) => i.id),
+      },
+    });
+    expect(created.statusCode).toBe(200);
+    const plans = (await app.inject({ method: 'GET', url: '/api/plans', headers: auth() })).json();
+    expect(plans[0]).toMatchObject({ focus: 'learning' });
   });
 });
