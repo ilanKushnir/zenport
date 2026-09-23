@@ -7,7 +7,7 @@ import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { REPO_URL, VersionRow, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
-import { ErrorNote, Icon, Sheet } from '../components/ui.tsx';
+import { ErrorNote, Icon, Sheet, Switch } from '../components/ui.tsx';
 
 const COMMON_TIMEZONES = [
   'UTC',
@@ -289,6 +289,55 @@ function AddUserSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () =
  * The same controls the welcome flow offers, in their permanent home. Each
  * writes through immediately — there is no Save button to forget to press.
  */
+function SetGroup({
+  icon,
+  title,
+  hint,
+  children,
+}: {
+  icon: string;
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="set-group">
+      <header className="set-group-head">
+        <span className="set-group-ic">
+          <Icon name={icon} size={19} />
+        </span>
+        <div>
+          <h3>{title}</h3>
+          <p>{hint}</p>
+        </div>
+      </header>
+      <div className="set-group-body">{children}</div>
+    </div>
+  );
+}
+
+function SwitchRow({
+  title,
+  hint,
+  checked,
+  onChange,
+}: {
+  title: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="set-switch">
+      <div>
+        <div className="set-switch-t">{title}</div>
+        <div className="set-switch-h">{hint}</div>
+      </div>
+      <Switch checked={checked} onChange={onChange} label={title} />
+    </div>
+  );
+}
+
 function PreferencesSection() {
   const { prefs, save } = usePrefs();
   const [replay, setReplay] = useState(false);
@@ -301,183 +350,170 @@ function PreferencesSection() {
       <div className="section-head">
         <h2 id="s-prefs">Preferences</h2>
       </div>
-      <div className="card" style={{ maxWidth: 640 }}>
-        <div className="ob-field" style={{ marginTop: 0 }}>
-          <label>Accent</label>
-          <div className="accent-row">
-            {ACCENT_OPTIONS.map((a) => (
-              <button
-                key={a.key}
-                className={`accent-swatch accent-${a.key}`}
-                aria-pressed={prefs.accent === a.key}
-                aria-label={`${a.label} - ${a.note}`}
-                title={`${a.label} - ${a.note}`}
-                onClick={() => void save({ accent: a.key })}
-              >
-                <span className="sw" />
-                <span className="nm">{a.label}</span>
-              </button>
-            ))}
+      <div className="set-groups">
+        <SetGroup
+          icon="sparkle"
+          title="Look and feel"
+          hint="Colour, movement and where the app opens."
+        >
+          <div className="ob-field" style={{ marginTop: 0 }}>
+            <label>Accent</label>
+            <div className="accent-row">
+              {ACCENT_OPTIONS.map((a) => (
+                <button
+                  key={a.key}
+                  className={`accent-swatch accent-${a.key}`}
+                  aria-pressed={prefs.accent === a.key}
+                  aria-label={`${a.label} - ${a.note}`}
+                  title={`${a.label} - ${a.note}`}
+                  onClick={() => void save({ accent: a.key })}
+                >
+                  <span className="sw" />
+                  <span className="nm">{a.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div className="ob-field">
-          <label>Open ZenPort on</label>
-          <div className="chip-row">
-            <button
-              className="chip"
-              aria-pressed={prefs.startPage === 'today'}
-              onClick={() => void save({ startPage: 'today' })}
-            >
-              Today
-            </button>
-            <button
-              className="chip"
-              aria-pressed={prefs.startPage === 'library'}
-              onClick={() => void save({ startPage: 'library' })}
-            >
-              Library
-            </button>
-          </div>
-        </div>
-
-        <div className="ob-field">
-          <label>Daily target</label>
-          <div className="chip-row">
-            {GOALS.map((m) => (
+          <div className="ob-field">
+            <label>Open ZenPort on</label>
+            <div className="chip-row">
               <button
-                key={m}
                 className="chip"
-                aria-pressed={prefs.dailyGoalMinutes === m}
-                onClick={() => void save({ dailyGoalMinutes: m })}
+                aria-pressed={prefs.startPage === 'today'}
+                onClick={() => void save({ startPage: 'today' })}
               >
-                {m}m
+                Today
               </button>
-            ))}
-            <button
-              className="chip"
-              aria-pressed={prefs.dailyGoalMinutes === null}
-              onClick={() => void save({ dailyGoalMinutes: null })}
-            >
-              No target
-            </button>
-          </div>
-        </div>
-
-        <div className="ob-field">
-          <label>Default sit length</label>
-          <div className="chip-row">
-            {TIMERS.map((m) => (
               <button
-                key={m}
                 className="chip"
-                aria-pressed={prefs.defaultTimerMinutes === m}
-                onClick={() => void save({ defaultTimerMinutes: m })}
+                aria-pressed={prefs.startPage === 'library'}
+                onClick={() => void save({ startPage: 'library' })}
               >
-                {m}m
+                Library
               </button>
-            ))}
+            </div>
           </div>
-        </div>
+          <SwitchRow
+            title="Gentle motion"
+            hint="Soft drifting and breathing animations. Your system's reduce-motion setting always wins."
+            checked={!prefs.calmMotion}
+            onChange={(v) => void save({ calmMotion: !v })}
+          />
+          <SwitchRow
+            title="Ambient background"
+            hint="The slow aurora behind every page."
+            checked={prefs.ambientBackground}
+            onChange={(v) => void save({ ambientBackground: v })}
+          />
+        </SetGroup>
 
-        <div className="ob-field">
-          <label>Bell along the way</label>
-          <div className="chip-row">
-            {INTERVALS.map((v) => (
+        <SetGroup icon="timer" title="Practice" hint="Your daily rhythm and the silent timer.">
+          <div className="ob-field" style={{ marginTop: 0 }}>
+            <label>Daily target</label>
+            <div className="chip-row">
+              {GOALS.map((m) => (
+                <button
+                  key={m}
+                  className="chip"
+                  aria-pressed={prefs.dailyGoalMinutes === m}
+                  onClick={() => void save({ dailyGoalMinutes: m })}
+                >
+                  {m}m
+                </button>
+              ))}
               <button
-                key={String(v)}
                 className="chip"
-                aria-pressed={prefs.intervalBellMinutes === v}
-                onClick={() => void save({ intervalBellMinutes: v })}
+                aria-pressed={prefs.dailyGoalMinutes === null}
+                onClick={() => void save({ dailyGoalMinutes: null })}
               >
-                {v === null ? 'None' : `Every ${v}m`}
+                No target
               </button>
-            ))}
+            </div>
           </div>
-        </div>
+          <div className="ob-field">
+            <label>Default sit length</label>
+            <div className="chip-row">
+              {TIMERS.map((m) => (
+                <button
+                  key={m}
+                  className="chip"
+                  aria-pressed={prefs.defaultTimerMinutes === m}
+                  onClick={() => void save({ defaultTimerMinutes: m })}
+                >
+                  {m}m
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="ob-field">
+            <label>Bell along the way</label>
+            <div className="chip-row">
+              {INTERVALS.map((v) => (
+                <button
+                  key={String(v)}
+                  className="chip"
+                  aria-pressed={prefs.intervalBellMinutes === v}
+                  onClick={() => void save({ intervalBellMinutes: v })}
+                >
+                  {v === null ? 'None' : `Every ${v}m`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </SetGroup>
 
-        <div className="ob-field">
-          <label>Bell</label>
-          <div className="chip-row">
-            <button
-              className="chip"
-              aria-pressed={prefs.bellEnabled}
-              onClick={() => void save({ bellEnabled: !prefs.bellEnabled })}
-            >
-              <Icon name="bell" size={15} />
-              {prefs.bellEnabled ? 'On' : 'Off'}
-            </button>
-            <button
-              className="chip"
-              disabled={!prefs.bellEnabled}
-              onClick={() => playBell(prefs.bellVolume)}
-            >
-              Hear it
-            </button>
-          </div>
+        <SetGroup
+          icon="bell"
+          title="Sound and playback"
+          hint="The bowl, and how recordings run on."
+        >
+          <SwitchRow
+            title="Bell"
+            hint="A struck bowl to open and close a sit."
+            checked={prefs.bellEnabled}
+            onChange={(v) => void save({ bellEnabled: v })}
+          />
           {prefs.bellEnabled && (
-            <input
-              className="ob-range"
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={prefs.bellVolume}
-              aria-label="Bell volume"
-              onChange={(e) => void save({ bellVolume: Number(e.target.value) })}
-              onMouseUp={() => playBell(prefs.bellVolume)}
-            />
+            <div className="set-volume">
+              <Icon name="volume-low" size={18} />
+              <input
+                className="scrub-range"
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={prefs.bellVolume}
+                style={{ '--pct': `${Math.round(prefs.bellVolume * 100)}%` } as React.CSSProperties}
+                aria-label="Bell volume"
+                onChange={(e) => void save({ bellVolume: Number(e.target.value) })}
+                onPointerUp={() => playBell(prefs.bellVolume)}
+              />
+              <Icon name="volume" size={18} />
+              <button className="btn btn-sm btn-quiet" onClick={() => playBell(prefs.bellVolume)}>
+                Hear it
+              </button>
+            </div>
           )}
-        </div>
+          <SwitchRow
+            title="Continue to the next track"
+            hint="Multi-part meditations roll on by themselves."
+            checked={prefs.autoplayNext}
+            onChange={(v) => void save({ autoplayNext: v })}
+          />
+        </SetGroup>
 
-        <div className="ob-field">
-          <label>Playback</label>
-          <div className="chip-row">
-            <button
-              className="chip"
-              aria-pressed={prefs.autoplayNext}
-              onClick={() => void save({ autoplayNext: !prefs.autoplayNext })}
-            >
-              Continue to the next track
-            </button>
-          </div>
-        </div>
-
-        <div className="ob-field">
-          <label>Motion and background</label>
-          <div className="chip-row">
-            <button
-              className="chip"
-              aria-pressed={!prefs.calmMotion}
-              onClick={() => void save({ calmMotion: !prefs.calmMotion })}
-            >
-              {prefs.calmMotion ? 'Stillness' : 'Gentle motion'}
-            </button>
-            <button
-              className="chip"
-              aria-pressed={prefs.ambientBackground}
-              onClick={() => void save({ ambientBackground: !prefs.ambientBackground })}
-            >
-              Ambient background
-            </button>
-          </div>
-          <p style={{ color: 'var(--faint)', fontSize: 13, marginTop: 8 }}>
-            A system-level “reduce motion” setting is always honoured, whatever is chosen here.
-          </p>
-        </div>
-
-        <div className="ob-field">
-          <label>Welcome tour</label>
-          <div className="chip-row">
-            <button className="chip" onClick={() => setReplay(true)}>
-              Show it again
-            </button>
-            <span className="hint">
+        <div className="set-tour">
+          <div>
+            <div className="set-switch-t">Welcome tour</div>
+            <div className="set-switch-h">
               {prefs.onboardedAt
                 ? `First completed ${prefs.onboardedAt.slice(0, 10)}`
                 : 'Not yet completed'}
-            </span>
+            </div>
           </div>
+          <button className="btn btn-sm btn-ghost" onClick={() => setReplay(true)}>
+            Show it again
+          </button>
         </div>
       </div>
 

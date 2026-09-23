@@ -25,6 +25,39 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.5.0',
+    items: [
+      {
+        emoji: '🎧',
+        text: 'Begin opens a full-screen player: a progress bar you can drag, 15 seconds back and 30 forward, the track list, and quick chips for speed, bells and the end timer.',
+      },
+      {
+        emoji: '🔽',
+        text: 'Minimise it and it keeps playing in a small bar while you move around the app.',
+      },
+      {
+        emoji: '☀️',
+        text: 'The screen stays on while a meditation plays, and a Wi-Fi hiccup resumes from the same second instead of stopping.',
+      },
+      {
+        emoji: '🗂️',
+        text: 'Library → Folders shows everything that was scanned. Switch a folder off to leave it out.',
+      },
+      {
+        emoji: '🖼️',
+        text: 'Covers load soft and sharpen, and are sized for the screen - much lighter on a phone.',
+      },
+      {
+        emoji: '📱',
+        text: 'On a phone: a More tab reaches every page, nothing scrolls sideways, and the tab bar stays put.',
+      },
+      {
+        emoji: '✨',
+        text: 'Redesigned practice settings, reflection moment and Settings page.',
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     items: [
       {

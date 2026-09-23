@@ -3377,10 +3377,22 @@
 
 .t-sub {
   margin-block-start: var(--s2);
-  font-size: 13px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* The readout sits on the lit orb: a soft shadow keeps it legible over the glow. */
+.timer-readout .t-big,
+.timer-readout .t-sub {
+  text-shadow: 0 1px 12px rgba(20, 10, 30, 0.55);
+}
+
+/* Before a sit starts the orb rests large enough to hold the readout; once
+   breathing begins, the inline transform takes over. */
+.timer-stage:not([data-phase]) .breath-orb:not(.breath-orb--idle) {
+  transform: scale(0.86);
 }
 
 .timer-setup {
@@ -4253,5 +4265,114 @@
   }
   .rf-mood {
     font-size: 10.5px;
+  }
+}
+
+/* ── Settings groups ────────────────────────────────────────────────────── */
+.set-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  max-width: 680px;
+}
+
+.set-group {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  overflow: hidden;
+}
+
+.set-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-block-end: 1px solid var(--hairline);
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklab, var(--accent) 7%, transparent),
+    transparent 70%
+  );
+}
+
+.set-group-head h3 {
+  font-size: 17px;
+}
+
+.set-group-head p {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.set-group-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+}
+
+.set-group-body {
+  padding: var(--s4) var(--s5) var(--s5);
+}
+
+.set-switch,
+.set-tour {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding-block: var(--s3);
+  border-block-start: 1px solid var(--hairline);
+  margin-block-start: var(--s4);
+}
+
+.set-switch + .set-switch {
+  margin-block-start: 0;
+}
+
+.set-group-body > .set-switch:first-child {
+  border-block-start: 0;
+  margin-block-start: 0;
+  padding-block-start: 0;
+}
+
+.set-tour {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: var(--s4) var(--s5);
+  margin: 0;
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+}
+
+.set-switch-t {
+  font-size: 14.5px;
+  color: var(--text);
+}
+
+.set-switch-h {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-block-start: 2px;
+}
+
+.set-volume {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  color: var(--muted);
+  padding-block: 0 var(--s3);
+}
+
+@media (max-width: 640px) {
+  .set-group-head,
+  .set-group-body,
+  .set-tour {
+    padding-inline: var(--s4);
   }
 }

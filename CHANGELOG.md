@@ -5,6 +5,30 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-23
+
+### Added
+
+- **Full-screen player.** Begin opens it: the cover over a blurred wash of itself, a scrubber that previews while dragged and seeks once on release, elapsed and remaining time, 15 s back / 30 s forward, previous/next and a track list, and a row of chips for speed, interval bell, end timer and tracks. The page behind is locked (body pinned with `position: fixed` at its offset, nested locks counted), so nothing scrolls, no scrollbar shows and the player cannot be dragged off. It fits the viewport at every height, and lays the cover beside the controls on a desk or tablet.
+- **Mini-player.** Minimising leaves a floating card above the tab bar (measured from the tab bar's real height, home indicator included) or along the bottom on a desk, with a progress hairline; it survives navigation and reopens the full player.
+- **A practice is never cut off by the phone.** A screen wake lock is held automatically while audio plays (a setting, on by default) and re-acquired when the page returns; a stream that errors or stalls while playing is reloaded and resumed at the last good second with backoff; the lock screen gets a position bar and seek-to.
+- **Library folders** (`/library/folders`, also under More): the folder tree from the last scan with an audio count and a switch per folder. Excluded folders (`excluded_folders`, migration v5) are dropped before inference and flagged `items.excluded`, so they leave the shelves without being reported as missing, and return with the same ids. Admin only; members can look.
+- **Progressive, right-sized covers.** Covers are resized to 32/320/640/1024 px WebP with `sharp`, cached under `$ZP_DATA_DIR/thumbs` and regenerated when the source changes. Pages show the 32 px version blurred under a sheen, then resolve the sized cover from soft to sharp.
+- **More tab** on the phone: Today, Library, Sit, Plans, More - the More sheet reaches Journal, Practice, Folders, Sources, Integrations, Settings and search.
+
+### Changed
+
+- Practice settings redesigned: illustrated sections with segmented choices, a bell preview, and a keep-screen-on switch in place of the unexplained moon button.
+- The reflection moment: a painted opening line with how long you sat, "how settled" as five water lines from choppy to flat, prompt starters, and title/tags/voice tucked behind "Add more".
+- Settings grouped into Look and feel, Practice, and Sound and playback, with switch rows for every on/off option.
+- The wordmark is set in a bundled variable serif so "Port" can be properly light beside a bold "Zen".
+- Sit: the resting orb holds its readout, and the readout reads over the glow.
+
+### Fixed
+
+- **Pages scrolled sideways.** Grid columns are `minmax(0, 1fr)` throughout, user-named titles wrap anywhere, and `html`/`body` carry an overflow guard that does not affect fixed or sticky elements.
+- **The tab bar moved with the page on iOS.** Page-level overscroll bounce is off, so the fixed bar never rubber-bands.
+
 ## [0.4.1] — 2026-09-23
 
 ### Changed

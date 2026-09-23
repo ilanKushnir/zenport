@@ -68,9 +68,11 @@ export function JournalPage() {
               Export
             </a>
           )}
-          <button className="btn btn-primary" onClick={() => setEditing('new')}>
-            <Icon name="plus" /> Write
-          </button>
+          {list.length > 0 && (
+            <button className="btn btn-primary" onClick={() => setEditing('new')}>
+              <Icon name="plus" /> Write
+            </button>
+          )}
         </div>
       </div>
 
@@ -85,6 +87,7 @@ export function JournalPage() {
       {list.length === 0 ? (
         <EmptyState
           title="An empty page, in the best way"
+          art="reflect"
           action={
             <button className="btn btn-primary" onClick={() => setEditing('new')}>
               Write the first entry

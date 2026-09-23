@@ -58,14 +58,17 @@ export function SourcesPage() {
             never downloaded. Your mounted library stays the private, offline heart of ZenPort.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-          <Icon name="plus" /> Add source
-        </button>
+        {list.length > 0 && (
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+            <Icon name="plus" /> Add source
+          </button>
+        )}
       </div>
 
       {list.length === 0 ? (
         <EmptyState
           title="No saved sources yet"
+          art="ob-library"
           action={
             <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
               Paste a YouTube link
