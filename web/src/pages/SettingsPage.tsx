@@ -73,7 +73,7 @@ export function SettingsPage() {
           </dl>
           <div className="field" style={{ marginTop: 16 }}>
             <label htmlFor="st-tz">
-              Timezone (used for streaks and daily stats{tzSaved ? ' — saved' : ''})
+              Timezone (used for streaks and daily stats{tzSaved ? ' - saved' : ''})
             </label>
             <select
               id="st-tz"
@@ -160,7 +160,7 @@ export function SettingsPage() {
                 style={{ padding: 0 }}
                 onClick={openWhatsNew}
               >
-                v{__ZP_VERSION__} — see what's new
+                v{__ZP_VERSION__} - see what's new
               </button>
             </dd>
             <dt>Source</dt>
@@ -204,7 +204,7 @@ function UsersSection() {
         </button>
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 13.5, maxWidth: '60ch', marginBottom: 12 }}>
-        Each account has its own plans, history, and journal. Journals are private to their writer —
+        Each account has its own plans, history, and journal. Journals are private to their writer -
         there is deliberately no admin view into them.
       </p>
       <div className="rowlist" style={{ maxWidth: 640 }}>
@@ -263,7 +263,7 @@ function AddUserSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         <input id="au-name" value={username} onChange={(e) => setUsername(e.target.value)} />
       </div>
       <div className="field">
-        <label htmlFor="au-pass">Password (10+ characters — share it with them directly)</label>
+        <label htmlFor="au-pass">Password (10+ characters - share it with them directly)</label>
         <input
           id="au-pass"
           type="password"
@@ -310,8 +310,8 @@ function PreferencesSection() {
                 key={a.key}
                 className={`accent-swatch accent-${a.key}`}
                 aria-pressed={prefs.accent === a.key}
-                aria-label={`${a.label} — ${a.note}`}
-                title={`${a.label} — ${a.note}`}
+                aria-label={`${a.label} - ${a.note}`}
+                title={`${a.label} - ${a.note}`}
                 onClick={() => void save({ accent: a.key })}
               >
                 <span className="sw" />

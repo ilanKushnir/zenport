@@ -66,7 +66,7 @@ export function CommandPalette() {
     const base: Command[] = [
       { id: 'today', label: 'Today', icon: 'sun', group: 'Go', run: go('/') },
       { id: 'library', label: 'Library', icon: 'library', group: 'Go', run: go('/library') },
-      { id: 'timer', label: 'Sit — unguided timer', icon: 'timer', group: 'Go', run: go('/timer') },
+      { id: 'timer', label: 'Sit - unguided timer', icon: 'timer', group: 'Go', run: go('/timer') },
       { id: 'plans', label: 'Plans', icon: 'plans', group: 'Go', run: go('/plans') },
       { id: 'journal', label: 'Journal', icon: 'journal', group: 'Go', run: go('/journal') },
       { id: 'stats', label: 'Practice history', icon: 'stats', group: 'Go', run: go('/stats') },

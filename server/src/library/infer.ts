@@ -170,7 +170,7 @@ function resolveAncestry(chain: DirNode[]): AncestryResult {
         field: 'grouping',
         value: node.name,
         rule: 'category-detected',
-        evidence: `"${node.name}" holds ${node.children.size} folders, none with audio of their own — it reads as a category above creators`,
+        evidence: `"${node.name}" holds ${node.children.size} folders, none with audio of their own - it reads as a category above creators`,
       });
       categoryUsed = true;
       i++;

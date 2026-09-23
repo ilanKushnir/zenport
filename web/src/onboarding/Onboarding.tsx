@@ -89,7 +89,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 </h1>
                 <p className="ob-lede">
                   A calm home for the meditation recordings you already own. Everything stays on
-                  your server — nothing is uploaded, nothing phones home, and your journal is yours
+                  your server - nothing is uploaded, nothing phones home, and your journal is yours
                   alone.
                 </p>
                 <p className="ob-note">
@@ -112,7 +112,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 ) : (
                   <p className="ob-lede">
                     Nothing is indexed yet. Point <code>ZP_LIBRARY_DIRS</code> at a folder of
-                    recordings and they will appear here — read-only, exactly as you filed them.
+                    recordings and they will appear here - read-only, exactly as you filed them.
                   </p>
                 )}
                 <ul className="ob-list">
@@ -124,7 +124,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     <Icon name="history" /> Rescans hourly, or whenever you ask
                   </li>
                   <li>
-                    <Icon name="heart" /> Star the ones you return to — they get their own shelf
+                    <Icon name="heart" /> Star the ones you return to - they get their own shelf
                   </li>
                 </ul>
               </>
@@ -135,7 +135,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <h1 id="ob-title">Or sit with nothing at all</h1>
                 <p className="ob-lede">
                   Not every practice needs a recording. The timer gives you a bowl at the start,
-                  optional bells along the way, and one to close — nothing else on screen.
+                  optional bells along the way, and one to close - nothing else on screen.
                 </p>
                 <div className="ob-field">
                   <label htmlFor="ob-timer">Default length</label>
@@ -207,7 +207,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   </div>
                 </div>
                 <p className="ob-note">
-                  Plans, in the sidebar, are for something more structured — a course you want to
+                  Plans, in the sidebar, are for something more structured - a course you want to
                   walk through on set days.
                 </p>
               </>
@@ -224,8 +224,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                         key={a.key}
                         className={`accent-swatch accent-${a.key}`}
                         aria-pressed={prefs.accent === a.key}
-                        aria-label={`${a.label} — ${a.note}`}
-                        title={`${a.label} — ${a.note}`}
+                        aria-label={`${a.label} - ${a.note}`}
+                        title={`${a.label} - ${a.note}`}
                         onClick={() => void save({ accent: a.key })}
                       >
                         <span className="sw" />

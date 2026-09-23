@@ -39,7 +39,7 @@ export async function runScan(db: Db, roots: ScanRoot[]): Promise<ScanStateDto> 
         id: root.id,
         label: root.label,
         ok: false,
-        note: 'not readable — check the mount and permissions',
+        note: 'not readable - check the mount and permissions',
       });
       continue;
     }

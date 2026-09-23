@@ -337,7 +337,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const toggleWakeLock = useCallback(() => {
     if (!wakeLockSupported) {
       setWakeLockNote(
-        'This browser cannot keep the screen awake — ZenPort still plays with the screen off where the OS allows it.',
+        'This browser cannot keep the screen awake - ZenPort still plays with the screen off where the OS allows it.',
       );
       return;
     }

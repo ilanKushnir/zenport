@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-09-23
+
+### Changed
+
+- Every em dash in the interface and API messages is a plain hyphen.
+
 ## [0.2.1] — 2026-09-23
 
 ### Fixed

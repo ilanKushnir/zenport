@@ -54,7 +54,7 @@ export function SourcesPage() {
         <div>
           <h1>YouTube sources</h1>
           <p className="lede">
-            References to meditations you found on YouTube — saved as links with their metadata,
+            References to meditations you found on YouTube - saved as links with their metadata,
             never downloaded. Your mounted library stays the private, offline heart of ZenPort.
           </p>
         </div>
@@ -162,7 +162,7 @@ function EmbedSheet({ source, onClose }: { source: YouTubeSourceDto; onClose: ()
         <>
           <p style={{ color: 'var(--muted)' }}>
             Playing this loads YouTube’s privacy-enhanced player from
-            <strong> youtube-nocookie.com</strong> — the one place ZenPort talks to an outside
+            <strong> youtube-nocookie.com</strong> - the one place ZenPort talks to an outside
             service on your behalf. Nothing plays until you choose to.
           </p>
           <div className="form-actions">
@@ -323,9 +323,9 @@ function AddSourceSheet({
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
         setNeedsManual(true);
-        setError('YouTube offered no metadata — give it a title yourself.');
+        setError('YouTube offered no metadata - give it a title yourself.');
       } else if (err instanceof ApiError && err.status === 409) {
-        setError('Already saved — it is in your list below.');
+        setError('Already saved - it is in your list below.');
       } else {
         setError(err instanceof Error ? err.message : 'could not save');
       }
@@ -419,7 +419,7 @@ function AddSourceSheet({
               )}
               <div className="field">
                 <label htmlFor="ys-title">
-                  Title{needsManual ? ' (metadata unavailable — yours to write)' : ''}
+                  Title{needsManual ? ' (metadata unavailable - yours to write)' : ''}
                 </label>
                 <input
                   id="ys-title"
@@ -466,7 +466,7 @@ function AddSourceSheet({
               {ytdlpAvailable ? (
                 <>
                   <p style={{ color: 'var(--muted)', marginBottom: 16 }}>
-                    A {kind} — ZenPort can list its videos (titles only, via your configured yt-dlp)
+                    A {kind} - ZenPort can list its videos (titles only, via your configured yt-dlp)
                     and let you confirm before anything is saved. No media is downloaded.
                   </p>
                   <div className="form-actions">

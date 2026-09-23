@@ -58,7 +58,7 @@ export function ItemPage() {
             <dt>Indexed at</dt>
             <dd>{item.breadcrumbs.join(' / ')}</dd>
             <dt>Formats</dt>
-            <dd>{item.formats.map((f) => `.${f}`).join(', ') || '—'}</dd>
+            <dd>{item.formats.map((f) => `.${f}`).join(', ') || '-'}</dd>
           </dl>
           <button
             className="btn btn-sm btn-quiet"
@@ -191,7 +191,7 @@ export function ItemPage() {
       {showEvidence && (
         <Sheet title="How this was indexed" onClose={() => setShowEvidence(false)}>
           <p style={{ color: 'var(--muted)', marginBottom: 16 }}>
-            ZenPort infers structure from folders alone — no AI, no guessing services. Each decision
+            ZenPort infers structure from folders alone - no AI, no guessing services. Each decision
             below names the rule and the evidence.
           </p>
           <div className="rowlist">
@@ -327,7 +327,7 @@ function DocReaderSheet({ doc, onClose }: { doc: DocumentDto; onClose: () => voi
       <>
         <iframe className="doc-frame" src={`/api/media/asset/${doc.id}`} title={doc.name} />
         <p style={{ color: 'var(--faint)', fontSize: 13, marginTop: 8 }}>
-          If the viewer stays blank, this browser has no built-in PDF viewer —{' '}
+          If the viewer stays blank, this browser has no built-in PDF viewer -{' '}
           <a href={`/api/media/asset/${doc.id}?download=1`} download>
             download it instead
           </a>

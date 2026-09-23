@@ -41,7 +41,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext): void 
   // once any account exists — there is no open signup.
   app.post('/api/setup', async (req, reply) => {
     if (!setupLimiter.tryTake(req.ip)) {
-      return reply.code(429).send({ error: 'too many attempts — wait a few minutes' });
+      return reply.code(429).send({ error: 'too many attempts - wait a few minutes' });
     }
     if (userCount() > 0) {
       return reply.code(403).send({ error: 'setup is already complete' });
@@ -80,7 +80,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext): void 
     const body = loginSchema.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'username and password required' });
     if (!loginLimiter.tryTake(`${req.ip}:${body.data.username.toLowerCase()}`)) {
-      return reply.code(429).send({ error: 'too many attempts — wait a few minutes' });
+      return reply.code(429).send({ error: 'too many attempts - wait a few minutes' });
     }
     const row = db
       .prepare('SELECT id, password_hash FROM users WHERE username = ?')

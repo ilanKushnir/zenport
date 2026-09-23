@@ -33,7 +33,7 @@ export const CHANGELOG: ChangelogRelease[] = [
       },
       {
         emoji: '👋',
-        text: 'A welcome tour on first run sets your accent, target, sit length and bell as you go — replay it from Settings.',
+        text: 'A welcome tour on first run sets your accent, target, sit length and bell as you go - replay it from Settings.',
       },
       {
         emoji: '⏱️',
@@ -58,7 +58,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     items: [
       {
         emoji: '📚',
-        text: 'A read-only library indexed straight from your folders — nothing renamed, nothing moved.',
+        text: 'A read-only library indexed straight from your folders - nothing renamed, nothing moved.',
       },
       {
         emoji: '🎧',

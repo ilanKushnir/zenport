@@ -16,7 +16,7 @@ export function IntegrationsPage() {
       <div className="page-head">
         <h1>Integrations</h1>
         <p className="lede">
-          What this server can reach beyond your mounted folders — and what is on the way.
+          What this server can reach beyond your mounted folders - and what is on the way.
         </p>
       </div>
 
@@ -31,14 +31,14 @@ export function IntegrationsPage() {
           <div className="card">
             <h3>yt-dlp metadata listing</h3>
             <p style={{ color: 'var(--muted)', marginTop: 8, fontSize: 14 }}>
-              Lists playlists and channels as metadata for the Sources page. Titles only — never
+              Lists playlists and channels as metadata for the Sources page. Titles only - never
               media.
             </p>
             <p style={{ marginTop: 12 }}>
               {caps.data?.ytdlpAvailable ? (
                 <span className="badge badge-accent">configured</span>
               ) : (
-                <span className="badge">not configured — set ZP_YTDLP_PATH</span>
+                <span className="badge">not configured - set ZP_YTDLP_PATH</span>
               )}
             </p>
           </div>
@@ -52,7 +52,7 @@ export function IntegrationsPage() {
               {caps.data?.transcriptionEnabled ? (
                 <span className="badge badge-accent">on · {caps.data.transcriptionHost}</span>
               ) : (
-                <span className="badge">off — set ZP_TRANSCRIBE_URL</span>
+                <span className="badge">off - set ZP_TRANSCRIBE_URL</span>
               )}
             </p>
           </div>
@@ -80,7 +80,7 @@ export function IntegrationsPage() {
             </h3>
             <p style={{ color: 'var(--muted)', marginTop: 8, fontSize: 14 }}>
               Planned: point UBAL’s output at a folder ZenPort mounts read-only, and downloaded
-              meditations appear in your library on the next scan. Not implemented yet — nothing
+              meditations appear in your library on the next scan. Not implemented yet - nothing
               here talks to UBAL today.
             </p>
           </div>
@@ -90,7 +90,7 @@ export function IntegrationsPage() {
               <Icon name="plug" /> MeTube
             </h3>
             <p style={{ color: 'var(--muted)', marginTop: 8, fontSize: 14 }}>
-              Planned: the same mounted-folder contract — MeTube downloads into a dedicated
+              Planned: the same mounted-folder contract - MeTube downloads into a dedicated
               directory, ZenPort indexes it like any other root. Not implemented yet.
             </p>
           </div>

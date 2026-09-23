@@ -21,7 +21,7 @@ export function ReflectionSheet() {
     <Sheet title="A moment of reflection" onClose={p.clearReflect}>
       <p style={{ color: 'var(--muted)', marginBottom: 16 }}>
         You just finished <strong style={{ color: 'var(--text)' }}>{prompt.meditationTitle}</strong>
-        . A line or two now is worth pages later — or skip it, the sit already counts.
+        . A line or two now is worth pages later - or skip it, the sit already counts.
       </p>
       <ReflectionForm
         sessionId={prompt.sessionId}
@@ -80,7 +80,7 @@ export function ReflectionForm({
       }
       onDone(saved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'could not save — your words are still here');
+      setError(err instanceof Error ? err.message : 'could not save - your words are still here');
     } finally {
       setSaving(false);
     }
@@ -115,7 +115,7 @@ export function ReflectionForm({
           rows={4}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Anything — a feeling, an image, a knot that loosened…"
+          placeholder="Anything - a feeling, an image, a knot that loosened…"
         />
       </div>
       <div className="field-row">
@@ -221,7 +221,7 @@ export function VoiceRecorder({
 
   if (state === 'unsupported') {
     return (
-      <p className="notice">This browser cannot record audio — the written note still works.</p>
+      <p className="notice">This browser cannot record audio - the written note still works.</p>
     );
   }
   if (state === 'denied') {
@@ -239,7 +239,7 @@ export function VoiceRecorder({
           <Icon name="mic" /> Stop ({seconds}s)
         </button>
         <span className="sub" style={{ color: 'var(--muted)', fontSize: 13 }}>
-          Recording locally — nothing leaves this device until you save.
+          Recording locally - nothing leaves this device until you save.
         </span>
       </div>
     );

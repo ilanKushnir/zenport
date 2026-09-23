@@ -103,7 +103,7 @@ export function PlansPage() {
             </div>
             {byDate.length === 0 ? (
               <EmptyState title="Nothing scheduled in this window">
-                Your plans exist but have no upcoming days here — check their dates or cadence.
+                Your plans exist but have no upcoming days here - check their dates or cadence.
               </EmptyState>
             ) : (
               <div>
@@ -394,12 +394,12 @@ function PlanSheet({
         >
           {items.map((i) => (
             <option key={i.id} value={i.id}>
-              {i.creator} — {i.title}
+              {i.creator} - {i.title}
             </option>
           ))}
         </select>
         <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>
-          Optional — a plan can also just hold the habit. (Ctrl/Cmd-click for several.)
+          Optional - a plan can also just hold the habit. (Ctrl/Cmd-click for several.)
         </p>
       </div>
       <div className="field">

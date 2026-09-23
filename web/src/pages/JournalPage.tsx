@@ -59,7 +59,7 @@ export function JournalPage() {
         <div>
           <h1>Journal</h1>
           <p className="lede">
-            Private to your account. Written here, stored here — exported only when you ask.
+            Private to your account. Written here, stored here - exported only when you ask.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -91,7 +91,7 @@ export function JournalPage() {
             </button>
           }
         >
-          After each practice ZenPort offers a gentle reflection prompt — or write freely any time.
+          After each practice ZenPort offers a gentle reflection prompt - or write freely any time.
         </EmptyState>
       ) : (
         <div>

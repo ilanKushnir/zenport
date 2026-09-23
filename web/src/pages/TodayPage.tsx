@@ -115,7 +115,7 @@ export function TodayPage() {
           }
         >
           Point <code>ZP_LIBRARY_DIRS</code> at a folder of recordings and they will appear here. In
-          the meantime the timer works on its own — a silent sit counts just the same.
+          the meantime the timer works on its own - a silent sit counts just the same.
         </EmptyState>
       ) : (
         <>
@@ -257,9 +257,9 @@ function subtitle(
   streak: number,
   nothingIndexed: boolean,
 ): string {
-  if (nothingIndexed) return 'Your library is empty — but the timer is ready whenever you are.';
+  if (nothingIndexed) return 'Your library is empty - but the timer is ready whenever you are.';
   if (minutes > 0 && goal !== null && minutes >= goal) {
-    return `${Math.round(minutes)} minutes today — you've met your target. Anything more is a gift.`;
+    return `${Math.round(minutes)} minutes today - you've met your target. Anything more is a gift.`;
   }
   if (minutes > 0) return `${Math.round(minutes)} minutes so far today.`;
   if (streak > 1) return `${streak} days in a row. Today is open.`;

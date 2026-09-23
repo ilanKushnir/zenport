@@ -23,7 +23,7 @@ export function PlayerBar() {
         <div className="meta">
           <div className="t">
             {p.item.title}
-            {p.item.tracks.length > 1 && p.track ? ` — ${p.track.title}` : ''}
+            {p.item.tracks.length > 1 && p.track ? ` - ${p.track.title}` : ''}
           </div>
           <div className="s">
             {p.leadInRemaining !== null
@@ -94,7 +94,7 @@ export function PracticeSettingsSheet({ onClose }: { onClose: () => void }) {
           value={s.leadInSec}
           onChange={(e) => p.updateSettings({ leadInSec: Number(e.target.value) })}
         >
-          <option value={0}>Off — start right away</option>
+          <option value={0}>Off - start right away</option>
           <option value={10}>10 seconds</option>
           <option value={30}>30 seconds</option>
           <option value={60}>1 minute</option>
@@ -121,7 +121,7 @@ export function PracticeSettingsSheet({ onClose }: { onClose: () => void }) {
           value={s.endAfterMin}
           onChange={(e) => p.updateSettings({ endAfterMin: Number(e.target.value) })}
         >
-          <option value={0}>Off — play to the end</option>
+          <option value={0}>Off - play to the end</option>
           <option value={10}>After 10 minutes</option>
           <option value={20}>After 20 minutes</option>
           <option value={30}>After 30 minutes</option>

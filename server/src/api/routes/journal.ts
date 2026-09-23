@@ -180,7 +180,7 @@ export function registerJournalRoutes(app: FastifyInstance, ctx: AppContext): vo
     const lines: string[] = ['# ZenPort journal export', ''];
     for (const row of rows) {
       const entry = toDto(row);
-      lines.push(`## ${entry.createdAt.slice(0, 10)}${entry.title ? ` — ${entry.title}` : ''}`);
+      lines.push(`## ${entry.createdAt.slice(0, 10)}${entry.title ? ` - ${entry.title}` : ''}`);
       if (entry.meditationTitle) lines.push(`*After: ${entry.meditationTitle}*`);
       if (entry.mood) lines.push(`*Settledness: ${entry.mood}/5*`);
       if (entry.tags.length) lines.push(`*Tags: ${entry.tags.join(', ')}*`);

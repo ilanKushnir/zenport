@@ -132,7 +132,7 @@ export function LibraryPage() {
 
       {scan.warnings.length > 0 && (
         <p className="notice" style={{ marginBottom: 24 }}>
-          The last scan had {scan.warnings.length} note{scan.warnings.length > 1 ? 's' : ''} — see
+          The last scan had {scan.warnings.length} note{scan.warnings.length > 1 ? 's' : ''} - see
           Settings for details.
         </p>
       )}
@@ -154,7 +154,7 @@ export function LibraryPage() {
             </button>
           }
         >
-          Mount your meditation folders (read-only) and point ZP_LIBRARY_DIRS at them — ZenPort
+          Mount your meditation folders (read-only) and point ZP_LIBRARY_DIRS at them - ZenPort
           indexes in place and never touches your files.
         </EmptyState>
       ) : (
@@ -285,7 +285,7 @@ export function LibraryPage() {
                   </button>
                 }
               >
-                Try widening the search — everything indexed is still here.
+                Try widening the search - everything indexed is still here.
               </EmptyState>
             ) : (
               <>

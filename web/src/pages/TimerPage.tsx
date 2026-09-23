@@ -128,7 +128,7 @@ export function TimerPage() {
     } catch {
       // A sit that is not recorded is still a sit; say so rather than refusing
       // to start over a bookkeeping failure.
-      setError('Could not open a practice record — the sit will not be saved to your history.');
+      setError('Could not open a practice record - the sit will not be saved to your history.');
     }
     banked.current = 0;
     lastBell.current = 0;
@@ -208,7 +208,7 @@ export function TimerPage() {
         <div className="page-head">
           <h1>Sit</h1>
           <p className="lede">
-            Nothing to listen to — a bowl to open, optional bells along the way, and one to close.
+            Nothing to listen to - a bowl to open, optional bells along the way, and one to close.
             It counts toward your practice just like a recording does.
           </p>
         </div>

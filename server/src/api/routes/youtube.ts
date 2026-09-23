@@ -75,7 +75,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
     const cls = classifyYouTubeUrl(body.data.url);
     if (cls.kind !== 'video') {
       return reply.code(400).send({
-        error: 'only individual video URLs can be saved directly — use import for playlists',
+        error: 'only individual video URLs can be saved directly - use import for playlists',
       });
     }
     const existing = db.prepare('SELECT * FROM yt_sources WHERE video_id = ?').get(cls.videoId) as
@@ -93,7 +93,7 @@ export function registerYouTubeRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
     if (!title) {
       return reply.code(422).send({
-        error: 'metadata unavailable — give this video a title yourself',
+        error: 'metadata unavailable - give this video a title yourself',
         needsTitle: true,
       });
     }

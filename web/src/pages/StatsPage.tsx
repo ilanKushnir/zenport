@@ -13,7 +13,7 @@ export function StatsPage() {
       <div className="page-head">
         <h1>Practice</h1>
         <p className="lede">
-          Everything here comes from your own recorded sessions — nothing is estimated or invented.
+          Everything here comes from your own recorded sessions - nothing is estimated or invented.
         </p>
       </div>
       <div className="toolbar" role="tablist" aria-label="Practice views">
@@ -73,7 +73,7 @@ function Overview() {
         }
       >
         Once you sit with something from your library, minutes, streaks, and trends grow from the
-        real sessions — never from made-up numbers.
+        real sessions - never from made-up numbers.
       </EmptyState>
     );
   }
