@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.6.2',
+    items: [
+      {
+        emoji: '🧭',
+        text: 'The welcome tour now shows courses and talks, feeling the breath, and planning with AI - replay it from Settings.',
+      },
+    ],
+  },
+  {
     version: '0.6.1',
     items: [
       { emoji: '🌬️', text: 'Sit is now Breathe.' },

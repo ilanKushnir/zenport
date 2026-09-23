@@ -11,7 +11,8 @@
  * asked twice is worse than missing the tour.
  */
 import { useCallback, useEffect, useState } from 'react';
-import type { ScanStateDto, UserPrefsDto } from '@zenport/shared';
+import { createPortal } from 'react-dom';
+import type { AiSettingsDto, ScanStateDto, UserPrefsDto } from '@zenport/shared';
 import { useApi } from '../hooks.ts';
 import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Logo, Wordmark } from '../components/Brand.tsx';
@@ -19,6 +20,7 @@ import { Icon } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
 import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
 import { Scene, SceneCycle } from './scenes.tsx';
+import { AiKeyForm } from '../components/AiPlanSheet.tsx';
 
 const GOALS = [5, 10, 15, 20, 30, 45] as const;
 const TIMERS = [3, 5, 10, 15, 20, 30, 45, 60] as const;
@@ -26,14 +28,17 @@ const TIMERS = [3, 5, 10, 15, 20, 30, 45, 60] as const;
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const { prefs, save } = usePrefs();
   const [step, setStep] = useState(0);
+  const [aiSaved, setAiSaved] = useState(false);
+  const ai = useApi<AiSettingsDto>('/api/ai/settings');
   const scan = useApi<ScanStateDto>('/api/library/scan-state');
 
   const steps = [
     { key: 'welcome', art: <Scene name="welcome" breathe /> },
-    { key: 'library', art: <Scene name="library" /> },
+    { key: 'library', art: <Scene name="kinds" /> },
     { key: 'shape', art: <SceneCycle /> },
-    { key: 'sit', art: <Scene name="sit" /> },
+    { key: 'sit', art: <Scene name="breathe" breathe /> },
     { key: 'rhythm', art: <Scene name="rhythm" /> },
+    { key: 'ai', art: <Scene name="ai" /> },
     { key: 'feel', art: <Scene name="feel" /> },
     { key: 'ready', art: <Scene name="ready" /> },
   ];
@@ -67,7 +72,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const indexed = scan.data?.counts.items ?? 0;
   const rootsOk = (scan.data?.roots ?? []).filter((r) => r.ok).length;
 
-  return (
+  // Portalled to <body>: replayed from Settings it would otherwise sit inside
+  // the page, whose entrance animation captures position: fixed.
+  return createPortal(
     <div className="ob-root" role="dialog" aria-modal="true" aria-labelledby="ob-title">
       <div className="ob-aurora" aria-hidden="true" />
       <div className="ob-card">
@@ -118,11 +125,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 )}
                 <ul className="ob-list">
                   <li>
-                    <Icon name="library" /> Folders become meditations; covers and notes come along
-                    with them
+                    <Icon name="lotus" />
+                    <span>
+                      Meditations, courses, talks and soundscapes - each recognised and on its own
+                      shelf. Wrong guess? Tap <em>Not right?</em>
+                    </span>
                   </li>
                   <li>
-                    <Icon name="history" /> Rescans hourly, or whenever you ask
+                    <Icon name="video" /> Video courses play right here, and lessons tick themselves
+                    off as you finish them
+                  </li>
+                  <li>
+                    <Icon name="sparkle" /> No cover? It gets a painted one
                   </li>
                   <li>
                     <Icon name="heart" /> Star the ones you return to - they get their own shelf
@@ -166,9 +180,15 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <>
                 <h1 id="ob-title">Or just breathe</h1>
                 <p className="ob-lede">
-                  Not every practice needs a recording. The timer gives you a bowl at the start,
-                  optional bells along the way, and one to close - nothing else on screen.
+                  Not every practice needs a recording. Breathe gives you a bowl to open, one to
+                  close, and - if you like - a breath guide that swells and settles with you.
                 </p>
+                <ul className="ob-list">
+                  <li>
+                    <Icon name="breath" /> On a phone you can feel it too: taps that gather as you
+                    breathe in and ease as you breathe out
+                  </li>
+                </ul>
                 <div className="ob-field">
                   <label htmlFor="ob-timer">Default length</label>
                   <div className="chip-row" id="ob-timer">
@@ -185,7 +205,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   </div>
                 </div>
                 <p className="ob-note">
-                  Both the timer and any recording you play count toward your practice history.
+                  A quiet sit counts toward your practice just like a recording does.
                 </p>
               </>
             )}
@@ -246,6 +266,39 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             )}
 
             {step === 5 && (
+              <>
+                <h1 id="ob-title">Let AI plan it</h1>
+                <p className="ob-lede">
+                  Tell it what you want and how much time you have. It reads your library and lays
+                  out practice and study in the right order - series from the start, foundations
+                  before depth - as plans you can edit.
+                </p>
+                <ul className="ob-list">
+                  <li>
+                    <Icon name="lotus" /> A practice plan: which meditations, which days, how long
+                  </li>
+                  <li>
+                    <Icon name="book" /> A learning plan: courses and talks, lesson by lesson
+                  </li>
+                </ul>
+                <div className="ob-field">
+                  {aiSaved || ai.data?.configured ? (
+                    <p className="ob-note ob-ok">
+                      <Icon name="check" size={15} /> Your key is set. Find it under Plans → Plan
+                      with AI.
+                    </p>
+                  ) : (
+                    <AiKeyForm compact onSaved={() => setAiSaved(true)} />
+                  )}
+                </div>
+                <p className="ob-note">
+                  Uses your own OpenAI key - optional, and it can wait for Settings. Titles and
+                  lengths are sent only when you ask for a plan.
+                </p>
+              </>
+            )}
+
+            {step === 6 && (
               <>
                 <h1 id="ob-title">Make it yours</h1>
                 <div className="ob-field">
@@ -327,7 +380,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 6 && (
+            {step === 7 && (
               <>
                 <h1 id="ob-title">That's everything</h1>
                 <p className="ob-lede">
@@ -375,7 +428,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

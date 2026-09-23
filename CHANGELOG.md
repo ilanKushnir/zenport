@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-09-23
+
+### Changed
+
+- **The welcome tour covers the new headline features**, each with its own painted illustration: the library step introduces the four content types, video courses with self-ticking lessons and painted covers; Breathe introduces feeling the breath; and a new "Let AI plan it" step explains AI planning and lets you add your key on the spot (or shows it is already set).
+
+### Fixed
+
+- **Replaying the tour from Settings trapped it inside the page**, under the tab bar. The tour is now portalled to `<body>`, like every sheet.
+
 ## [0.6.1] — 2026-09-23
 
 ### Changed

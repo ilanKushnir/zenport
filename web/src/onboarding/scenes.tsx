@@ -9,7 +9,8 @@
  */
 import { useEffect, useState } from 'react';
 
-export type SceneKey = 'welcome' | 'library' | 'sit' | 'rhythm' | 'feel' | 'ready';
+export type SceneKey =
+  'welcome' | 'library' | 'kinds' | 'sit' | 'breathe' | 'rhythm' | 'ai' | 'feel' | 'ready';
 
 export function Scene({ name, breathe = false }: { name: SceneKey; breathe?: boolean }) {
   return (

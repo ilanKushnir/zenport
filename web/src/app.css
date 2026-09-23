@@ -5757,3 +5757,10 @@
 .cover-painted .cover-title {
   z-index: 2;
 }
+
+.ob-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
