@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-09-23
+
+### Changed
+
+- Every example creator, album and track name in the tests, fixtures, docs and the welcome tour is now invented. None refer to real teachers, publishers or recordings.
+
 ## [0.4.0] — 2026-09-23
 
 ### Added
