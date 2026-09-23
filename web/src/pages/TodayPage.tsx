@@ -131,7 +131,7 @@ export function TodayPage() {
           title="Nothing indexed yet"
           art="empty-today"
           action={
-            <Link className="btn btn-primary" to="/timer">
+            <Link className="btn btn-primary" to="/breathe">
               Sit without a recording
             </Link>
           }
@@ -199,12 +199,12 @@ export function TodayPage() {
                 </button>
               )}
 
-              <Link className="begin-card begin-alt" to="/timer">
+              <Link className="begin-card begin-alt" to="/breathe">
                 <span className="begin-ic">
                   <Icon name="timer" size={22} />
                 </span>
                 <div className="begin-text">
-                  <span className="ttl">Sit in silence</span>
+                  <span className="ttl">Breathe</span>
                   <span className="sub">{prefs.defaultTimerMinutes} minutes, bell to close</span>
                 </div>
               </Link>

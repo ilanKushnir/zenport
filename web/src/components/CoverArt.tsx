@@ -131,3 +131,25 @@ export function GeneratedCover({ seed, label }: { seed: string; label?: string }
     </svg>
   );
 }
+
+/** How many painted covers ship in /art/covers (cover-01 … cover-NN). */
+export const PAINTED_COVERS = 16;
+
+/**
+ * The painted cover for an item with no artwork of its own: one of a set in
+ * the logo's liquid-paint style, picked by a hash of the seed and mirrored on
+ * alternate hashes - so the same meditation always gets the same picture, and
+ * neighbours rarely share one.
+ */
+export function paintedCover(seed: string): { src: string; lqip: string; mirror: boolean } {
+  // FNV alone spreads near-identical titles ("… Series 1", "… Series 2") badly
+  // in its low bits; the splitmix pass mixes every bit into the choice.
+  const rand = splitmix(hash(seed));
+  const n = Math.floor(rand() * PAINTED_COVERS) + 1;
+  const name = `cover-${String(n).padStart(2, '0')}`;
+  return {
+    src: `/art/covers/${name}.webp`,
+    lqip: `/art/covers/${name}-32.webp`,
+    mirror: rand() < 0.5,
+  };
+}

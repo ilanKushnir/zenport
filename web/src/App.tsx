@@ -52,7 +52,7 @@ export function useAuth(): AuthState {
 const NAV = [
   { to: '/', label: 'Today', icon: 'sun', end: true },
   { to: '/library', label: 'Library', icon: 'library', end: true },
-  { to: '/timer', label: 'Sit', icon: 'timer' },
+  { to: '/breathe', label: 'Breathe', icon: 'breath' },
   { to: '/plans', label: 'Plans', icon: 'plans' },
   { to: '/journal', label: 'Journal', icon: 'journal' },
   { to: '/stats', label: 'Practice', icon: 'stats' },
@@ -206,7 +206,8 @@ function SignedInApp() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/library/folders" element={<FoldersPage />} />
             <Route path="/series/:creator/:name" element={<SeriesPage />} />
-            <Route path="/timer" element={<TimerPage />} />
+            <Route path="/breathe" element={<TimerPage />} />
+            <Route path="/timer" element={<Navigate to="/breathe" replace />} />
             <Route path="/creators/:name" element={<CreatorPage />} />
             <Route path="/m/:id" element={<ItemPage />} />
             <Route path="/plans" element={<PlansPage />} />

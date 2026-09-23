@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { GeneratedCover } from './CoverArt.tsx';
+import { GeneratedCover, paintedCover } from './CoverArt.tsx';
 import { useScrollLock } from '../scrollLock.ts';
 
 /**
@@ -72,9 +72,58 @@ export function Cover({
       </div>
     );
   }
+  return <PaintedCover seed={`${creator ?? ''}/${title}`} title={title} className={className} />;
+}
+
+/**
+ * A cover for something with none of its own: a painted piece in the logo's
+ * style, soft-to-sharp like a real one, with the title set over its dark lower
+ * third. Falls back to the drawn arcs if the image cannot load.
+ */
+function PaintedCover({
+  seed,
+  title,
+  className,
+}: {
+  seed: string;
+  title: string;
+  className?: string;
+}) {
+  const art = paintedCover(seed);
+  const [state, setState] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  const ref = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const img = ref.current;
+    setState(img?.complete && img.naturalWidth > 0 ? 'loaded' : 'loading');
+  }, [art.src]);
+  if (state === 'failed') {
+    return (
+      <div className={`cover cover-generated ${className ?? ''}`} aria-hidden="true">
+        <GeneratedCover seed={seed} />
+        <span className="cover-title">{title}</span>
+      </div>
+    );
+  }
   return (
-    <div className={`cover cover-generated ${className ?? ''}`} aria-hidden="true">
-      <GeneratedCover seed={`${creator ?? ''}/${title}`} />
+    <div
+      className={`cover cover-generated cover-painted cover-progressive${state === 'loaded' ? ' is-loaded' : ''}${
+        art.mirror ? ' is-mirrored' : ''
+      } ${className ?? ''}`}
+      aria-hidden="true"
+    >
+      <img className="cover-lqip" src={art.lqip} alt="" decoding="async" />
+      <img
+        ref={ref}
+        className="cover-full"
+        src={art.src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        width={640}
+        height={640}
+        onLoad={() => setState('loaded')}
+        onError={() => setState('failed')}
+      />
       <span className="cover-title">{title}</span>
     </div>
   );
@@ -314,6 +363,7 @@ const PATHS: Record<string, ReactNode> = {
   ),
   'chevron-right': <path d="m9 6 6 6-6 6" />,
   'chevron-left': <path d="m15 6-6 6 6 6" />,
+  breath: <path d="M4 9.5h9.5a2.5 2.5 0 1 0-2.5-2.5M4 13.5h13a2.5 2.5 0 1 1-2.5 2.5M4 17.5h6" />,
   lotus: (
     <path d="M12 19c-4.5 0-8-2.2-8.5-5.5 2.6.2 5 1.3 6.3 3M12 19c4.5 0 8-2.2 8.5-5.5-2.6.2-5 1.3-6.3 3M12 19c-2.2-1.6-3.3-4-3.3-6.6S10 7.6 12 5.5c2 2.1 3.3 4.3 3.3 6.9S14.2 17.4 12 19z" />
   ),

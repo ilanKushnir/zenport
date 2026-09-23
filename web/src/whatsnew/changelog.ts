@@ -25,6 +25,24 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.6.1',
+    items: [
+      { emoji: '🌬️', text: 'Sit is now Breathe.' },
+      {
+        emoji: '📳',
+        text: 'Feel the breath: with the breath guide on, your phone gathers gentle taps as you breathe in and eases them as you breathe out. Vibration on Android; light taps on iPhone with iOS 18 or later.',
+      },
+      {
+        emoji: '🎨',
+        text: 'Items without a cover of their own get a painted one, in the style of the logo.',
+      },
+      {
+        emoji: '📚',
+        text: 'Numbered audio sessions stay meditations; only a name that says course makes audio a course.',
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     items: [
       {

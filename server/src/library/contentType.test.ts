@@ -54,6 +54,21 @@ describe('inferContentType', () => {
     ).toBe('meditation');
   });
 
+  it('numbered audio sessions stay a meditation programme', () => {
+    expect(
+      guess(
+        'Quiet Harbor/Discovery Series/Part 1',
+        'Session 1.mp3',
+        'Session 2.mp3',
+        'Session 3.mp3',
+        'Session 4.mp3',
+        'Session 5.mp3',
+      ),
+    ).toBe('meditation');
+    // ...unless a name says course.
+    expect(guess('Orin Vale/Audio Course/Part 1', 'Lesson 1.mp3', 'Lesson 2.mp3')).toBe('course');
+  });
+
   it('explains itself', () => {
     const g = inferContentType({
       breadcrumbs: ['Mira Solen', 'Courses', 'The Long Road'],

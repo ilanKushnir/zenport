@@ -5,6 +5,18 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-09-23
+
+### Changed
+
+- **Sit is now Breathe** - in the tab bar, sidebar, Today, the command palette and the welcome tour; `/breathe`, with `/timer` redirecting.
+- **Painted fallback covers.** Items without artwork get one of sixteen covers painted in the logo's liquid-paint style (generated with the logo as the reference), picked by a hash of creator and title and mirrored on alternate hashes, loading soft-to-sharp like real covers. The drawn arcs remain as the fallback if an image fails.
+- Numbered audio alone no longer reads as a course - in a meditation library it is a programme of sessions; audio is a course only when a name says so.
+
+### Added
+
+- **Feel the breath.** With the breath guide on, an optional haptic rhythm: taps that gather and lengthen through the in-breath and spread and soften through the out-breath, eased rather than linear. Android uses the Vibration API; iPhone has none, so iOS 18+ gets light taps through the native switch control's haptic. A Try it button plays one in-breath.
+
 ## [0.6.0] — 2026-09-23
 
 ### Added

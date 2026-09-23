@@ -164,7 +164,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
             {step === 3 && (
               <>
-                <h1 id="ob-title">Or sit with nothing at all</h1>
+                <h1 id="ob-title">Or just breathe</h1>
                 <p className="ob-lede">
                   Not every practice needs a recording. The timer gives you a bowl at the start,
                   optional bells along the way, and one to close - nothing else on screen.

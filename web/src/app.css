@@ -712,7 +712,9 @@
   .toolbar::-webkit-scrollbar {
     display: none;
   }
-  .toolbar .search {
+  /* input.search outranks the general .toolbar .search rule further down,
+     which otherwise let the field shrink to nothing in the scrolling row. */
+  .toolbar input.search {
     flex: 0 0 min(72vw, 320px);
   }
   .toolbar > * {
@@ -5732,4 +5734,26 @@
 
 .ai-series {
   color: var(--muted);
+}
+
+.sit-try {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* Painted fallback covers: mirrored on alternate hashes for variety; the title
+   sits above the art and its fade. */
+.cover-painted.is-mirrored .cover-full,
+.cover-painted.is-mirrored .cover-lqip {
+  scale: -1 1;
+}
+
+.cover-painted .cover-title {
+  z-index: 2;
 }

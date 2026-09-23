@@ -24,6 +24,7 @@ import {
   formatClock,
 } from '../player/breath.ts';
 import { Icon, Sheet, Switch } from '../components/ui.tsx';
+import { hapticKind, playBreathPhase } from '../player/haptics.ts';
 
 /**
  * Capped at 60 minutes because the practice API accepts at most 3600 listened
@@ -203,6 +204,30 @@ export function TimerPage() {
   const breathing = breathGuide && running;
   const breathPhase = breathPhaseAt(elapsed);
   const [sheet, setSheet] = useState<null | 'length' | 'bells' | 'breath'>(null);
+  const haptics = hapticKind();
+  const [feel, setFeelState] = useState(() => {
+    try {
+      return localStorage.getItem('zenport-breath-haptics') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setFeel = (v: boolean) => {
+    setFeelState(v);
+    try {
+      localStorage.setItem('zenport-breath-haptics', v ? '1' : '0');
+    } catch {
+      /* private mode */
+    }
+  };
+
+  // Feel each phase: taps that gather through the in-breath and spread out
+  // through the out-breath. Stops the moment the sit pauses or ends.
+  useEffect(() => {
+    if (!feel || !breathing || phase !== 'running') return;
+    const secs = breathPhase === 'in' ? BREATH.in : breathPhase === 'out' ? BREATH.out : 0;
+    return playBreathPhase(breathPhase, secs);
+  }, [feel, breathing, phase, breathPhase]);
 
   const pick = (fn: () => void) => {
     touched.current = true;
@@ -216,7 +241,7 @@ export function TimerPage() {
     <div className={`timer-page sit${running ? ' timer-live' : ''}`}>
       {!running && phase !== 'done' && (
         <div className="page-head sit-head">
-          <h1>Sit</h1>
+          <h1>Breathe</h1>
           <p className="lede">A quiet timer. A bowl to open, one to close.</p>
         </div>
       )}
@@ -257,7 +282,7 @@ export function TimerPage() {
 
       {phase === 'idle' && (
         <div className="sit-setup">
-          <div className="sit-opts" role="group" aria-label="Sit options">
+          <div className="sit-opts" role="group" aria-label="Breathe options">
             <button className="sit-opt" onClick={() => setSheet('length')}>
               <Icon name="timer" size={18} />
               <span className="v">{minutes} min</span>
@@ -327,7 +352,7 @@ export function TimerPage() {
               banked.current = 0;
             }}
           >
-            Sit again
+            Breathe again
           </button>
         </div>
       )}
@@ -393,6 +418,30 @@ export function TimerPage() {
               Out <b>{BREATH.out}s</b>
             </span>
           </div>
+          {haptics !== 'none' ? (
+            <div className="set-switch sit-switch">
+              <div>
+                <div className="set-switch-t">Feel the breath</div>
+                <div className="set-switch-h">
+                  {haptics === 'vibrate'
+                    ? 'Gentle vibration that gathers as you breathe in and eases as you breathe out.'
+                    : 'Light taps on iPhone (iOS 18 and later), gathering as you breathe in and easing out. Keep the screen on.'}{' '}
+                  <button
+                    type="button"
+                    className="sit-try"
+                    onClick={() => playBreathPhase('in', BREATH.in)}
+                  >
+                    Try it
+                  </button>
+                </div>
+              </div>
+              <Switch checked={feel} onChange={setFeel} label="Feel the breath" />
+            </div>
+          ) : (
+            <p className="set-switch-h" style={{ marginBottom: 12 }}>
+              Haptics need a phone - this device cannot vibrate from the web.
+            </p>
+          )}
           <div className="set-switch sit-switch">
             <div>
               <div className="set-switch-t">Guide my breathing</div>

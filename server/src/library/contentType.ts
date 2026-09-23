@@ -10,7 +10,7 @@
  *    "Courses/Week 1/Meditation.mp3" is a course and "Meditations/Advanced
  *    Workshop Meditations" is a meditation.
  * 2. The files. A run of episode-numbered videos is a course; one or two
- *    videos are a talk; audio is a meditation.
+ *    videos are a talk; audio is a meditation (numbered or not).
  *
  * It is a guess, and says so: the owner can correct any item, and a manual
  * choice is stored apart from this so a rescan never undoes it.
@@ -81,8 +81,8 @@ export function inferContentType(ev: TypeEvidence): TypeGuess {
     }
     return { type: 'talk', reason: videos.length === 1 ? 'a single video' : 'a pair of videos' };
   }
-  if (ev.tracks.length >= 4 && episodic >= ev.tracks.length * 0.75) {
-    return { type: 'course', reason: 'numbered episodes' };
-  }
+  // Numbered audio alone is not a course: in a meditation library it is far
+  // more often a programme of sessions ("Part 1 … Part 10"). A course that is
+  // audio only says so in a name, and rule 1 already caught it.
   return { type: 'meditation', reason: 'audio practice' };
 }
