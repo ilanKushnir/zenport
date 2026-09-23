@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-09-23
+
+### Changed
+
+- The "practice companion" tagline is gone from every lockup, and the wordmark sits on the mark's optical centre.
+
 ## [0.3.1] — 2026-09-23
 
 ### Fixed

@@ -95,7 +95,7 @@ function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <div className="app-aurora" aria-hidden="true" />
       <header className="sidebar">
-        <Lockup size={30} tagline="practice companion" />
+        <Lockup size={30} />
         <nav className="nav" aria-label="Main">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end}>

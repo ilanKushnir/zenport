@@ -47,7 +47,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
   return (
     <div className="auth-page">
       <div className="auth-card card">
-        <Lockup size={32} tagline="practice companion" />
+        <Lockup size={32} />
         <h1 style={{ fontSize: 22, marginBottom: 8 }}>Welcome. Let’s make this yours.</h1>
         <p style={{ color: 'var(--muted)', marginBottom: 24 }}>
           Create the one admin account for this server. There is no public signup and no default
@@ -122,7 +122,7 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
   return (
     <div className="auth-page">
       <div className="auth-card card">
-        <Lockup size={32} tagline="practice companion" />
+        <Lockup size={32} />
         <h1 style={{ fontSize: 22, marginBottom: 24 }}>Welcome back.</h1>
         <form onSubmit={(e) => void submit(e)}>
           <div className="field">

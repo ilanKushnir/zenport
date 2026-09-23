@@ -1802,6 +1802,12 @@
   padding-inline: var(--s2);
 }
 
+/* The serif's x-height sits a hair above the mark's optical centre; one
+   pixel down puts the name on the ring's equator. */
+.lockup:not(.lockup-stacked) .wordmark {
+  transform: translateY(1px);
+}
+
 .lockup-stacked {
   flex-direction: column;
   gap: var(--s4);
