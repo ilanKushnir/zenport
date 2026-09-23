@@ -75,7 +75,7 @@ export const CHANGELOG: ChangelogRelease[] = [
 export const LATEST_RELEASE_VERSION = CHANGELOG[0]!.version;
 
 /** Semver-ish compare on the numeric parts only; good enough for x.y.z tags. */
-function olderThan(a: string, b: string): boolean {
+export function olderThan(a: string, b: string): boolean {
   const pa = a.split('.').map((n) => Number(n) || 0);
   const pb = b.split('.').map((n) => Number(n) || 0);
   for (let i = 0; i < 3; i++) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHANGELOG, LATEST_RELEASE_VERSION, shouldAnnounce } from './changelog.ts';
+import { CHANGELOG, LATEST_RELEASE_VERSION, olderThan, shouldAnnounce } from './changelog.ts';
 
 describe('changelog', () => {
   it('is newest first and every release has notes', () => {
@@ -13,10 +13,12 @@ describe('changelog', () => {
     }
   });
 
-  it('leads with the package version, so a release cannot ship without its notes', () => {
+  it('never describes a version newer than the package, though a patch may ship without notes', () => {
     // __ZP_VERSION__ is injected from the root package.json by vite.config.ts,
-    // for the build and for vitest alike.
-    expect(LATEST_RELEASE_VERSION).toBe(__ZP_VERSION__);
+    // for the build and for vitest alike. Notes may lag a patch (nothing to
+    // announce), but notes for a version that does not exist yet would open
+    // the dialog on every dev build.
+    expect(olderThan(__ZP_VERSION__, LATEST_RELEASE_VERSION)).toBe(false);
   });
 });
 
