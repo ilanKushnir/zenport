@@ -32,6 +32,7 @@ export const DEFAULT_PREFS: UserPrefsDto = {
   autoplayNext: true,
   calmMotion: false,
   ambientBackground: true,
+  seenVersion: null,
 };
 
 interface PrefsState {

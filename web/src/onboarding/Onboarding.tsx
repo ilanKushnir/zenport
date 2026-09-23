@@ -17,14 +17,8 @@ import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Logo, Wordmark } from '../components/Brand.tsx';
 import { Icon } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
-import {
-  SceneFeel,
-  SceneLibrary,
-  SceneReady,
-  SceneRhythm,
-  SceneSit,
-  SceneWelcome,
-} from './scenes.tsx';
+import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
+import { Scene } from './scenes.tsx';
 
 const GOALS = [5, 10, 15, 20, 30, 45] as const;
 const TIMERS = [3, 5, 10, 15, 20, 30, 45, 60] as const;
@@ -35,19 +29,19 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const scan = useApi<ScanStateDto>('/api/library/scan-state');
 
   const steps = [
-    { key: 'welcome', art: <SceneWelcome /> },
-    { key: 'library', art: <SceneLibrary /> },
-    { key: 'sit', art: <SceneSit /> },
-    { key: 'rhythm', art: <SceneRhythm /> },
-    { key: 'feel', art: <SceneFeel /> },
-    { key: 'ready', art: <SceneReady /> },
+    { key: 'welcome', art: <Scene name="welcome" breathe /> },
+    { key: 'library', art: <Scene name="library" /> },
+    { key: 'sit', art: <Scene name="sit" /> },
+    { key: 'rhythm', art: <Scene name="rhythm" /> },
+    { key: 'feel', art: <Scene name="feel" /> },
+    { key: 'ready', art: <Scene name="ready" /> },
   ];
   const last = steps.length - 1;
 
   // Stable identity so the key handler below can depend on it honestly
   // instead of re-subscribing on every render.
   const finish = useCallback(async () => {
-    await save({ onboarded: true });
+    await save({ onboarded: true, seenVersion: LATEST_RELEASE_VERSION });
     onDone();
   }, [save, onDone]);
 

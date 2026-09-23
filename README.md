@@ -4,7 +4,7 @@
 
 ZenPort indexes the meditation audio, covers, and companion notes sitting in your own folders — read-only, without renaming or moving a single file — and wraps them in a practice companion: a meditation-first player, plans, honest statistics, and a private journal. No cloud, no telemetry, no AI guessing at your library.
 
-> **Status: v0.1 released, with the next release in progress on `main`.** The core loop (arrive → practice → reflect → plan → review) works end to end. Screenshots below will be added once real captures are committed; the interface ships a single dark "warm twilight" theme, in four accents, with English copy. Known limitations are listed honestly [at the bottom](#current-limitations).
+> **Status: v0.2 — early but real.** The core loop (arrive → practice → reflect → plan → review) works end to end. Screenshots below will be added once real captures are committed; the interface ships a single dark "warm twilight" theme, in four accents, with English copy. Known limitations are listed honestly [at the bottom](#current-limitations).
 
 ## What it does
 

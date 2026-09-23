@@ -16,6 +16,7 @@ interface PrefsRow {
   autoplay_next: number;
   calm_motion: number;
   ambient_background: number;
+  seen_version: string | null;
 }
 
 const ACCENTS = ['spectrum', 'amber', 'rose', 'violet'] as const;
@@ -32,6 +33,7 @@ const patchSchema = z.object({
   autoplayNext: z.boolean().optional(),
   calmMotion: z.boolean().optional(),
   ambientBackground: z.boolean().optional(),
+  seenVersion: z.string().min(1).max(40).optional(),
   /** Set true exactly once, when the welcome flow is finished or skipped. */
   onboarded: z.boolean().optional(),
 });
@@ -48,6 +50,7 @@ const COLUMN: Record<string, string> = {
   autoplayNext: 'autoplay_next',
   calmMotion: 'calm_motion',
   ambientBackground: 'ambient_background',
+  seenVersion: 'seen_version',
 };
 
 function toDto(row: PrefsRow): UserPrefsDto {
@@ -67,6 +70,7 @@ function toDto(row: PrefsRow): UserPrefsDto {
     autoplayNext: row.autoplay_next === 1,
     calmMotion: row.calm_motion === 1,
     ambientBackground: row.ambient_background === 1,
+    seenVersion: row.seen_version,
   };
 }
 
@@ -89,7 +93,7 @@ export function registerPrefsRoutes(app: FastifyInstance, ctx: AppContext): void
         .prepare(
           `SELECT onboarded_at, accent, start_page, daily_goal_minutes, default_timer_minutes,
                   bell_enabled, bell_volume, interval_bell_minutes, autoplay_next,
-                  calm_motion, ambient_background
+                  calm_motion, ambient_background, seen_version
            FROM user_prefs WHERE user_id = ?`,
         )
         .get(userId) as PrefsRow | undefined;

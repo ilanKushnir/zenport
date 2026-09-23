@@ -36,13 +36,19 @@ export function EmptyState({
   title,
   children,
   action,
+  art,
 }: {
   title: string;
   children?: ReactNode;
   action?: ReactNode;
+  /** Name of an illustration under /art (e.g. 'empty-library'); decorative. */
+  art?: string;
 }) {
   return (
-    <div className="empty">
+    <div className={`empty${art ? ' empty-illustrated' : ''}`}>
+      {art && (
+        <img className="empty-art" src={`/art/${art}.webp`} alt="" width={640} height={640} />
+      )}
       <h3>{title}</h3>
       {children && <p>{children}</p>}
       {action}
@@ -245,6 +251,15 @@ const PATHS: Record<string, ReactNode> = {
       <path d="m16 16 4.5 4.5" />
     </>
   ),
+  github: (
+    <path
+      d="M12 2.5a9.5 9.5 0 0 0-3 18.5c.5.1.65-.2.65-.45v-1.7c-2.65.6-3.2-1.15-3.2-1.15-.45-1.1-1.05-1.4-1.05-1.4-.85-.6.05-.6.05-.6.95.05 1.45 1 1.45 1 .85 1.45 2.2 1.05 2.75.8.1-.6.35-1.05.6-1.3-2.1-.25-4.3-1.05-4.3-4.7 0-1.05.35-1.9 1-2.55-.1-.25-.45-1.2.1-2.5 0 0 .8-.25 2.6 1a9 9 0 0 1 4.75 0c1.8-1.25 2.6-1 2.6-1 .55 1.3.2 2.25.1 2.5.65.65 1 1.5 1 2.55 0 3.65-2.2 4.45-4.3 4.7.35.3.65.85.65 1.75v2.6c0 .25.15.55.65.45A9.5 9.5 0 0 0 12 2.5z"
+      fill="currentColor"
+      stroke="none"
+    />
+  ),
+  'chevron-right': <path d="m9 6 6 6-6 6" />,
+  'chevron-down': <path d="m6 9 6 6 6-6" />,
   sparkle: (
     <path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18.3 10.2 12.6 4.5 10.8 10.2 9zM18.5 4v3M20 5.5h-3" />
   ),

@@ -13,6 +13,7 @@ import { api } from './api.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup, Logo, Wordmark } from './components/Brand.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
+import { VersionRow, WhatsNew } from './whatsnew/WhatsNew.tsx';
 import { PrefsProvider, usePrefs } from './prefs.tsx';
 import { Onboarding } from './onboarding/Onboarding.tsx';
 import { PlayerProvider } from './player/PlayerProvider.tsx';
@@ -115,6 +116,7 @@ function Shell({ children }: { children: ReactNode }) {
           Search
           <kbd>⌘K</kbd>
         </button>
+        <VersionRow compact />
       </header>
       <main className="main" id="main">
         <div className="mobile-top">
@@ -135,6 +137,7 @@ function Shell({ children }: { children: ReactNode }) {
       <FocusMode />
       <ReflectionSheet />
       <CommandPalette />
+      <WhatsNew />
     </div>
   );
 }

@@ -147,6 +147,7 @@ export function LibraryPage() {
       {items.length === 0 ? (
         <EmptyState
           title="Nothing indexed yet"
+          art="empty-library"
           action={
             <button className="btn btn-primary" onClick={() => void rescan()} disabled={rescanning}>
               {rescanning ? 'Scanning…' : 'Scan the library now'}

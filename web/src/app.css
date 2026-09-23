@@ -98,7 +98,7 @@
   }
 
   .main {
-    padding: var(--s5) var(--s4) 170px;
+    padding: calc(var(--s5) + env(safe-area-inset-top)) var(--s4) 170px;
   }
 
   .mobile-tabs {
@@ -1149,7 +1149,8 @@
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: var(--s6) var(--s4);
+  padding: calc(var(--s6) + env(safe-area-inset-top)) var(--s4)
+    calc(var(--s6) + env(safe-area-inset-bottom));
 }
 
 .auth-card {
@@ -1242,6 +1243,14 @@
 
 .zp-logo {
   flex: none;
+  object-fit: contain;
+  user-select: none;
+}
+
+/* The painted mark already carries its own soft edges; a faint glow beneath
+   it is all it needs to sit in the dark UI instead of floating on it. */
+.zp-logo-bloom {
+  filter: drop-shadow(0 0 10px rgba(240, 76, 138, 0.28));
 }
 
 .zp-logo-spin {
@@ -1271,11 +1280,20 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  /* A painted aurora, very dark, under a wash of the app ground so the text
+     on top of it keeps its contrast whatever the picture does. */
   background:
-    radial-gradient(60vw 48vh at 12% 8%, rgba(255, 192, 74, 0.07), transparent 70%),
-    radial-gradient(52vw 44vh at 88% 22%, rgba(124, 58, 237, 0.09), transparent 70%),
-    radial-gradient(56vw 40vh at 62% 96%, rgba(240, 76, 138, 0.06), transparent 72%);
+    linear-gradient(to bottom, rgba(24, 20, 32, 0.55), rgba(24, 20, 32, 0.82) 60%, var(--bg)),
+    url('/art/bg-aurora.webp') center top / cover no-repeat,
+    var(--bg);
   animation: aurora-drift 48s ease-in-out infinite alternate;
+}
+
+.ob-aurora {
+  background:
+    linear-gradient(to bottom, rgba(24, 20, 32, 0.35), rgba(24, 20, 32, 0.78) 70%, var(--bg)),
+    url('/art/bg-aurora.webp') center / cover no-repeat,
+    var(--bg);
 }
 
 @keyframes aurora-drift {
@@ -1323,7 +1341,7 @@
 .cmdk {
   position: fixed;
   z-index: 60;
-  inset-block-start: 12vh;
+  inset-block-start: calc(12vh + env(safe-area-inset-top));
   inset-inline: 50%;
   translate: -50% 0;
   width: min(620px, calc(100vw - 32px));
@@ -1418,7 +1436,8 @@
   z-index: 70;
   display: grid;
   place-items: center;
-  padding: var(--s4);
+  padding: calc(var(--s4) + env(safe-area-inset-top)) var(--s4)
+    calc(var(--s4) + env(safe-area-inset-bottom));
   background: var(--bg);
   overflow-y: auto;
 }
@@ -1866,6 +1885,24 @@
   block-size: 100%;
 }
 
+/* The painted orb sits behind the ring while a sit is running; still, so it
+   is a glow to rest the eye on rather than a thing that moves. */
+.timer-stage::before {
+  content: '';
+  position: absolute;
+  inset: -22%;
+  background: url('/art/bg-orb.webp') center / cover no-repeat;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 900ms var(--ease);
+  pointer-events: none;
+  mask-image: radial-gradient(circle, #000 45%, transparent 70%);
+}
+
+.timer-live .timer-stage::before {
+  opacity: 0.85;
+}
+
 .timer-orb-pulse {
   animation: orb-pulse 7s ease-in-out infinite;
   transform-origin: center;
@@ -1973,4 +2010,138 @@
 .med-card .fav-btn:focus-visible,
 .med-card .fav-btn[aria-pressed='true'] {
   opacity: 1;
+}
+
+/* ===================================================================
+ * What's new + version row
+ * =================================================================== */
+
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.version-row.compact {
+  margin-block-start: var(--s2);
+  padding-inline: var(--s1);
+}
+
+.version-btn {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
+  transition:
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.version-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.version-row .icon-btn {
+  color: var(--faint);
+}
+
+.version-row .icon-btn:hover {
+  color: var(--text);
+}
+
+.wn-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  margin-block-end: var(--s5);
+}
+
+.wn-lede {
+  color: var(--muted);
+}
+
+.wn-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.wn-list li {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.wn-emoji {
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  font-size: 15px;
+}
+
+.wn-older {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-block-start: var(--s5);
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: 13.5px;
+  border: 1px solid var(--hairline);
+}
+
+.wn-older:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.wn-past {
+  border-block-start: 1px solid var(--hairline);
+  margin-block-start: var(--s4);
+  padding-block-start: var(--s4);
+}
+
+.wn-past-head {
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-block-end: var(--s3);
+  font-family: var(--font-ui);
+}
+
+.wn-foot {
+  justify-content: space-between;
+  align-items: center;
+  margin-block-start: var(--s6);
+}
+
+/* Illustrated empty states */
+.empty-illustrated {
+  padding-block-start: var(--s4);
+}
+
+.empty-art {
+  inline-size: min(220px, 52vw);
+  block-size: auto;
+  margin: 0 auto var(--s3);
+  filter: drop-shadow(0 12px 28px rgba(240, 76, 138, 0.18));
+}
+
+/* Onboarding figures are images now; the breathe class stays on the welcome one. */
+.ob-art {
+  filter: drop-shadow(0 14px 30px rgba(124, 58, 237, 0.22));
 }

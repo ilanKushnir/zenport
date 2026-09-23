@@ -5,6 +5,7 @@ import { useApi } from '../hooks.ts';
 import { useAuth } from '../App.tsx';
 import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
+import { REPO_URL, VersionRow, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
 import { ErrorNote, Icon, Sheet } from '../components/ui.tsx';
 
@@ -145,6 +146,35 @@ export function SettingsPage() {
       </section>
 
       {user?.role === 'admin' && <UsersSection />}
+
+      <section className="section" aria-labelledby="s-about">
+        <div className="section-head">
+          <h2 id="s-about">About</h2>
+        </div>
+        <div className="card" style={{ maxWidth: 520 }}>
+          <dl className="kv">
+            <dt>Version</dt>
+            <dd>
+              <button
+                className="btn btn-sm btn-quiet"
+                style={{ padding: 0 }}
+                onClick={openWhatsNew}
+              >
+                v{__ZP_VERSION__} — see what's new
+              </button>
+            </dd>
+            <dt>Source</dt>
+            <dd>
+              <a href={REPO_URL} target="_blank" rel="noreferrer">
+                github.com/ilanKushnir/zenport
+              </a>
+            </dd>
+          </dl>
+          <div style={{ marginTop: 12 }}>
+            <VersionRow />
+          </div>
+        </div>
+      </section>
     </>
   );
 }

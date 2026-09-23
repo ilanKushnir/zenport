@@ -344,6 +344,15 @@ const MIGRATIONS: string[] = [
   INSERT INTO user_prefs (user_id, onboarded_at)
     SELECT id, strftime('%Y-%m-%dT%H:%M:%SZ','now') FROM users;
   `,
+
+  // v4: the last release each account was told about, for the "What's new"
+  // dialog. Left NULL for every existing account on purpose: NULL reads as
+  // "was here before the dialog existed", and those are exactly the people
+  // who should see it once. A brand-new account has the current version
+  // stamped by the welcome tour when it finishes.
+  `
+  ALTER TABLE user_prefs ADD COLUMN seen_version TEXT;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

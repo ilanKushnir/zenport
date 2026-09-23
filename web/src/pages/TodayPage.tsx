@@ -107,6 +107,7 @@ export function TodayPage() {
       {nothingIndexed ? (
         <EmptyState
           title="Nothing indexed yet"
+          art="empty-today"
           action={
             <Link className="btn btn-primary" to="/timer">
               Sit without a recording

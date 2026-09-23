@@ -301,6 +301,8 @@ export interface UserPrefsDto {
   /** Opt out of decorative motion independently of the OS setting. */
   calmMotion: boolean;
   ambientBackground: boolean;
+  /** Latest release this account has been told about; null = never (predates the dialog). */
+  seenVersion: string | null;
 }
 
 export interface FavoriteDto {
