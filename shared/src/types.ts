@@ -27,6 +27,8 @@ export interface ScanCounts {
   documents: number;
   ignored: number;
   missing: number;
+  /** Meditations inside folders the owner excluded. */
+  excluded: number;
 }
 
 export interface ScanStateDto {
@@ -36,6 +38,23 @@ export interface ScanStateDto {
   roots: ScanRootDto[];
   counts: ScanCounts;
   warnings: string[];
+}
+
+/** One folder of a library root, as the last scan walked it. */
+export interface FolderNodeDto {
+  name: string;
+  /** Posix path relative to the root; '' for the root itself. */
+  relPath: string;
+  /** Audio files in this folder and everything beneath it. */
+  audioFiles: number;
+  /** Excluded itself (not merely inside an excluded parent). */
+  excluded: boolean;
+  children: FolderNodeDto[];
+}
+
+export interface LibraryFoldersDto {
+  scanning: boolean;
+  roots: { id: number; label: string; ok: boolean; tree: FolderNodeDto | null }[];
 }
 
 export interface TrackDto {

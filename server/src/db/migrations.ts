@@ -353,6 +353,26 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE user_prefs ADD COLUMN seen_version TEXT;
   `,
+
+  // v5: folders the owner has chosen to leave out of the library.
+  //
+  // A path is stored per root, relative and posix-style, and covers the whole
+  // subtree beneath it. The scanner drops those files before inference, so
+  // what remains is read as if the folder were not there at all.
+  //
+  // `items.excluded` is what separates "left out on purpose" from "missing":
+  // both are gone from the shelves, but only a missing item is reported as
+  // something to worry about. Practice history keeps pointing at the item
+  // either way, and un-excluding a folder brings the same item ids back.
+  `
+  CREATE TABLE excluded_folders (
+    root_id INTEGER NOT NULL,
+    rel_path TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    PRIMARY KEY (root_id, rel_path)
+  );
+  ALTER TABLE items ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

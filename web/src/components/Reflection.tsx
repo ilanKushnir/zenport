@@ -12,17 +12,47 @@ const MOODS: [number, string][] = [
   [5, 'Deeply still'],
 ];
 
+/** A line of water, choppy at 1 and flat at 5 - the scale drawn as what it means. */
+function MoodWave({ level }: { level: number }) {
+  const amp = [7, 5, 3.2, 1.6, 0.4][level - 1] ?? 0;
+  const waves = [3.5, 3, 2.5, 2, 1.5][level - 1] ?? 1;
+  const pts: string[] = [];
+  for (let x = 0; x <= 40; x += 1) {
+    const y = 14 + Math.sin((x / 40) * Math.PI * 2 * waves) * amp;
+    pts.push(`${x === 0 ? 'M' : 'L'}${x} ${y.toFixed(2)}`);
+  }
+  return (
+    <svg viewBox="0 0 40 28" width="40" height="28" aria-hidden="true">
+      <path
+        d={pts.join(' ')}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+const STARTERS = ['I noticed… ', 'What stayed with me… ', 'My body felt… ', "I'm grateful for… "];
+
 /** Post-practice reflection: shown after a completed session, always skippable. */
 export function ReflectionSheet() {
   const p = usePlayer();
   const prompt = p.reflect;
   if (!prompt) return null;
   return (
-    <Sheet title="A moment of reflection" onClose={p.clearReflect}>
-      <p style={{ color: 'var(--muted)', marginBottom: 16 }}>
-        You just finished <strong style={{ color: 'var(--text)' }}>{prompt.meditationTitle}</strong>
-        . A line or two now is worth pages later - or skip it, the sit already counts.
-      </p>
+    <Sheet title="A moment of reflection" onClose={p.clearReflect} labelId="reflect-title">
+      <div className="rf-hero">
+        <img src="/art/reflect.webp" alt="" width={280} height={280} />
+        <p>
+          You sat with <strong>{prompt.meditationTitle}</strong>
+          {prompt.minutes
+            ? ` for ${prompt.minutes} ${prompt.minutes === 1 ? 'minute' : 'minutes'}`
+            : ''}
+          . A line now is worth pages later - or skip it, the sit already counts.
+        </p>
+      </div>
       <ReflectionForm
         sessionId={prompt.sessionId}
         meditationId={prompt.meditationId}
@@ -54,6 +84,8 @@ export function ReflectionForm({
   const [voiceSec, setVoiceSec] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [more, setMore] = useState(!!(entry?.title || entry?.tags.length));
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const save = async () => {
     setSaving(true);
@@ -86,77 +118,106 @@ export function ReflectionForm({
     }
   };
 
+  const start = (s: string) => {
+    setBody((b) => (b.trim() ? `${b.trimEnd()}\n${s}` : s));
+    requestAnimationFrame(() => {
+      const el = bodyRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    });
+  };
+
+  const empty = !body.trim() && !title.trim() && !mood && !voiceBlob;
+
   return (
-    <div>
-      <div className="field">
-        <span className="visually-hidden" id="mood-label">
-          How settled do you feel?
-        </span>
-        <label aria-hidden="true">How settled do you feel?</label>
-        <div className="mood-scale" role="group" aria-labelledby="mood-label">
+    <div className="rf">
+      <fieldset className="rf-block">
+        <legend>How settled do you feel?</legend>
+        <div className="rf-moods" role="radiogroup" aria-label="How settled do you feel?">
           {MOODS.map(([value, name]) => (
             <button
               key={value}
               type="button"
-              aria-pressed={mood === value}
+              role="radio"
+              aria-checked={mood === value}
+              className={`rf-mood${mood === value ? ' on' : ''}`}
               onClick={() => setMood(mood === value ? null : value)}
-              title={name}
-              aria-label={`${name} (${value} of 5)`}
             >
-              {value}
+              <MoodWave level={value} />
+              <span>{name}</span>
             </button>
           ))}
         </div>
-      </div>
-      <div className="field">
-        <label htmlFor="rf-body">What surfaced?</label>
+      </fieldset>
+
+      <div className="rf-block">
+        <label htmlFor="rf-body" className="rf-label">
+          What surfaced?
+        </label>
         <textarea
           id="rf-body"
+          ref={bodyRef}
           rows={4}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Anything - a feeling, an image, a knot that loosened…"
         />
-      </div>
-      <div className="field-row">
-        <div className="field">
-          <label htmlFor="rf-title">Title (optional)</label>
-          <input id="rf-title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="rf-tags">Tags, comma-separated (optional)</label>
-          <input
-            id="rf-tags"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="gratitude, sleep"
-          />
+        <div className="rf-starters" aria-label="Ways to begin">
+          {STARTERS.map((s) => (
+            <button key={s} type="button" className="rf-starter" onClick={() => start(s)}>
+              {s.replace('… ', '…')}
+            </button>
+          ))}
         </div>
       </div>
-      {!entry?.voice && (
-        <div className="field">
-          <label>Voice note (optional)</label>
-          <VoiceRecorder
-            onRecorded={(b, sec) => {
-              setVoiceBlob(b);
-              setVoiceSec(sec);
-            }}
-            onCleared={() => setVoiceBlob(null)}
-          />
+
+      <button type="button" className="rf-more" aria-expanded={more} onClick={() => setMore(!more)}>
+        <Icon name={more ? 'chevron-down' : 'chevron-right'} size={15} />
+        {more ? 'Fewer options' : 'Add a title, tags or a voice note'}
+      </button>
+
+      {more && (
+        <div className="rf-extras">
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="rf-title">Title</label>
+              <input id="rf-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="rf-tags">Tags, comma-separated</label>
+              <input
+                id="rf-tags"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="gratitude, sleep"
+              />
+            </div>
+          </div>
+          {!entry?.voice && (
+            <div className="field">
+              <label>Voice note</label>
+              <VoiceRecorder
+                onRecorded={(b, sec) => {
+                  setVoiceBlob(b);
+                  setVoiceSec(sec);
+                }}
+                onCleared={() => setVoiceBlob(null)}
+              />
+            </div>
+          )}
         </div>
       )}
+
       {error && <p className="error-note">{error}</p>}
-      <div className="form-actions">
+      <div className="rf-actions">
         {onSkip && (
           <button className="btn btn-quiet" onClick={onSkip}>
             Skip for now
           </button>
         )}
-        <button
-          className="btn btn-primary"
-          onClick={() => void save()}
-          disabled={saving || (!body.trim() && !title.trim() && !mood && !voiceBlob)}
-        >
+        <button className="btn btn-primary" onClick={() => void save()} disabled={saving || empty}>
           {saving ? 'Saving…' : entry ? 'Save changes' : 'Keep this reflection'}
         </button>
       </div>

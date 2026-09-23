@@ -66,11 +66,31 @@
   box-sizing: border-box;
 }
 
+/*
+ * The page never pans sideways - on a phone it should feel like an app, not
+ * a web page you can drag around. Layout is built so nothing overflows (grid
+ * columns are minmax(0, ...) and user-named titles wrap), and this is the
+ * backstop for whatever slips through:
+ *
+ * - html's overflow goes to the viewport, so hidden here stops the pan and the
+ *   bottom scrollbar without making any element a scroll container.
+ * - body uses clip, not hidden: hidden would turn body into a scroll container
+ *   and break the sticky sidebar. Neither affects position: fixed.
+ * - no rubber-band at all on the page itself. In an installed iOS app the
+ *   bounce past the top or bottom of a long page drags the fixed tab bar with
+ *   it, which is the one thing a native tab bar never does. Inner scrollers
+ *   (sheets, chip rows) keep their own momentum.
+ */
 html {
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  overscroll-behavior: none;
 }
 
 body {
+  overflow-x: clip;
+  overscroll-behavior: none;
+  overflow-wrap: break-word;
   margin: 0;
   background: var(--bg);
   color: var(--text);

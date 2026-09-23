@@ -215,13 +215,20 @@ export function LibraryPage() {
           <section className="section" aria-labelledby="sec-all">
             <div className="section-head">
               <h2 id="sec-all">All meditations</h2>
-              <button
-                className="btn btn-sm btn-quiet"
-                onClick={() => void rescan()}
-                disabled={rescanning}
-              >
-                {rescanning ? 'Scanning…' : 'Rescan'}
-              </button>
+              <div className="section-actions">
+                <Link className="btn btn-sm btn-quiet" to="/library/folders">
+                  <Icon name="folder" size={15} />
+                  Folders
+                </Link>
+                <button
+                  className="btn btn-sm btn-quiet"
+                  onClick={() => void rescan()}
+                  disabled={rescanning}
+                >
+                  <Icon name="history" size={15} />
+                  {rescanning ? 'Scanning…' : 'Rescan'}
+                </button>
+              </div>
             </div>
 
             <div className="toolbar" role="search">

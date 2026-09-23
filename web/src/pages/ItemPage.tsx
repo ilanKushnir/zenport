@@ -51,7 +51,7 @@ export function ItemPage() {
 
       <div className="detail-grid">
         <div className="detail-cover">
-          <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
+          <Cover coverId={item.coverId} title={item.title} creator={item.creator} size={640} />
         </div>
 
         <div className="detail-body">

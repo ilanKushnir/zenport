@@ -255,6 +255,60 @@ describe('library and media', () => {
     expect(lib.scan.counts.tracks).toBe(2);
   });
 
+  it('lists the folder tree and lets only the admin exclude a folder', async () => {
+    await setupAndLogin();
+    const folders = await app.inject({
+      method: 'GET',
+      url: '/api/library/folders',
+      headers: auth(),
+    });
+    expect(folders.statusCode).toBe(200);
+    const root = folders.json().roots[0];
+    expect(root.tree.children[0].name).toBe('Mira Solen');
+    expect(root.tree.audioFiles).toBe(2);
+
+    const bogus = await app.inject({
+      method: 'PUT',
+      url: '/api/library/exclusions',
+      headers: auth(),
+      payload: { rootId: 0, relPath: '../etc', excluded: true },
+    });
+    expect(bogus.statusCode).toBe(404);
+
+    const ex = await app.inject({
+      method: 'PUT',
+      url: '/api/library/exclusions',
+      headers: auth(),
+      payload: { rootId: 0, relPath: 'Mira Solen/Morning Ritual', excluded: true },
+    });
+    expect(ex.statusCode).toBe(200);
+    expect(ex.json().scan.counts).toMatchObject({ items: 0, excluded: 1, missing: 0 });
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    expect(lib.items).toHaveLength(0);
+
+    // A member may look but not change it.
+    await app.inject({
+      method: 'POST',
+      url: '/api/users',
+      headers: auth(),
+      payload: { username: 'guest', password: 'guest-password-1' },
+    });
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: CSRF,
+      payload: { username: 'guest', password: 'guest-password-1' },
+    });
+    const guest = login.cookies.find((c) => c.name === 'zp_session')?.value;
+    const denied = await app.inject({
+      method: 'PUT',
+      url: '/api/library/exclusions',
+      headers: { cookie: `zp_session=${guest}`, ...CSRF },
+      payload: { rootId: 0, relPath: 'Mira Solen/Morning Ritual', excluded: false },
+    });
+    expect(denied.statusCode).toBe(403);
+  });
+
   it('serves item detail with tracks, documents, and evidence', async () => {
     await setupAndLogin();
     const lib = (await app.inject({ url: '/api/library', headers: auth() })).json();

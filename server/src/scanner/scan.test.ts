@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from '../db/index.js';
-import { EMBEDDED_ROOT_ID, runScan } from './scan.js';
+import { EMBEDDED_ROOT_ID, lastFolderTree, runScan, underAny } from './scan.js';
 
 let libRoot: string;
 let db: Db;
@@ -24,6 +24,47 @@ beforeEach(() => {
 afterEach(() => {
   db.close();
   rmSync(libRoot, { recursive: true, force: true });
+});
+
+describe('excluded folders', () => {
+  it('leaves an excluded folder out entirely, then brings the same items back', async () => {
+    put('Mira Solen/Morning/01.mp3');
+    put('Mira Solen/Morning/02.mp3');
+    put('Mira Solen/Unwanted Extras/talk.mp3');
+    await runScan(db, roots());
+    const before = db.prepare('SELECT id, title FROM items ORDER BY title').all() as {
+      id: string;
+      title: string;
+    }[];
+    expect(before.map((i) => i.title)).toEqual(['Morning', 'Unwanted Extras']);
+
+    db.prepare('INSERT INTO excluded_folders (root_id, rel_path) VALUES (0, ?)').run(
+      'Mira Solen/Unwanted Extras',
+    );
+    const state = await runScan(db, roots());
+    expect(state.counts.items).toBe(1);
+    expect(state.counts.excluded).toBe(1);
+    expect(state.counts.missing).toBe(0); // left out on purpose is not "missing"
+
+    // The tree still shows it, marked, so it can be put back.
+    const tree = lastFolderTree(0)!;
+    const creator = tree.children.find((c) => c.name === 'Mira Solen')!;
+    expect(creator.audioFiles).toBe(3);
+    expect(creator.children.find((c) => c.name === 'Unwanted Extras')?.excluded).toBe(true);
+    expect(creator.children.find((c) => c.name === 'Morning')?.excluded).toBe(false);
+
+    db.prepare('DELETE FROM excluded_folders').run();
+    const back = await runScan(db, roots());
+    expect(back.counts.excluded).toBe(0);
+    const after = db.prepare('SELECT id, title FROM items WHERE missing = 0 ORDER BY title').all();
+    expect(after).toEqual(before);
+  });
+
+  it('matches whole folder names, not prefixes', () => {
+    expect(underAny('A/Bee/x.mp3', ['A/Bee'])).toBe(true);
+    expect(underAny('A/Bee', ['A/Bee'])).toBe(true);
+    expect(underAny('A/Beetle/x.mp3', ['A/Bee'])).toBe(false);
+  });
 });
 
 describe('embedded covers', () => {

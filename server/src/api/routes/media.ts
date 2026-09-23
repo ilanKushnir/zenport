@@ -1,6 +1,7 @@
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { parseCoverWidth, sizedCover } from '../../media/thumbs.js';
 import { EMBEDDED_ROOT_ID } from '../../scanner/scan.js';
 import type { AppContext } from '../../context.js';
 import { AUDIO_MIME, DOCUMENT_MIME, IMAGE_MIME, documentKind } from '../../scanner/classify.js';
@@ -105,6 +106,17 @@ export function registerMediaRoutes(app: FastifyInstance, ctx: AppContext): void
     if (!mime) return reply.code(415).send({ error: 'unsupported format' });
     const abs = await resolveContained(row.root_id, row.rel_path);
     if (!abs) return reply.code(404).send({ error: 'file not available' });
+
+    // Covers at a fixed width, as WebP: `?w=32` is the blurred placeholder.
+    const width = row.kind === 'cover' ? parseCoverWidth((req.query as { w?: string }).w) : null;
+    if (width) {
+      const sized = await sizedCover(abs, path.join(config.dataDir, 'thumbs'), id, width);
+      if (sized) {
+        reply.header('Cache-Control', 'private, max-age=604800');
+        reply.header('Vary', 'Cookie');
+        return reply.type('image/webp').send(createReadStream(sized));
+      }
+    }
 
     const safeName = row.name.replace(/[^\w.\- ()#&]/g, '_');
     if (q.download === '1') {

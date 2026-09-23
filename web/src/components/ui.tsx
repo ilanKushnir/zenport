@@ -1,26 +1,73 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GeneratedCover } from './CoverArt.tsx';
+import { useScrollLock } from '../scrollLock.ts';
 
 /**
- * Cover art. Real embedded artwork wins when the scanner found any; otherwise
- * a piece is generated from the title (see CoverArt.tsx) so a shelf of
- * untagged recordings still reads as a shelf of distinct things.
+ * Cover art. Real artwork wins when the scanner found any; otherwise a piece
+ * is generated from the title (see CoverArt.tsx) so a shelf of untagged
+ * recordings still reads as a shelf of distinct things.
+ *
+ * Real covers load progressively: a 32px version (a few hundred bytes) shows
+ * blurred at once under a slow sheen, then the sized cover resolves over it
+ * from soft to sharp. Nothing pops in from nothing. A cover the browser
+ * already has lands sharp on the first frame, with no fade to sit through.
  */
 export function Cover({
   coverId,
   title,
   creator,
   className,
+  size = 320,
 }: {
   coverId: string | null;
   title: string;
   creator?: string;
   className?: string;
+  /** Pixel width to fetch: 320 for shelves, 640 for a detail page, 1024 for the player. */
+  size?: 320 | 640 | 1024;
 }) {
-  if (coverId) {
+  const [state, setState] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  const [instant, setInstant] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      setInstant(true);
+      setState('loaded');
+    } else {
+      setInstant(false);
+      setState('loading');
+    }
+  }, [coverId, size]);
+
+  if (coverId && state !== 'failed') {
+    const base = `/api/media/asset/${coverId}`;
     return (
-      <div className={`cover ${className ?? ''}`}>
-        <img src={`/api/media/asset/${coverId}`} alt="" loading="lazy" width={300} height={300} />
+      <div
+        className={`cover cover-progressive${state === 'loaded' ? ' is-loaded' : ''}${
+          instant ? ' is-instant' : ''
+        } ${className ?? ''}`}
+      >
+        <img
+          className="cover-lqip"
+          src={`${base}?w=32`}
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        />
+        <img
+          ref={imgRef}
+          className="cover-full"
+          src={`${base}?w=${size}`}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width={size}
+          height={size}
+          onLoad={() => setState('loaded')}
+          onError={() => setState('failed')}
+        />
       </div>
     );
   }
@@ -103,6 +150,8 @@ export function Sheet({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const id = labelId ?? 'sheet-title';
+
+  useScrollLock(true);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -259,6 +308,65 @@ const PATHS: Record<string, ReactNode> = {
     />
   ),
   'chevron-right': <path d="m9 6 6 6-6 6" />,
+  'chevron-left': <path d="m15 6-6 6 6 6" />,
+  folder: (
+    <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+  ),
+  eye: (
+    <>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  'eye-off': (
+    <path d="M4 4l16 16M9.9 5.8A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.9 3.7M6.3 7.4A16.6 16.6 0 0 0 2.5 12S6 18.5 12 18.5a9.6 9.6 0 0 0 4.3-1M9.9 10a3 3 0 0 0 4.1 4.1" />
+  ),
+  sliders: <path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4" />,
+  list: (
+    <path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" strokeWidth="1.8" />
+  ),
+  gauge: <path d="M4.5 16.5a8 8 0 1 1 15 0M12 13l4-4.5M12 13.2h.01" />,
+  volume: (
+    <path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" />
+  ),
+  'volume-low': <path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3zM16 9.5a3.5 3.5 0 0 1 0 5" />,
+  sprout: (
+    <path d="M12 20v-8M12 12c0-3.5-2.5-6-6.5-6 0 3.5 2.5 6 6.5 6zM12 14c0-3 2-5.5 6-5.5 0 3-2 5.5-6 5.5z" />
+  ),
+  more: <path d="M6 12h.01M12 12h.01M18 12h.01" strokeWidth="2.6" />,
+  grid: <path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z" />,
+  'skip-back': (
+    <>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v3.5H8" />
+      <text
+        x="12"
+        y="15.2"
+        textAnchor="middle"
+        fontSize="7.2"
+        fontWeight="600"
+        fill="currentColor"
+        stroke="none"
+      >
+        15
+      </text>
+    </>
+  ),
+  'skip-fwd': (
+    <>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v3.5H16" />
+      <text
+        x="12"
+        y="15.2"
+        textAnchor="middle"
+        fontSize="7.2"
+        fontWeight="600"
+        fill="currentColor"
+        stroke="none"
+      >
+        30
+      </text>
+    </>
+  ),
   'chevron-down': <path d="m6 9 6 6 6-6" />,
   sparkle: (
     <path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18.3 10.2 12.6 4.5 10.8 10.2 9zM18.5 4v3M20 5.5h-3" />
@@ -282,5 +390,35 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
     >
       {PATHS[name] ?? null}
     </svg>
+  );
+}
+
+/** An on/off switch. A real button with role="switch", so it reads and keys right. */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  busy = false,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  disabled?: boolean;
+  busy?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
+      className={`switch${checked ? ' on' : ''}${busy ? ' busy' : ''}`}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="switch-knob" />
+    </button>
   );
 }

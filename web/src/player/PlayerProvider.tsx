@@ -17,6 +17,8 @@ export interface ReflectPrompt {
   sessionId: number;
   meditationId: string;
   meditationTitle: string;
+  /** How long the sit lasted, for the reflection's opening line. */
+  minutes?: number;
 }
 
 export interface PlayerSettings {
@@ -25,6 +27,8 @@ export interface PlayerSettings {
   endAfterMin: number;
   speed: number;
   volume: number;
+  /** Hold a screen wake lock while audio plays, so a long sit is never cut off by auto-lock. */
+  keepAwake: boolean;
 }
 
 interface PlayerApi {
@@ -32,6 +36,8 @@ interface PlayerApi {
   track: TrackDto | null;
   trackIndex: number;
   playing: boolean;
+  /** Audio wanted but not arriving yet (loading, or recovering from a dropout). */
+  buffering: boolean;
   position: number;
   duration: number;
   leadInRemaining: number | null;
@@ -46,6 +52,9 @@ interface PlayerApi {
   start: (item: MeditationDetailDto, opts?: { trackId?: string; resumeSec?: number }) => void;
   toggle: () => void;
   seek: (sec: number) => void;
+  /** Relative seek, clamped to the track. */
+  skip: (deltaSec: number) => void;
+  playTrack: (index: number) => void;
   nextTrack: () => void;
   prevTrack: () => void;
   setFocus: (v: boolean) => void;
@@ -73,6 +82,7 @@ function loadSettings(): PlayerSettings {
     endAfterMin: 0,
     speed: 1,
     volume: 1,
+    keepAwake: true,
   };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
@@ -87,6 +97,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [item, setItem] = useState<MeditationDetailDto | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [buffering, setBuffering] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [leadInRemaining, setLeadInRemaining] = useState<number | null>(null);
@@ -103,6 +114,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const lastBellMinRef = useRef(0);
   const startedAtRef = useRef<number | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  // What the person asked for, as opposed to what the element happens to be
+  // doing: a dropout pauses the element, but they still want to be playing.
+  const wantPlayRef = useRef(false);
+  const retriesRef = useRef(0);
+  const lastGoodPosRef = useRef(0);
   // Read inside the long-lived 'ended' listener, which must not be torn down
   // and rebuilt every time a preference changes mid-playback.
   const autoplayRef = useRef(prefs.autoplayNext);
@@ -119,7 +135,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const audio = () => {
     if (!audioRef.current) {
       const el = new Audio();
-      el.preload = 'metadata';
+      el.preload = 'auto';
       audioRef.current = el;
     }
     return audioRef.current;
@@ -170,7 +186,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       el.playbackRate = settings.speed;
       setTrackIndex(index);
       setPosition(startAt);
+      lastGoodPosRef.current = startAt;
+      retriesRef.current = 0;
       setDuration(tr.durationSec ?? 0);
+      wantPlayRef.current = autoplay;
       if (autoplay) {
         void el.play().then(
           () => setPlaying(true),
@@ -187,18 +206,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       saveProgress();
       const sid = sessionRef.current;
       const it = itemRef.current;
+      const minutes = startedAtRef.current
+        ? Math.max(1, Math.round((Date.now() - startedAtRef.current) / 60000))
+        : undefined;
       if (sid && it) {
         void api
           .post(`/api/practice/${sid}/finish`, { status, reason })
           .then(() => {
             if (status === 'completed') {
-              setReflect({ sessionId: sid, meditationId: it.id, meditationTitle: it.title });
+              setReflect({
+                sessionId: sid,
+                meditationId: it.id,
+                meditationTitle: it.title,
+                minutes,
+              });
             }
           })
           .catch(() => {});
       }
       sessionRef.current = null;
       startedAtRef.current = null;
+      wantPlayRef.current = false;
+      setBuffering(false);
       const el = audioRef.current;
       if (el) {
         el.pause();
@@ -225,6 +254,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // Close any previous session honestly before starting anew.
       if (sessionRef.current) finishInternal('abandoned', 'switched meditation');
       setItem(it);
+      // Beginning a practice opens the full player; it can be minimised to
+      // the bar and keeps playing while the rest of the app is used.
+      setFocus(true);
       lastBellMinRef.current = 0;
       listenedRef.current = 0;
       lastTickRef.current = null;
@@ -258,6 +290,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             if (leadTimerRef.current) clearInterval(leadTimerRef.current);
             setLeadInRemaining(null);
             const el = audio();
+            wantPlayRef.current = true;
             void el.play().then(
               () => setPlaying(true),
               () => setPlaying(false),
@@ -291,12 +324,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // Skipping the lead-in starts the audio now.
       if (leadTimerRef.current) clearInterval(leadTimerRef.current);
       setLeadInRemaining(null);
+      wantPlayRef.current = true;
       void el.play().then(() => setPlaying(true));
       return;
     }
     if (el.paused) {
+      wantPlayRef.current = true;
       void el.play().then(() => setPlaying(true));
     } else {
+      wantPlayRef.current = false;
       el.pause();
       setPlaying(false);
       sendBeat();
@@ -307,10 +343,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const seek = useCallback((sec: number) => {
     const el = audioRef.current;
     if (el) {
-      el.currentTime = sec;
-      setPosition(sec);
+      const max = Number.isFinite(el.duration) && el.duration > 0 ? el.duration - 0.5 : sec;
+      const to = Math.max(0, Math.min(sec, max));
+      el.currentTime = to;
+      lastGoodPosRef.current = to;
+      setPosition(to);
     }
   }, []);
+
+  const skip = useCallback(
+    (delta: number) => seek((audioRef.current?.currentTime ?? 0) + delta),
+    [seek],
+  );
+
+  const playTrack = useCallback(
+    (index: number) => {
+      const it = itemRef.current;
+      if (!it || index < 0 || index >= it.tracks.length) return;
+      saveProgress();
+      loadTrack(it, index, 0, true);
+    },
+    [loadTrack, saveProgress],
+  );
 
   const nextTrack = useCallback(() => {
     const it = itemRef.current;
@@ -334,19 +388,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [loadTrack]);
 
-  const toggleWakeLock = useCallback(() => {
-    if (!wakeLockSupported) {
-      setWakeLockNote(
-        'This browser cannot keep the screen awake - ZenPort still plays with the screen off where the OS allows it.',
-      );
-      return;
-    }
+  const releaseWakeLock = useCallback(() => {
     if (wakeLockRef.current) {
       void wakeLockRef.current.release().catch(() => {});
       wakeLockRef.current = null;
-      setWakeLockOn(false);
+    }
+    setWakeLockOn(false);
+  }, []);
+
+  const acquireWakeLock = useCallback(() => {
+    if (!wakeLockSupported) {
+      setWakeLockNote(
+        'This browser cannot hold the screen awake. Audio keeps playing with the screen off where the system allows it.',
+      );
       return;
     }
+    if (wakeLockRef.current || document.visibilityState !== 'visible') return;
     void (
       navigator as Navigator & {
         wakeLock: {
@@ -369,10 +426,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         setWakeLockNote(
-          'The browser declined the wake lock (often battery saver). Playback continues; the screen may sleep.',
+          'The system declined to keep the screen awake (often Low Power Mode). Audio keeps playing; the screen may dim.',
         );
       });
   }, [wakeLockSupported]);
+
+  // Hold the screen awake exactly while a practice is playing - including the
+  // settling lead-in - and let it go the moment it pauses or ends.
+  const wantAwake = !!item && settings.keepAwake && (playing || leadInRemaining !== null);
+  useEffect(() => {
+    if (wantAwake) acquireWakeLock();
+    else releaseWakeLock();
+  }, [wantAwake, acquireWakeLock, releaseWakeLock]);
+
+  const toggleWakeLock = useCallback(() => {
+    updateSettings({ keepAwake: !settings.keepAwake });
+  }, [updateSettings, settings.keepAwake]);
 
   // Wire the audio element once.
   useEffect(() => {
@@ -385,6 +454,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       lastTickRef.current = now;
       setPosition(el.currentTime);
+      if (el.currentTime > 0) lastGoodPosRef.current = el.currentTime;
+      if (!el.paused) retriesRef.current = 0;
     };
     const onLoaded = () => {
       setDuration(el.duration || 0);
@@ -419,12 +490,61 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       lastTickRef.current = performance.now();
       setPlaying(true);
     };
+    const onWaiting = () => {
+      if (wantPlayRef.current) setBuffering(true);
+    };
+    const onFlowing = () => setBuffering(false);
+    // A long sit over Wi-Fi will meet a dropout sooner or later. When the
+    // stream errors or stalls while the person still wants to be playing,
+    // reload the same file and pick up at the last good second - with a
+    // growing pause between tries so a server that is really down is not
+    // hammered.
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const recover = () => {
+      if (!wantPlayRef.current || !itemRef.current || retryTimer) return;
+      if (retriesRef.current >= 6) {
+        setBuffering(false);
+        return;
+      }
+      const attempt = ++retriesRef.current;
+      setBuffering(true);
+      retryTimer = setTimeout(
+        () => {
+          retryTimer = null;
+          const tr = itemRef.current?.tracks[trackIndexRef.current];
+          if (!tr || !wantPlayRef.current) return;
+          const at = lastGoodPosRef.current;
+          el.src = `/api/media/track/${tr.id}`;
+          el.currentTime = at;
+          void el.play().catch(() => {});
+        },
+        Math.min(15000, 1000 * 2 ** (attempt - 1)),
+      );
+    };
+    const onStalled = () => {
+      // Stalled is often transient; only act if nothing moves for a while.
+      const before = el.currentTime;
+      setTimeout(() => {
+        if (wantPlayRef.current && el.currentTime === before && !el.paused) recover();
+      }, 8000);
+    };
     el.addEventListener('timeupdate', onTime);
     el.addEventListener('loadedmetadata', onLoaded);
     el.addEventListener('ended', onEnded);
     el.addEventListener('pause', onPause);
     el.addEventListener('play', onPlay);
+    el.addEventListener('waiting', onWaiting);
+    el.addEventListener('playing', onFlowing);
+    el.addEventListener('canplay', onFlowing);
+    el.addEventListener('error', recover);
+    el.addEventListener('stalled', onStalled);
     return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      el.removeEventListener('waiting', onWaiting);
+      el.removeEventListener('playing', onFlowing);
+      el.removeEventListener('canplay', onFlowing);
+      el.removeEventListener('error', recover);
+      el.removeEventListener('stalled', onStalled);
       el.removeEventListener('timeupdate', onTime);
       el.removeEventListener('loadedmetadata', onLoaded);
       el.removeEventListener('ended', onEnded);
@@ -493,7 +613,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       title: track.title,
       artist: item.creator,
       album: item.title,
-      artwork: item.coverId ? [{ src: `/api/media/asset/${item.coverId}`, sizes: '512x512' }] : [],
+      artwork: item.coverId
+        ? [
+            { src: `/api/media/asset/${item.coverId}?w=320`, sizes: '320x320', type: 'image/webp' },
+            { src: `/api/media/asset/${item.coverId}?w=640`, sizes: '640x640', type: 'image/webp' },
+          ]
+        : [],
     });
     const safe = (action: MediaSessionAction, fn: () => void) => {
       try {
@@ -506,8 +631,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     safe('pause', toggle);
     safe('previoustrack', prevTrack);
     safe('nexttrack', nextTrack);
-    safe('seekbackward', () => seek(Math.max(0, (audioRef.current?.currentTime ?? 0) - 15)));
-    safe('seekforward', () => seek((audioRef.current?.currentTime ?? 0) + 15));
+    safe('seekbackward', () => skip(-15));
+    safe('seekforward', () => skip(30));
+    try {
+      ms.setActionHandler('seekto', (d) => {
+        if (typeof d.seekTime === 'number') seek(d.seekTime);
+      });
+    } catch {
+      // Unsupported action on this browser.
+    }
     return () => {
       for (const a of [
         'play',
@@ -516,6 +648,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         'nexttrack',
         'seekbackward',
         'seekforward',
+        'seekto',
       ] as MediaSessionAction[]) {
         try {
           ms.setActionHandler(a, null);
@@ -524,7 +657,27 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-  }, [item, track, toggle, prevTrack, nextTrack, seek]);
+  }, [item, track, toggle, prevTrack, nextTrack, seek, skip]);
+
+  // Lock-screen scrubber and play state, kept roughly in step (once a second
+  // is plenty - the system interpolates between updates).
+  const posSecond = Math.floor(position);
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !item) return;
+    const ms = navigator.mediaSession;
+    ms.playbackState = playing ? 'playing' : 'paused';
+    if (duration > 0 && typeof ms.setPositionState === 'function') {
+      try {
+        ms.setPositionState({
+          duration,
+          position: Math.min(posSecond, duration),
+          playbackRate: settings.speed,
+        });
+      } catch {
+        /* inconsistent values mid-load */
+      }
+    }
+  }, [item, playing, posSecond, duration, settings.speed]);
 
   // Save progress when the tab hides; re-acquire wake lock on return.
   useEffect(() => {
@@ -532,13 +685,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (document.visibilityState === 'hidden') {
         sendBeat();
         saveProgress();
-      } else if (wakeLockOn && !wakeLockRef.current && wakeLockSupported) {
-        toggleWakeLock();
+      } else if (wantAwake) {
+        // The system drops a wake lock whenever the page is hidden.
+        acquireWakeLock();
       }
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [sendBeat, saveProgress, wakeLockOn, wakeLockSupported, toggleWakeLock]);
+  }, [sendBeat, saveProgress, wantAwake, acquireWakeLock]);
 
   const value = useMemo<PlayerApi>(
     () => ({
@@ -546,6 +700,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       track,
       trackIndex,
       playing,
+      buffering,
       position,
       duration,
       leadInRemaining,
@@ -559,6 +714,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       start,
       toggle,
       seek,
+      skip,
+      playTrack,
       nextTrack,
       prevTrack,
       setFocus,
@@ -573,6 +730,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       track,
       trackIndex,
       playing,
+      buffering,
       position,
       duration,
       leadInRemaining,
@@ -586,6 +744,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       start,
       toggle,
       seek,
+      skip,
+      playTrack,
       nextTrack,
       prevTrack,
       updateSettings,

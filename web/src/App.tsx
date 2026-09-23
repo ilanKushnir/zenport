@@ -19,6 +19,8 @@ import { Onboarding } from './onboarding/Onboarding.tsx';
 import { PlayerProvider } from './player/PlayerProvider.tsx';
 import { FocusMode, PlayerBar } from './player/PlayerUi.tsx';
 import { ReflectionSheet } from './components/Reflection.tsx';
+import { MORE_LINKS, MoreSheet } from './components/MoreSheet.tsx';
+import { FoldersPage } from './pages/FoldersPage.tsx';
 import { LoginPage, SetupPage } from './pages/AuthPages.tsx';
 import { TodayPage } from './pages/TodayPage.tsx';
 import { LibraryPage } from './pages/LibraryPage.tsx';
@@ -48,7 +50,7 @@ export function useAuth(): AuthState {
 
 const NAV = [
   { to: '/', label: 'Today', icon: 'sun', end: true },
-  { to: '/library', label: 'Library', icon: 'library' },
+  { to: '/library', label: 'Library', icon: 'library', end: true },
   { to: '/timer', label: 'Sit', icon: 'timer' },
   { to: '/plans', label: 'Plans', icon: 'plans' },
   { to: '/journal', label: 'Journal', icon: 'journal' },
@@ -58,8 +60,11 @@ const NAV = [
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
-/** Phone tab bar: the five things people actually reach for. */
-const MOBILE_NAV = [NAV[0]!, NAV[1]!, NAV[2]!, NAV[4]!, NAV[8]!];
+/**
+ * Phone tab bar: the four places people go every day, then More for the rest -
+ * every page the sidebar has is reachable on a phone too.
+ */
+const MOBILE_NAV = [NAV[0]!, NAV[1]!, NAV[2]!, NAV[3]!];
 
 /**
  * Honour the "open ZenPort on" preference exactly once per load. Done as a
@@ -85,6 +90,8 @@ function StartPageRedirect() {
 
 function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const onMorePage = MORE_LINKS.some((l) => location.pathname.startsWith(l.to));
   useEffect(() => {
     // New page: move the reading position back to the top.
     document.getElementById('main')?.scrollTo?.(0, 0);
@@ -132,7 +139,18 @@ function Shell({ children }: { children: ReactNode }) {
             {n.label}
           </NavLink>
         ))}
+        <button
+          type="button"
+          className={`tab-more${onMorePage ? ' active' : ''}`}
+          aria-current={onMorePage ? 'page' : undefined}
+          aria-haspopup="dialog"
+          onClick={() => setMoreOpen(true)}
+        >
+          <Icon name="grid" />
+          More
+        </button>
       </nav>
+      {moreOpen && <MoreSheet onClose={() => setMoreOpen(false)} />}
       <PlayerBar />
       <FocusMode />
       <ReflectionSheet />
@@ -164,6 +182,7 @@ function SignedInApp() {
           <Routes>
             <Route path="/" element={<TodayPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/folders" element={<FoldersPage />} />
             <Route path="/timer" element={<TimerPage />} />
             <Route path="/creators/:name" element={<CreatorPage />} />
             <Route path="/m/:id" element={<ItemPage />} />

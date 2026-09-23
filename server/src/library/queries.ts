@@ -71,7 +71,7 @@ function summarize(db: Db, config: Config, row: ItemRow): MeditationSummaryDto {
 
 export function libraryDto(db: Db, config: Config): LibraryDto {
   const rows = db
-    .prepare('SELECT * FROM items ORDER BY creator, title')
+    .prepare('SELECT * FROM items WHERE excluded = 0 ORDER BY creator, title')
     .all() as unknown as ItemRow[];
   const items = rows.map((r) => summarize(db, config, r));
   items.sort((a, b) => naturalCompare(a.creator, b.creator) || naturalCompare(a.title, b.title));

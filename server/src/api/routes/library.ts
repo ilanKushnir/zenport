@@ -3,7 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../context.js';
 import { itemDetail, libraryDto } from '../../library/queries.js';
-import { readScanState, runScan } from '../../scanner/scan.js';
+import type { LibraryFoldersDto } from '@zenport/shared';
+import { lastFolderTree, readScanState, runScan } from '../../scanner/scan.js';
 
 export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { db, config } = ctx;
@@ -13,7 +14,7 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
 
   app.get('/api/library/scan-state', async () => readScanState(db));
 
-  app.post('/api/library/rescan', async () => {
+  const rescan = (): Promise<unknown> => {
     if (!scanning) {
       scanning = runScan(db, config.libraryRoots, {
         coverCacheDir: path.join(config.dataDir, 'covers'),
@@ -23,7 +24,64 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
           scanning = null;
         });
     }
+    return scanning;
+  };
+
+  app.post('/api/library/rescan', async () => {
+    void rescan();
     return readScanState(db);
+  });
+
+  // Every folder the last scan walked, excluded ones included, so they can be
+  // put back. Read-only for everyone; changing it is the owner's call.
+  app.get('/api/library/folders', async (): Promise<LibraryFoldersDto> => {
+    const state = readScanState(db);
+    return {
+      scanning: state.status === 'scanning',
+      roots: config.libraryRoots.map((r) => ({
+        id: r.id,
+        label: r.label,
+        ok: state.roots.find((x) => x.id === r.id)?.ok ?? false,
+        tree: lastFolderTree(r.id),
+      })),
+    };
+  });
+
+  app.put('/api/library/exclusions', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const body = z
+      .object({
+        rootId: z.number().int(),
+        relPath: z.string().min(1).max(4096),
+        excluded: z.boolean(),
+      })
+      .safeParse(req.body);
+    if (!body.success)
+      return reply.code(400).send({ error: 'rootId, relPath and excluded required' });
+    const { rootId, relPath, excluded } = body.data;
+    if (!config.libraryRoots.some((r) => r.id === rootId)) {
+      return reply.code(404).send({ error: 'unknown library root' });
+    }
+    // Only folders the scan actually saw - never an arbitrary string.
+    const known = (n: ReturnType<typeof lastFolderTree>): boolean =>
+      !!n && (n.relPath === relPath || n.children.some(known));
+    if (!known(lastFolderTree(rootId))) {
+      return reply.code(404).send({ error: 'no such folder in the last scan' });
+    }
+    if (excluded) {
+      db.prepare(
+        'INSERT INTO excluded_folders (root_id, rel_path) VALUES (?, ?) ON CONFLICT DO NOTHING',
+      ).run(rootId, relPath);
+    } else {
+      db.prepare('DELETE FROM excluded_folders WHERE root_id = ? AND rel_path = ?').run(
+        rootId,
+        relPath,
+      );
+    }
+    // Wait for the rescan so the answer reflects the new shelves.
+    if (scanning) await scanning;
+    await rescan();
+    return { ok: true, scan: readScanState(db) };
   });
 
   app.get('/api/items/:id', async (req, reply) => {
