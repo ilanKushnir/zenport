@@ -144,6 +144,46 @@ describe('inferLibrary', () => {
     expect(items[0]!.title).toBe('Resting');
   });
 
+  it('13. a creator who sorts their own work into Meditations/Courses stays the creator', () => {
+    // Structurally identical to test 4 (a category above creators); the
+    // child names are what tell the two apart.
+    const items = inferLibrary(
+      files(
+        'Mira Solen/Meditations/A Wider Horizon (2022)/AWH - 1. Intro (4,10).mp3',
+        'Mira Solen/Meditations/A Wider Horizon (2022)/AWH - 2. Meditation (44,18).mp3',
+        'Mira Solen/Meditations/Slow Tide (2019)/ST - 1. Introduction (3,08).mp3',
+        'Mira Solen/Meditations/Slow Tide (2019)/ST - 2. Meditation (59,21)+.mp3',
+        'Mira Solen/Courses/The Long Road/Week 1/01 Welcome.mp3',
+        'Mira Solen/Courses/The Long Road/Week 1/02 Practice.mp3',
+        'Quiet Harbor/Kindness Series 1/Part 1/track-a01.mp3',
+        'Quiet Harbor/Kindness Series 1/Part 1/track-a02.mp3',
+      ),
+    );
+    const byTitle = new Map(items.map((i) => [i.title, i]));
+    expect(byTitle.get('A Wider Horizon (2022)')?.creator).toBe('Mira Solen');
+    expect(byTitle.get('A Wider Horizon (2022)')?.collection).toBeNull();
+    expect(byTitle.get('Slow Tide (2019)')?.creator).toBe('Mira Solen');
+    expect(byTitle.get('Slow Tide (2019)')?.tracks).toHaveLength(2);
+    expect(byTitle.get('Week 1')?.creator).toBe('Mira Solen');
+    expect(byTitle.get('Week 1')?.collection).toBe('Courses / The Long Road');
+    expect(byTitle.get('Part 1')?.creator).toBe('Quiet Harbor');
+    expect(items.every((i) => i.creator !== 'Unknown creator')).toBe(true);
+    expect(items.some((i) => i.decisions.some((d) => d.rule === 'category-detected'))).toBe(false);
+  });
+
+  it('14. "ST - 1. Introduction" / "ST - 2. Meditation" is one ordered track set', () => {
+    const items = inferLibrary(
+      files(
+        'Orin Vale/Open Field/OF - 1. Welcome (2,00).mp3',
+        'Orin Vale/Open Field/OF - 2. Body scan (20,00).mp3',
+        'Orin Vale/Open Field/OF - 3. Closing (5,00).mp3',
+      ),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]!.title).toBe('Open Field');
+    expect(items[0]!.tracks.map((t) => t.ord)).toEqual([1, 2, 3]);
+  });
+
   it('11. output is deterministic regardless of input order', () => {
     const a = files(
       'Meditations/A/S1/1.mp3',

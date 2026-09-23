@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.3.3',
+    items: [
+      {
+        emoji: '📚',
+        text: 'An artist who files their work under Meditations, Courses or Livestreams is read as one creator with many albums, not as many creators.',
+      },
+    ],
+  },
+  {
     version: '0.3.1',
     items: [
       { emoji: '📱', text: 'The app no longer scrolls sideways on a phone.' },

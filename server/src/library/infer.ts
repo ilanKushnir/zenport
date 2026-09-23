@@ -53,6 +53,15 @@ export interface InferredItem {
 const UNKNOWN_CREATOR = 'Unknown creator';
 const GENERIC_WRAPPERS =
   /^(meditations?|meditation|library|libraries|audio|collections?|media|downloads?|content|files)$/i;
+
+/**
+ * Folder names a CREATOR uses to sort their own work. A category above
+ * creators has creator-named children ("Sleep/Orin Vale", "Sleep/Insight
+ * Collective"); a creator has children like these. Finding one settles which
+ * of the two structurally identical shapes we are looking at.
+ */
+const CREATOR_SUBFOLDERS =
+  /^(courses?|livestreams?|talks?|workshops?|retreats?|albums?|series|audiobooks?|programs?|programmes?|sessions?|lectures?|interviews?|podcasts?|singles?|extras?|bonus)$/i;
 const COVER_STEMS = ['cover', 'folder', 'front', 'album', 'art'];
 
 interface DirNode {
@@ -116,16 +125,33 @@ function looksLikeTrackSet(stems: string[]): boolean {
   if (stems.every((s) => /^\d/.test(s))) return true;
   const bases = stems.map((s) => s.replace(/[\s\-_.]*\d+$/, ''));
   const first = bases[0] ?? '';
-  return first.length > 0 && bases.every((b) => b === first);
+  if (first.length > 0 && bases.every((b) => b === first)) return true;
+  // "ST - 1. Introduction", "ST - 2. Meditation", "RET 1 - 5. Sunday": an
+  // ordinal with a dot after a shared prefix, distinct across the set. The
+  // prefix is an abbreviation of the album, and the album is the piece.
+  const ordinals = stems.map((s) => /^(.*?)(\d{1,3})\.\s/.exec(s));
+  if (ordinals.every((m) => m !== null)) {
+    const prefix = ordinals[0]![1];
+    const numbers = new Set(ordinals.map((m) => m![2]));
+    return ordinals.every((m) => m![1] === prefix) && numbers.size === stems.length;
+  }
+  return false;
 }
 
-/** Is `node` a category layer? (>=2 children, no direct audio anywhere at child level, audio deeper in all) */
+/**
+ * Is `node` a category layer? (>=2 children, no direct audio anywhere at
+ * child level, audio deeper in all.) "Mira Solen/{Meditations,Courses,
+ * Livestreams}" has exactly that shape and is NOT one - it is a creator who
+ * sorts their own work - so a child named like a creator's sub-folder
+ * decides the other way.
+ */
 function isCategory(node: DirNode): boolean {
   if (node.children.size < 2) return false;
   if (directAudio(node).length > 0) return false;
   for (const child of node.children.values()) {
     if (directAudio(child).length > 0) return false;
     if (!child.hasAudioDescendant) return false;
+    if (GENERIC_WRAPPERS.test(child.name) || CREATOR_SUBFOLDERS.test(child.name)) return false;
   }
   return true;
 }
@@ -188,7 +214,23 @@ function resolveAncestry(chain: DirNode[]): AncestryResult {
     }
     break;
   }
-  return { remaining: chain.slice(i).map((n) => n.name), decisions };
+  // A generic wrapper between the creator and the piece ("Mira Solen/
+  // Meditations/<album>") is not a collection either; it collapses wherever
+  // it sits, and the collection is only the folders that actually name one.
+  const remaining: string[] = [];
+  for (const node of chain.slice(i)) {
+    if (remaining.length > 0 && GENERIC_WRAPPERS.test(node.name)) {
+      decisions.push({
+        field: 'grouping',
+        value: node.name,
+        rule: 'wrapper-collapse',
+        evidence: `"${node.name}" is a generic folder name under the creator`,
+      });
+      continue;
+    }
+    remaining.push(node.name);
+  }
+  return { remaining, decisions };
 }
 
 function pickFolderCover(node: DirNode, folderName: string): { rel: string; rule: string } | null {
