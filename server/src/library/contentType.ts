@@ -86,3 +86,20 @@ export function inferContentType(ev: TypeEvidence): TypeGuess {
   // audio only says so in a name, and rule 1 already caught it.
   return { type: 'meditation', reason: 'audio practice' };
 }
+
+export type TrackRole = 'lesson' | 'practice';
+
+const PRACTICE_WORDS =
+  /(^|[^\p{L}])(meditations?|meditate|guided|practices?|breath(ing|work)?|body ?scan|visuali[sz]ation|relaxation|yoga nidra|sitting)($|[^\p{L}])|מדיטצי(ה|ות)|תרגול/iu;
+const TEACHING_WORDS =
+  /(^|[^\p{L}])(lecture|lesson|q ?& ?a|q and a|interview|talk|webinar|livestream|keynote|discussion)($|[^\p{L}])|הרצא(ה|ות)/iu;
+
+/**
+ * Inside a course or talk, is this track a lesson or a meditation to do? A
+ * name that says meditation, guided, breathwork… is a practice - unless it
+ * also says lecture or Q&A, which is teaching about practice. The owner can
+ * flip any track; the item stays a course either way.
+ */
+export function inferTrackRole(title: string): TrackRole {
+  return PRACTICE_WORDS.test(title) && !TEACHING_WORDS.test(title) ? 'practice' : 'lesson';
+}

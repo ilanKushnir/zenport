@@ -158,6 +158,27 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     return { ok: true, updated: ids.length };
   });
 
+  // A track inside a course: a lesson or a meditation. The owner's choice;
+  // null returns it to the scanner's guess. The parent item is untouched.
+  app.put('/api/tracks/:id/role', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const { id } = req.params as { id: string };
+    const body = z.object({ role: z.enum(['lesson', 'practice']).nullable() }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'role must be lesson or practice' });
+    if (!db.prepare('SELECT 1 FROM tracks WHERE id = ?').get(id)) {
+      return reply.code(404).send({ error: 'track not found' });
+    }
+    if (body.data.role === null) {
+      db.prepare('DELETE FROM track_roles WHERE track_id = ?').run(id);
+    } else {
+      db.prepare(
+        `INSERT INTO track_roles (track_id, role, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(track_id) DO UPDATE SET role = excluded.role, updated_at = excluded.updated_at`,
+      ).run(id, body.data.role, new Date().toISOString());
+    }
+    return { ok: true };
+  });
+
   // A lesson (or any track) finished. The player marks it when a track plays
   // to its end; people can also tick or untick it by hand.
   app.put('/api/tracks/:id/completed', async (req, reply) => {

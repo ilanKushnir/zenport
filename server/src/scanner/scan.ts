@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { FolderNodeDto, ScanStateDto } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 import { inferLibrary, type InferredTrack } from '../library/infer.js';
-import { inferContentType } from '../library/contentType.js';
+import { inferContentType, inferTrackRole } from '../library/contentType.js';
 import { extractEmbeddedArt } from './artwork.js';
 import { safeWalk, type WalkedFile } from './walk.js';
 
@@ -198,11 +198,11 @@ export async function runScan(
            inferred_type = excluded.inferred_type, type_reason = excluded.type_reason`,
       );
       const upsertTrack = db.prepare(
-        `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing, inferred_role)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
          ON CONFLICT(root_id, rel_path) DO UPDATE SET
            item_id = excluded.item_id, ord = excluded.ord, title = excluded.title,
-           size_bytes = excluded.size_bytes, missing = 0`,
+           size_bytes = excluded.size_bytes, missing = 0, inferred_role = excluded.inferred_role`,
       );
       const upsertAsset = db.prepare(
         `INSERT INTO assets (id, item_id, root_id, rel_path, name, ext, kind, size_bytes, missing)
@@ -248,6 +248,7 @@ export async function runScan(
             track.ord,
             track.title,
             track.sizeBytes,
+            inferTrackRole(track.title),
           );
         }
         if (item.coverRelPath) {

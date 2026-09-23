@@ -50,6 +50,10 @@ export function ItemPage() {
         (i) => i.creator === item.creator && i.collection === item.collection,
       ).length
     : 0;
+  const setRole = async (trackId: string, role: 'lesson' | 'practice') => {
+    await api.put(`/api/tracks/${trackId}/role`, { role }).catch(() => {});
+    detail.reload();
+  };
   const toggleDone = async (trackId: string, completed: boolean) => {
     await api.put(`/api/tracks/${trackId}/completed`, { completed }).catch(() => {});
     detail.reload();
@@ -210,7 +214,31 @@ export function ItemPage() {
                     <span className="num">{t.ord}</span>
                   )}
                   <div className="grow">
-                    <div>{t.title}</div>
+                    <div className="track-title">
+                      {t.title}
+                      {learning &&
+                        (user?.role === 'admin' ? (
+                          <button
+                            type="button"
+                            className={`role-chip${t.role === 'practice' ? ' practice' : ''}`}
+                            onClick={() =>
+                              void setRole(t.id, t.role === 'practice' ? 'lesson' : 'practice')
+                            }
+                            title={
+                              t.role === 'practice'
+                                ? 'A meditation in this course - tap to mark it a lesson'
+                                : 'A lesson - tap to mark it a meditation'
+                            }
+                          >
+                            <Icon name={t.role === 'practice' ? 'lotus' : 'book'} size={12} />
+                            {t.role === 'practice' ? 'Meditation' : 'Lesson'}
+                          </button>
+                        ) : t.role === 'practice' ? (
+                          <span className="role-chip practice">
+                            <Icon name="lotus" size={12} /> Meditation
+                          </span>
+                        ) : null)}
+                    </div>
                     <div className="sub">
                       {t.video ? (
                         <>

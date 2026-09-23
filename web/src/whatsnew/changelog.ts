@@ -25,6 +25,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.0',
+    items: [
+      {
+        emoji: '🪷',
+        text: 'Meditations inside a course are recognised by name and play as a practice. You can mark any lesson as a meditation, and the course stays a course.',
+      },
+      { emoji: '🎚️', text: 'Practice settings only show up when you are practising.' },
+      {
+        emoji: '✨',
+        text: 'Plan with AI allows longer sessions, can choose the plan length for you, and builds on what you have already practised and learned.',
+      },
+      { emoji: '📱', text: 'A floating tab bar and pop-ups that sit clear of the screen edges.' },
+    ],
+  },
+  {
     version: '0.6.4',
     items: [
       {

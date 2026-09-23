@@ -242,31 +242,46 @@
     padding: calc(var(--s5) + env(safe-area-inset-top)) var(--s4) calc(var(--tabbar-h) + 96px);
   }
 
+  /* A floating glass bar: lifted off the page, inset from the edges and the
+     home indicator, clearly its own surface rather than more background. */
   .mobile-tabs {
     position: fixed;
-    inset-inline: 0;
-    inset-block-end: 0;
+    inset-inline: 10px;
+    inset-block-end: calc(env(safe-area-inset-bottom) + 8px);
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    background: rgba(24, 20, 32, 0.94);
-    backdrop-filter: blur(10px);
-    border-block-start: 1px solid var(--hairline);
-    padding: var(--s1) var(--s2) calc(var(--s1) + env(safe-area-inset-bottom));
+    gap: 2px;
+    padding: 6px;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+      rgba(46, 37, 64, 0.92);
+    backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    box-shadow:
+      0 18px 40px rgba(6, 4, 12, 0.55),
+      0 2px 8px rgba(6, 4, 12, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
     z-index: 40;
   }
 
   .mobile-tabs a,
   .mobile-tabs .tab-more {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: 6px 2px;
-    font-size: 10.5px;
-    color: var(--faint);
-    border-radius: var(--r-sm);
-    min-height: 44px;
     justify-content: center;
+    gap: 3px;
+    min-height: 50px;
+    padding: 6px 2px;
+    border-radius: 18px;
+    font-size: 10.5px;
+    color: var(--muted);
+    transition:
+      background var(--t-fast) var(--ease),
+      color var(--t-fast) var(--ease);
   }
 
   .mobile-tabs .tab-more {
@@ -275,33 +290,22 @@
     font: inherit;
     font-size: 10.5px;
     cursor: pointer;
-    position: relative;
   }
 
+  .mobile-tabs .nav-ic {
+    color: var(--muted);
+  }
+
+  /* The current tab sits in its own softly tinted capsule. */
   .mobile-tabs a[aria-current='page'],
   .mobile-tabs .tab-more.active {
-    color: var(--accent);
+    color: var(--text);
+    background: color-mix(in oklab, var(--accent) 16%, rgba(255, 255, 255, 0.04));
   }
 
   .mobile-tabs a[aria-current='page'] .nav-ic,
   .mobile-tabs .tab-more.active .nav-ic {
     color: var(--accent);
-  }
-
-  .mobile-tabs a[aria-current='page']::before,
-  .mobile-tabs .tab-more.active::before {
-    content: '';
-    position: absolute;
-    inset-block-start: 2px;
-    inline-size: 20px;
-    block-size: 3px;
-    border-radius: 3px;
-    background: var(--accent-fill);
-    background-image: var(--accent-fill-grad);
-  }
-
-  .mobile-tabs a {
-    position: relative;
   }
 
   .mobile-tabs a:hover {
@@ -872,6 +876,7 @@
   max-width: 560px;
   max-height: min(86dvh, 720px);
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   background: var(--surface);
@@ -881,6 +886,19 @@
   padding: var(--s6) var(--s6) calc(var(--s6) + env(safe-area-inset-bottom));
   z-index: 61;
   animation: sheet-up var(--t-med) var(--ease);
+}
+
+/* On a phone a sheet floats: clear of the screen's sides and bottom, round
+   on every corner - a card over the app, not a slab across it. */
+@media (max-width: 699px) {
+  .sheet {
+    inset-inline: 10px;
+    inset-block-end: calc(env(safe-area-inset-bottom) + 10px);
+    border-radius: 26px;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px);
+    padding-block-end: var(--s5);
+    box-shadow: 0 24px 60px rgba(6, 4, 12, 0.6);
+  }
 }
 
 /* A grab handle, as on a native bottom sheet. */
@@ -959,7 +977,8 @@
 
 :root {
   /* The phone tab bar's real height, home indicator included. */
-  --tabbar-h: calc(58px + env(safe-area-inset-bottom));
+  /* Floating tab bar: 62px tall, 8px above the home indicator. */
+  --tabbar-h: calc(70px + env(safe-area-inset-bottom));
 }
 
 /* Range slider shared by the scrubber and volume: a filled track up to the thumb. */
@@ -1729,6 +1748,7 @@
 
 .seg {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
   border-radius: 14px;
@@ -1737,8 +1757,8 @@
 }
 
 .seg-opt {
-  flex: 1;
-  min-width: 0;
+  flex: 1 0 auto;
+  min-width: 3.2em;
   min-height: 38px;
   padding: 0 4px;
   border: 0;
@@ -5467,6 +5487,24 @@
   margin-block-end: var(--s3);
 }
 
+.ai-block > .set-switch:first-child {
+  border-block-start: 0;
+  margin-block-start: 0;
+  padding-block-start: 0;
+}
+
+/* Many choices sit in even rows instead of a ragged wrap. */
+.seg-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ai-length {
+  margin: 4px 0 0;
+  color: var(--faint);
+  font-size: 13px;
+}
+
 .ai-block .set-switch-t {
   display: flex;
   align-items: center;
@@ -5885,4 +5923,49 @@
   -webkit-backdrop-filter: blur(14px);
   font-size: 13.5px;
   box-shadow: 0 12px 30px rgba(6, 4, 12, 0.5);
+}
+
+.fp-round-spacer {
+  inline-size: 44px;
+  block-size: 44px;
+}
+
+/* A track's role inside a course: a lesson, or a meditation that is part of it. */
+.track-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: none;
+  color: var(--faint);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+span.role-chip {
+  cursor: default;
+}
+
+.role-chip.practice {
+  color: var(--t-meditation);
+  border-color: color-mix(in oklab, var(--t-meditation) 40%, transparent);
+  background: color-mix(in oklab, var(--t-meditation) 10%, transparent);
+}
+
+.role-chip .nav-ic {
+  color: inherit;
 }

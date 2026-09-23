@@ -142,8 +142,10 @@ export function itemDetail(
   const tracks = (
     db
       .prepare(
-        `SELECT id, ord, title, name, ext, duration_sec, missing FROM tracks
-         WHERE item_id = ? ORDER BY ord`,
+        `SELECT t.id, t.ord, t.title, t.name, t.ext, t.duration_sec, t.missing, t.inferred_role,
+                r.role AS manual_role
+         FROM tracks t LEFT JOIN track_roles r ON r.track_id = t.id
+         WHERE t.item_id = ? ORDER BY t.ord`,
       )
       .all(itemId) as {
       id: string;
@@ -153,6 +155,8 @@ export function itemDetail(
       ext: string;
       duration_sec: number | null;
       missing: number;
+      inferred_role: string;
+      manual_role: string | null;
     }[]
   ).map((t) => ({
     id: t.id,
@@ -164,6 +168,15 @@ export function itemDetail(
     missing: t.missing === 1,
     video: isVideoExt(t.ext),
     completed: done.has(t.id),
+    // A meditation item's tracks are all practice; a course's are what the
+    // owner said, else the scanner's guess.
+    role:
+      summary.type === 'meditation' || summary.type === 'soundscape'
+        ? ('practice' as const)
+        : (t.manual_role ?? t.inferred_role) === 'practice'
+          ? ('practice' as const)
+          : ('lesson' as const),
+    roleSource: t.manual_role ? ('manual' as const) : ('auto' as const),
   }));
   const documents = (
     db

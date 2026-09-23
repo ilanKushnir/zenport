@@ -69,6 +69,12 @@ export interface TrackDto {
   video: boolean;
   /** This account finished it (played to the end, or marked done). */
   completed: boolean;
+  /**
+   * Inside a course or talk: a lesson to study, or a meditation that belongs
+   * to the course. (Every track of a meditation item is a practice.)
+   */
+  role: 'lesson' | 'practice';
+  roleSource: 'auto' | 'manual';
 }
 
 export type DocumentKind = 'pdf' | 'text' | 'markdown' | 'html';
@@ -392,7 +398,8 @@ export type PlanLevel = 'new' | 'some' | 'experienced';
 export interface AiPlanRequest {
   /** In the person's own words: what they want from the next weeks. */
   goal: string;
-  weeks: number;
+  /** Null: let the planner choose the length the content and time need. */
+  weeks: number | null;
   startDate: string; // YYYY-MM-DD
   practice: { daysPerWeek: number; minutes: number } | null;
   learning: { minutesPerWeek: number; daysPerWeek: number } | null;
@@ -424,5 +431,7 @@ export interface AiPlanProposalDto {
   practice: AiPlanTrackDto | null;
   learning: AiPlanTrackDto | null;
   outline: { week: number; focus: string }[];
+  /** How long the plan runs - the person's choice, or the planner's. */
+  weeks: number;
   model: string;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inferContentType } from './contentType.js';
+import { inferContentType, inferTrackRole } from './contentType.js';
 
 const t = (...names: string[]) =>
   names.map((n) => ({ name: n, ext: n.split('.').at(-1)!.toLowerCase() }));
@@ -75,5 +75,18 @@ describe('inferContentType', () => {
       tracks: t('a.mp4'),
     });
     expect(g.reason).toContain('Courses');
+  });
+});
+
+describe('inferTrackRole', () => {
+  it('reads guided practices inside a course as meditations, teaching as lessons', () => {
+    expect(inferTrackRole('Week 1 - Meditation')).toBe('practice');
+    expect(inferTrackRole('Week 1 - Meditation Instructions + Meditation')).toBe('practice');
+    expect(inferTrackRole('Session 1 Guided Breathwork')).toBe('practice');
+    expect(inferTrackRole('מפגש 3 - מדיטציה')).toBe('practice');
+    expect(inferTrackRole('Week 1 - Lecture')).toBe('lesson');
+    expect(inferTrackRole('Week 2 - Q&A')).toBe('lesson');
+    expect(inferTrackRole('A Lecture and Meditation')).toBe('lesson');
+    expect(inferTrackRole('Inner Sight S1E2 Chapter 2')).toBe('lesson');
   });
 });

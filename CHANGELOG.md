@@ -5,6 +5,24 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-09-23
+
+### Added
+
+- **Meditations inside a course.** A track whose file name reads as a practice ("guided", "meditation", "breathwork", "body scan", Hebrew מדיטציה and so on, unless it also says lecture, Q&A or talk) is recognised as a meditation within its course. An admin can flip any track between Lesson and Meditation from the course page; the choice survives rescans and never changes the course itself. Those tracks play as a practice - Now practicing, bells, timer and the practice settings button - while the rest of the course stays a lesson.
+- **Plan with AI goes longer.** Sessions of 1½ and 2 hours for practice and up to 10 hours a week of learning; the plan length can be left to the AI, which picks 1-52 weeks and says how long it chose.
+- **The AI knows what you have already done.** Every library item is offered (up to 150 lessons per course, all practices), each with how many times you have played it, for how long and when last, plus a summary of your recent practice - so the plan builds on what you have finished instead of repeating it.
+
+### Changed
+
+- **The practice settings button only appears for practices.** Course and talk lessons no longer show it.
+- **The phone tab bar floats** as its own lifted, rounded surface above the page instead of blending into the background.
+- **Pop-up sheets float on a phone too**, inset from the screen edges and the home indicator, with rounded corners all round.
+
+### Fixed
+
+- **The Plan with AI steps could scroll sideways on a phone.** Plan length and start date sat side by side and the option rows could not wrap; they now stack, long option lists sit in even rows, and every sheet clips sideways overflow. Checked across every page and sheet in WebKit at iPhone SE, 13 and 15 Pro Max widths.
+
 ## [0.6.4] — 2026-09-23
 
 ### Changed

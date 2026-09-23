@@ -12,9 +12,10 @@ import type { AiSettingsDto } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { AiError, chatModels } from '../../ai/openai.js';
 import {
-  buildCatalog,
   PLAN_SCHEMA,
+  buildCatalog,
   planPrompt,
+  practiceHistory,
   renderCatalog,
   resolveProposal,
 } from '../../ai/planner.js';
@@ -25,7 +26,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const planRequest = z.object({
   goal: z.string().max(1200).default(''),
-  weeks: z.number().int().min(1).max(26),
+  weeks: z.number().int().min(1).max(52).nullable(),
   startDate: z.string().regex(DATE),
   practice: z
     .object({
@@ -157,9 +158,14 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       lib.items.filter((i) => !wanted || wanted.has(i.creator)),
       req.user!.id,
     );
+    const history = practiceHistory(db, req.user!.id, req.user!.timezone);
     if (entries.length === 0)
       return reply.code(400).send({ error: 'There is nothing in the library to plan with.' });
-    const { system, user } = planPrompt(body.data, renderCatalog(entries));
+    const { system, user } = planPrompt(
+      body.data,
+      renderCatalog(entries, history),
+      history.summary,
+    );
     try {
       const raw = await deps.openai.chatJson({
         apiKey: key,

@@ -96,7 +96,11 @@ function Choices<T extends string | number>({
   label: string;
 }) {
   return (
-    <div className="seg" role="radiogroup" aria-label={label}>
+    <div
+      className={`seg${options.length > 6 ? ' seg-grid' : ''}`}
+      role="radiogroup"
+      aria-label={label}
+    >
       {options.map((o) => (
         <button
           key={String(o)}
@@ -133,7 +137,8 @@ export function AiPlanSheet({
   const [learnWeek, setLearnWeek] = useState(90);
   const [learnDays, setLearnDays] = useState(2);
   const [timeOfDay, setTimeOfDay] = useState<AiPlanRequest['timeOfDay']>('morning');
-  const [weeks, setWeeks] = useState(4);
+  // 0 = let the planner choose the length.
+  const [weeks, setWeeks] = useState(0);
   const [startDate, setStartDate] = useState(iso(new Date()));
   const [creators, setCreators] = useState<string[]>([]);
   const [includeFinished, setIncludeFinished] = useState(false);
@@ -158,7 +163,7 @@ export function AiPlanSheet({
 
   const request: AiPlanRequest = {
     goal,
-    weeks,
+    weeks: weeks === 0 ? null : weeks,
     startDate,
     practice: practiceOn ? { daysPerWeek: practiceDays, minutes: practiceMin } : null,
     learning: learningOn ? { minutesPerWeek: learnWeek, daysPerWeek: learnDays } : null,
@@ -187,7 +192,7 @@ export function AiPlanSheet({
     if (!proposal) return;
     setSaving(true);
     setError(null);
-    const endDate = addDays(startDate, weeks * 7 - 1);
+    const endDate = addDays(startDate, proposal.weeks * 7 - 1);
     const both = Boolean(proposal.practice && proposal.learning);
     const make = (track: AiPlanTrackDto, focus: 'practice' | 'learning') =>
       api.post('/api/plans', {
@@ -298,10 +303,10 @@ export function AiPlanSheet({
                 />
                 <Choices
                   label="Minutes per practice"
-                  options={[10, 15, 20, 30, 45, 60] as const}
+                  options={[10, 15, 20, 30, 45, 60, 90, 120] as const}
                   value={practiceMin as 10}
                   onChange={setPracticeMin}
-                  render={(v) => `${v}m`}
+                  render={(v) => (v < 60 ? `${v}m` : v === 60 ? '1h' : `${v / 60}h`)}
                 />
               </div>
             )}
@@ -328,7 +333,7 @@ export function AiPlanSheet({
                 />
                 <Choices
                   label="Study time per week"
-                  options={[30, 60, 90, 120, 180, 300] as const}
+                  options={[30, 60, 90, 120, 180, 300, 420, 600] as const}
                   value={learnWeek as 30}
                   onChange={setLearnWeek}
                   render={(v) => (v < 60 ? `${v}m` : `${v / 60}h`)}
@@ -350,26 +355,24 @@ export function AiPlanSheet({
               }
             />
           </div>
-          <div className="field-row">
-            <div className="field">
-              <label>Plan length</label>
-              <Choices
-                label="Weeks"
-                options={[2, 4, 6, 8, 12] as const}
-                value={weeks as 2}
-                onChange={setWeeks}
-                render={(v) => `${v}w`}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ai-start">Starting</label>
-              <input
-                id="ai-start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
+          <div className="field">
+            <label>Plan length</label>
+            <Choices
+              label="Weeks"
+              options={[0, 2, 4, 8, 12] as const}
+              value={weeks as 0}
+              onChange={setWeeks}
+              render={(v) => (v === 0 ? 'AI decides' : `${v}w`)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="ai-start">Starting</label>
+            <input
+              id="ai-start"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
           </div>
           <div className="ai-nav">
             <button className="btn btn-quiet" onClick={() => setStep('goal')}>
@@ -465,6 +468,10 @@ export function AiPlanSheet({
             onChange={(e) => setName(e.target.value)}
             aria-label="Plan name"
           />
+          <p className="ai-length">
+            {proposal.weeks === 1 ? 'One week' : `${proposal.weeks} weeks`}
+            {weeks === 0 ? ', the length the AI chose' : ''}
+          </p>
           {proposal.intention && <p className="ai-intention">“{proposal.intention}”</p>}
           <p className="ai-summary">{proposal.summary}</p>
 

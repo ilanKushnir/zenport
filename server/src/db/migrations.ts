@@ -416,6 +416,19 @@ const MIGRATIONS: string[] = [
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
   );
   `,
+
+  // v7: what each track is inside a course or talk - a lesson to study, or a
+  // meditation to do (a guided practice that belongs to the course). The
+  // scanner's guess is rewritten each scan; the owner's choice lives apart in
+  // track_roles, so the parent stays a course whatever its tracks are.
+  `
+  ALTER TABLE tracks ADD COLUMN inferred_role TEXT NOT NULL DEFAULT 'lesson';
+  CREATE TABLE track_roles (
+    track_id TEXT PRIMARY KEY,
+    role TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

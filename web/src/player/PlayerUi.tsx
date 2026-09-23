@@ -201,6 +201,9 @@ export function FocusMode() {
   const settling = p.leadInRemaining !== null;
   // Bells and the end timer are practice tools; a lesson does not need them in reach.
   const learning = it.type === 'course' || it.type === 'talk';
+  // Practice tools belong to a practice: a meditation, or a meditation that
+  // is part of a course. A lesson gets none of them.
+  const practiceNow = !learning || p.track?.role === 'practice';
   const part = it.type === 'course' ? 'Lesson' : 'Track';
 
   return (
@@ -229,7 +232,7 @@ export function FocusMode() {
         </button>
         <div className="fp-top-mid">
           <span className="fp-kicker">
-            {p.learning ? (p.isVideo ? 'Now watching' : 'Now studying') : 'Now practicing'}
+            {practiceNow ? 'Now practicing' : p.isVideo ? 'Now watching' : 'Now studying'}
           </span>
           {p.wakeLockOn && (
             <span className="fp-awake" title="The screen stays on while this plays">
@@ -237,13 +240,17 @@ export function FocusMode() {
             </span>
           )}
         </div>
-        <button
-          className="fp-round"
-          onClick={() => setSheet('settings')}
-          aria-label="Practice settings"
-        >
-          <Icon name="sliders" size={20} />
-        </button>
+        {practiceNow ? (
+          <button
+            className="fp-round"
+            onClick={() => setSheet('settings')}
+            aria-label="Practice settings"
+          >
+            <Icon name="sliders" size={20} />
+          </button>
+        ) : (
+          <span className="fp-round-spacer" aria-hidden="true" />
+        )}
       </header>
 
       <div className="fp-body">
@@ -345,7 +352,7 @@ export function FocusMode() {
             <Icon name="gauge" size={18} />
             {speedLabel(s.speed)}
           </button>
-          {!learning && (
+          {practiceNow && (
             <>
               <button
                 className={`fp-chip${s.bellsEveryMin ? ' on' : ''}`}
