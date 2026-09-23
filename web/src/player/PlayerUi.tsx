@@ -19,7 +19,6 @@ export function PlayerBar() {
           creator={p.item.creator}
           className="player-cover"
         />
-        <style>{`.player-cover{inline-size:44px;flex:none;border-radius:8px}`}</style>
         <div className="meta">
           <div className="t">
             {p.item.title}
@@ -30,6 +29,10 @@ export function PlayerBar() {
               ? `settling · ${p.leadInRemaining}s`
               : `${formatClock(p.position)} / ${p.duration ? formatClock(p.duration) : '–:––'}`}
           </div>
+        </div>
+        {/* Its own row on a phone, where five controls and a cover leave the
+            slider no room; beside the title on a desk. */}
+        <div className="player-seek">
           <input
             type="range"
             className="seek"
@@ -40,42 +43,57 @@ export function PlayerBar() {
             aria-label="Seek"
           />
         </div>
-        {p.item.tracks.length > 1 && (
-          <button className="icon-btn" onClick={p.prevTrack} aria-label="Previous track">
-            <Icon name="prev" />
+        <div className="player-controls">
+          {p.item.tracks.length > 1 && (
+            <button
+              className="icon-btn player-secondary"
+              onClick={p.prevTrack}
+              aria-label="Previous track"
+            >
+              <Icon name="prev" />
+            </button>
+          )}
+          <button
+            className="icon-btn player-play"
+            onClick={p.toggle}
+            aria-label={p.playing ? 'Pause' : 'Play'}
+          >
+            <Icon name={p.playing ? 'pause' : 'play'} size={20} />
           </button>
-        )}
-        <button
-          className="icon-btn"
-          onClick={p.toggle}
-          aria-label={p.playing ? 'Pause' : 'Play'}
-          style={{ background: 'var(--copper-soft)', color: 'var(--copper)' }}
-        >
-          <Icon name={p.playing ? 'pause' : 'play'} size={20} />
-        </button>
-        {p.item.tracks.length > 1 && (
-          <button className="icon-btn" onClick={p.nextTrack} aria-label="Next track">
-            <Icon name="next" />
+          {p.item.tracks.length > 1 && (
+            <button
+              className="icon-btn player-secondary"
+              onClick={p.nextTrack}
+              aria-label="Next track"
+            >
+              <Icon name="next" />
+            </button>
+          )}
+          {/* Bells and the rest live in focus mode too, so on a phone the bar
+              keeps only what you reach for mid-sit: play, the full screen, out. */}
+          <button
+            className="icon-btn player-secondary"
+            onClick={() => setShowSettings(true)}
+            aria-label="Practice settings"
+          >
+            <Icon name="bell" />
           </button>
-        )}
-        <button
-          className="icon-btn"
-          onClick={() => setShowSettings(true)}
-          aria-label="Practice settings"
-        >
-          <Icon name="bell" />
-        </button>
-        <button className="icon-btn" onClick={() => p.setFocus(true)} aria-label="Enter focus mode">
-          <Icon name="expand" />
-        </button>
-        <button
-          className="icon-btn"
-          onClick={() => p.stop('finish')}
-          aria-label="End practice"
-          title="End practice"
-        >
-          <Icon name="x" />
-        </button>
+          <button
+            className="icon-btn"
+            onClick={() => p.setFocus(true)}
+            aria-label="Enter focus mode"
+          >
+            <Icon name="expand" />
+          </button>
+          <button
+            className="icon-btn"
+            onClick={() => p.stop('finish')}
+            aria-label="End practice"
+            title="End practice"
+          >
+            <Icon name="x" />
+          </button>
+        </div>
       </div>
       {showSettings && <PracticeSettingsSheet onClose={() => setShowSettings(false)} />}
     </div>

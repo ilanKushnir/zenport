@@ -25,6 +25,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.3.1',
+    items: [
+      { emoji: '📱', text: 'The app no longer scrolls sideways on a phone.' },
+      {
+        emoji: '✨',
+        text: "A recording's page leads with the title and Begin; the player bar has room on a phone; the library's filters fit in one row.",
+      },
+      { emoji: '💜', text: 'Port, in the name, is one quiet violet.' },
+    ],
+  },
+  {
     version: '0.3.0',
     items: [
       {

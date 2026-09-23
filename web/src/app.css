@@ -58,6 +58,21 @@
   color: var(--faint);
 }
 
+.main > * {
+  animation: page-in 260ms var(--ease) both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+:root[data-calm='1'] .main > * {
+  animation: none;
+}
+
 .main {
   padding: var(--s8) var(--s8) 140px;
   max-width: 1080px;
@@ -111,6 +126,25 @@
 
   .mobile-tabs a[aria-current='page'] {
     color: var(--accent);
+  }
+
+  .mobile-tabs a[aria-current='page'] .nav-ic {
+    color: var(--accent);
+  }
+
+  .mobile-tabs a[aria-current='page']::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 2px;
+    inline-size: 20px;
+    block-size: 3px;
+    border-radius: 3px;
+    background: var(--accent-fill);
+    background-image: var(--accent-fill-grad);
+  }
+
+  .mobile-tabs a {
+    position: relative;
   }
 
   .mobile-tabs a:hover {
@@ -194,8 +228,13 @@
   color: var(--ink-on-accent);
 }
 
+.btn-primary {
+  box-shadow: 0 6px 20px -6px rgba(240, 76, 138, 0.55);
+}
+
 .btn-primary:hover {
   filter: brightness(1.08);
+  box-shadow: 0 8px 26px -6px rgba(240, 76, 138, 0.7);
 }
 
 .btn-ghost {
@@ -257,10 +296,12 @@
 /* ===== Cards & grids ===== */
 
 .card {
-  background: var(--surface);
+  background:
+    linear-gradient(to bottom, rgba(239, 231, 218, 0.03), transparent 40%), var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   padding: var(--s6);
+  box-shadow: var(--shadow-1);
 }
 
 .card-grid {
@@ -280,12 +321,22 @@
   display: block;
   color: var(--text);
   border-radius: var(--r-md);
-  transition: translate var(--t-med) var(--ease);
+  transition:
+    translate var(--t-med) var(--ease),
+    filter var(--t-med) var(--ease);
 }
 
 .med-card:hover {
   text-decoration: none;
-  translate: 0 -2px;
+  translate: 0 -3px;
+}
+
+.med-card:hover .cover {
+  box-shadow: 0 14px 34px rgba(10, 7, 16, 0.55);
+}
+
+.med-card .cover {
+  transition: box-shadow var(--t-med) var(--ease);
 }
 
 .med-card .cover {
@@ -388,6 +439,41 @@
   margin-block-end: var(--s5);
 }
 
+.toolbar select {
+  inline-size: auto;
+  min-height: 36px;
+  padding: 6px 30px 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--muted);
+  background-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a89fb5' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-block-end: 4px;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--s4));
+    padding-inline: var(--s4);
+  }
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .toolbar .search {
+    flex: 0 0 min(72vw, 320px);
+  }
+  .toolbar > * {
+    flex: none;
+  }
+}
+
 .toolbar .search {
   flex: 1 1 220px;
   min-width: 0;
@@ -467,13 +553,15 @@
 /* ===== Empty / error / loading states ===== */
 
 .empty {
-  border: 1px dashed var(--border);
+  border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   padding: var(--s10) var(--s6);
   text-align: center;
   color: var(--muted);
   max-width: 620px;
   margin-inline: auto;
+  background:
+    radial-gradient(60% 50% at 50% 0%, var(--accent-soft), transparent 70%), var(--surface);
 }
 
 .empty h3 {
@@ -624,16 +712,72 @@
 }
 
 .player-bar-inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-areas:
+    'cover meta controls'
+    'cover seek controls';
+  column-gap: var(--s4);
+  row-gap: 2px;
   align-items: center;
-  gap: var(--s4);
   max-width: 1080px;
   margin-inline: auto;
 }
 
+.player-cover {
+  grid-area: cover;
+  inline-size: 44px;
+  border-radius: 8px;
+}
+
+.player-cover .cover-title {
+  display: none;
+}
+
 .player-bar .meta {
-  flex: 1;
+  grid-area: meta;
   min-width: 0;
+}
+
+.player-seek {
+  grid-area: seek;
+  min-width: 0;
+}
+
+.player-controls {
+  grid-area: controls;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.player-play {
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+  color: var(--ink-on-accent);
+  inline-size: 40px;
+  block-size: 40px;
+  margin-inline: var(--s1);
+}
+
+.player-play:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 640px) {
+  .player-bar-inner {
+    grid-template-columns: 40px 1fr auto;
+    grid-template-areas:
+      'cover meta controls'
+      'seek seek seek';
+    row-gap: 4px;
+  }
+  .player-cover {
+    inline-size: 40px;
+  }
+  .player-secondary {
+    display: none;
+  }
 }
 
 .player-bar .meta .t {
@@ -1500,14 +1644,100 @@
 
 .detail-grid {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: var(--s8);
   align-items: start;
+}
+
+.detail-cover .cover {
+  box-shadow: var(--shadow-2);
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-block-end: var(--s2);
+}
+
+.eyebrow a {
+  color: inherit;
+}
+
+.detail-title {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+.detail-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  color: var(--muted);
+  margin-block-start: var(--s3);
+  font-size: 14px;
+}
+
+.detail-facts span + span::before {
+  content: '·';
+  margin-inline-end: var(--s3);
+  color: var(--faint);
+}
+
+.detail-actions {
+  display: flex;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  margin-block: var(--s6) var(--s8);
+}
+
+.about {
+  margin-block-end: var(--s8);
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.about summary {
+  cursor: pointer;
+  color: var(--faint);
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.about summary::before {
+  content: '';
+  inline-size: 6px;
+  block-size: 6px;
+  border-inline-end: 1.5px solid currentColor;
+  border-block-end: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.about[open] summary::before {
+  transform: rotate(45deg);
 }
 
 @media (max-width: 760px) {
   .detail-grid {
     grid-template-columns: 1fr;
+    gap: var(--s5);
+  }
+  .detail-cover {
+    inline-size: min(56vw, 220px);
+    margin-inline: auto;
+  }
+  /* Centre the hero only - the tracks and notes beneath it stay a list. */
+  .detail-body > .eyebrow,
+  .detail-body > .detail-title {
+    text-align: center;
+  }
+  .detail-facts,
+  .detail-actions {
+    justify-content: center;
   }
 
   .detail-grid .cover {
@@ -1591,28 +1821,14 @@
   letter-spacing: 0.005em;
 }
 
-/* Zen carries the weight; Port takes the ring's own sweep. */
+/* Zen carries the weight; Port takes one violet, held quiet. */
 .wm-zen {
   font-weight: 700;
 }
 
 .wm-port {
   font-weight: 400;
-  color: var(--orchid);
-  background: var(--sweep);
-  background-clip: text;
-  -webkit-background-clip: text;
-}
-
-/*
- * Only make the glyphs transparent where the clip is actually supported —
- * otherwise a browser without it paints transparent text on a transparent
- * background and the word disappears.
- */
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-  .wm-port {
-    -webkit-text-fill-color: transparent;
-  }
+  color: var(--wordmark-port);
 }
 
 .wordmark small {
@@ -1670,20 +1886,31 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  /* The box is exactly the viewport and clips; the layer INSIDE it drifts.
+     A transformed fixed element wider than the viewport counts toward the
+     page's scroll width on iOS Safari - which is how the whole app came to
+     scroll sideways on a phone. */
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.app-aurora::before,
+.ob-aurora::before {
+  content: '';
+  position: absolute;
+  inset: -6%;
   /* A painted aurora, very dark, under a wash of the app ground so the text
      on top of it keeps its contrast whatever the picture does. */
   background:
     linear-gradient(to bottom, rgba(24, 20, 32, 0.55), rgba(24, 20, 32, 0.82) 60%, var(--bg)),
-    url('/art/bg-aurora.webp') center top / cover no-repeat,
-    var(--bg);
+    url('/art/bg-aurora.webp') center top / cover no-repeat;
   animation: aurora-drift 48s ease-in-out infinite alternate;
 }
 
-.ob-aurora {
+.ob-aurora::before {
   background:
     linear-gradient(to bottom, rgba(24, 20, 32, 0.35), rgba(24, 20, 32, 0.78) 70%, var(--bg)),
-    url('/art/bg-aurora.webp') center / cover no-repeat,
-    var(--bg);
+    url('/art/bg-aurora.webp') center / cover no-repeat;
 }
 
 @keyframes aurora-drift {

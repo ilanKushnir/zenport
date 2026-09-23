@@ -50,31 +50,24 @@ export function ItemPage() {
       </nav>
 
       <div className="detail-grid">
-        <div>
+        <div className="detail-cover">
           <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
-          <dl className="kv" style={{ marginTop: 20 }}>
-            <dt>Source</dt>
-            <dd>{item.rootLabel}</dd>
-            <dt>Indexed at</dt>
-            <dd>{item.breadcrumbs.join(' / ')}</dd>
-            <dt>Formats</dt>
-            <dd>{item.formats.map((f) => `.${f}`).join(', ') || '-'}</dd>
-          </dl>
-          <button
-            className="btn btn-sm btn-quiet"
-            style={{ marginTop: 8 }}
-            onClick={() => setShowEvidence(true)}
-          >
-            Why ZenPort read it this way
-          </button>
         </div>
 
-        <div>
-          <h1>{item.title}</h1>
-          <p className="lede" style={{ color: 'var(--muted)', marginTop: 6 }}>
-            {item.creator}
-            {item.totalDurationSec ? ` · ${formatDuration(item.totalDurationSec)}` : ''}
-            {item.trackCount > 1 ? ` · ${item.trackCount} tracks` : ''}
+        <div className="detail-body">
+          <p className="eyebrow">
+            <Link to={`/creators/${encodeURIComponent(item.creator)}`}>{item.creator}</Link>
+            {item.collection ? ` · ${item.collection}` : ''}
+          </p>
+          <h1 className="detail-title">{item.title}</h1>
+          <p className="detail-facts">
+            {item.totalDurationSec ? <span>{formatDuration(item.totalDurationSec)}</span> : null}
+            {item.trackCount > 1 ? <span>{item.trackCount} tracks</span> : null}
+            {item.documentCount > 0 ? (
+              <span>
+                {item.documentCount} note{item.documentCount === 1 ? '' : 's'}
+              </span>
+            ) : null}
           </p>
 
           {item.missing ? (
@@ -83,8 +76,8 @@ export function ItemPage() {
               entries for this meditation are untouched and it will come back when the files do.
             </p>
           ) : (
-            <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" onClick={() => player.start(item)}>
+            <div className="detail-actions">
+              <button className="btn btn-primary btn-lg" onClick={() => player.start(item)}>
                 <Icon name="play" /> Begin practice
               </button>
               {resumeTrack && item.resume && item.resume.positionSec > 10 && (
@@ -97,17 +90,18 @@ export function ItemPage() {
                     })
                   }
                 >
-                  Resume {item.trackCount > 1 ? `${resumeTrack.title} ` : ''}at{' '}
+                  <Icon name="history" size={16} /> Resume{' '}
+                  {item.trackCount > 1 ? `${resumeTrack.title} ` : ''}at{' '}
                   {formatClock(item.resume.positionSec)}
                 </button>
               )}
               <button className="btn btn-ghost" onClick={() => setShowPlanSheet(true)}>
-                <Icon name="plans" /> Add to a plan
+                <Icon name="plans" size={16} /> Add to a plan
               </button>
             </div>
           )}
 
-          <section className="section" style={{ marginTop: 40 }} aria-labelledby="sec-tracks">
+          <section className="section" aria-labelledby="sec-tracks">
             <div className="section-head">
               <h2 id="sec-tracks">{item.trackCount > 1 ? 'Tracks' : 'Audio'}</h2>
             </div>
@@ -172,6 +166,25 @@ export function ItemPage() {
               </div>
             </section>
           )}
+
+          <details className="about">
+            <summary>About this recording</summary>
+            <dl className="kv" style={{ marginTop: 12 }}>
+              <dt>Source</dt>
+              <dd>{item.rootLabel}</dd>
+              <dt>Indexed at</dt>
+              <dd>{item.breadcrumbs.join(' / ')}</dd>
+              <dt>Formats</dt>
+              <dd>{item.formats.map((f) => `.${f}`).join(', ') || '-'}</dd>
+            </dl>
+            <button
+              className="btn btn-sm btn-quiet"
+              style={{ marginTop: 8 }}
+              onClick={() => setShowEvidence(true)}
+            >
+              Why ZenPort read it this way
+            </button>
+          </details>
 
           {item.related.length > 0 && (
             <section className="section" aria-labelledby="sec-related">

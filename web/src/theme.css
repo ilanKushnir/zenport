@@ -68,10 +68,14 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Nothing may widen the page. `clip` rather than `hidden`: hidden turns
+     the element into a scroll container and breaks position: sticky. */
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
@@ -218,6 +222,9 @@ hr {
   /* Lightened for use as text on --bg. */
   --rose-lit: #f98bb8;
   --violet-lit: #b9a0ff;
+  /* The wordmark's second half: one quiet violet, lifted just enough to
+     clear 7:1 on the app ground. Not the sweep - a name is not a rainbow. */
+  --wordmark-port: #b795ff;
 
   --sweep: linear-gradient(
     100deg,
@@ -267,8 +274,8 @@ hr {
 :root[data-calm='1'] .zp-logo-spin,
 :root[data-calm='1'] .ob-breathe,
 :root[data-calm='1'] .timer-orb-pulse,
-:root[data-calm='1'] .app-aurora,
-:root[data-calm='1'] .ob-aurora {
+:root[data-calm='1'] .app-aurora::before,
+:root[data-calm='1'] .ob-aurora::before {
   animation: none !important;
 }
 
