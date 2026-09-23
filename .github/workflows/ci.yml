@@ -5,6 +5,8 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  # Manual re-runs (the checks only; publishing still needs a v* tag).
+  workflow_dispatch:
 
 # Least privilege by default: the quality jobs only read the repository.
 # The publish job re-grants exactly what it needs (packages: write).
