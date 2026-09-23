@@ -140,13 +140,19 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   plain audio files.
                 </p>
                 <pre className="ob-tree" aria-label="Recommended folder layout">
-{`Meditations
-├─ Mira Solen           `}<i>creator, or a pack</i>{`
-│  ├─ Morning Meditation  `}<i>one meditation</i>{`
+                  {`Meditations
+├─ Mira Solen           `}
+                  <i>creator, or a pack</i>
+                  {`
+│  ├─ Morning Meditation  `}
+                  <i>one meditation</i>
+                  {`
 │  │  ├─ 01 Intro.mp3
 │  │  ├─ 02 Meditation.mp3
 │  │  └─ cover.jpg
-│  └─ Walking Sit.mp3     `}<i>a file works too</i>{`
+│  └─ Walking Sit.mp3     `}
+                  <i>a file works too</i>
+                  {`
 └─ The Lantern Sessions`}
                 </pre>
                 <p className="ob-note">

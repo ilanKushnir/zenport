@@ -41,8 +41,18 @@ describe('embedded covers', () => {
       Buffer.from('\0', 'latin1'),
       PNG,
     ]);
-    const frame = Buffer.concat([Buffer.from('APIC', 'latin1'), syncsafe(body.length), Buffer.from([0, 0]), body]);
-    return Buffer.concat([Buffer.from('ID3', 'latin1'), Buffer.from([4, 0, 0]), syncsafe(frame.length), frame]);
+    const frame = Buffer.concat([
+      Buffer.from('APIC', 'latin1'),
+      syncsafe(body.length),
+      Buffer.from([0, 0]),
+      body,
+    ]);
+    return Buffer.concat([
+      Buffer.from('ID3', 'latin1'),
+      Buffer.from([4, 0, 0]),
+      syncsafe(frame.length),
+      frame,
+    ]);
   };
 
   it('reads a cover out of the audio when the folder has none, caches it, and serves it from the pseudo-root', async () => {
@@ -64,7 +74,10 @@ describe('embedded covers', () => {
 
     // Second scan: cache hit, still present, still not missing.
     await runScan(db, roots(), { coverCacheDir: cache });
-    expect((db.prepare("SELECT missing FROM assets WHERE kind = 'cover'").get() as { missing: number }).missing).toBe(0);
+    expect(
+      (db.prepare("SELECT missing FROM assets WHERE kind = 'cover'").get() as { missing: number })
+        .missing,
+    ).toBe(0);
 
     // A real image beside the files wins over the embedded one.
     put('Mira Solen/Morning/cover.jpg');

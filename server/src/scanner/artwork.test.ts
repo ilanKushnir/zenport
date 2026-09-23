@@ -20,16 +20,35 @@ const u32 = (n: number) => {
 };
 
 function apicBody(mime: string, type: number, data: Buffer, encoding = 0): Buffer {
-  const desc = encoding === 1 ? Buffer.from([0xff, 0xfe, 0x64, 0x00, 0x00, 0x00]) : Buffer.from('cover\0', 'latin1');
-  return Buffer.concat([Buffer.from([encoding]), Buffer.from(`${mime}\0`, 'latin1'), Buffer.from([type]), desc, data]);
+  const desc =
+    encoding === 1
+      ? Buffer.from([0xff, 0xfe, 0x64, 0x00, 0x00, 0x00])
+      : Buffer.from('cover\0', 'latin1');
+  return Buffer.concat([
+    Buffer.from([encoding]),
+    Buffer.from(`${mime}\0`, 'latin1'),
+    Buffer.from([type]),
+    desc,
+    data,
+  ]);
 }
 
 function id3v24(frames: { id: string; body: Buffer; flags?: number }[]): Buffer {
   const parts = frames.map((f) =>
-    Buffer.concat([Buffer.from(f.id, 'latin1'), syncsafe(f.body.length), Buffer.from([0, f.flags ?? 0]), f.body]),
+    Buffer.concat([
+      Buffer.from(f.id, 'latin1'),
+      syncsafe(f.body.length),
+      Buffer.from([0, f.flags ?? 0]),
+      f.body,
+    ]),
   );
   const tag = Buffer.concat(parts);
-  return Buffer.concat([Buffer.from('ID3', 'latin1'), Buffer.from([4, 0, 0]), syncsafe(tag.length), tag]);
+  return Buffer.concat([
+    Buffer.from('ID3', 'latin1'),
+    Buffer.from([4, 0, 0]),
+    syncsafe(tag.length),
+    tag,
+  ]);
 }
 
 function id3v23(frames: { id: string; body: Buffer }[]): Buffer {
@@ -37,7 +56,12 @@ function id3v23(frames: { id: string; body: Buffer }[]): Buffer {
     Buffer.concat([Buffer.from(f.id, 'latin1'), u32(f.body.length), Buffer.from([0, 0]), f.body]),
   );
   const tag = Buffer.concat(parts);
-  return Buffer.concat([Buffer.from('ID3', 'latin1'), Buffer.from([3, 0, 0]), syncsafe(tag.length), tag]);
+  return Buffer.concat([
+    Buffer.from('ID3', 'latin1'),
+    Buffer.from([3, 0, 0]),
+    syncsafe(tag.length),
+    tag,
+  ]);
 }
 
 function flac(pictures: { type: number; data: Buffer }[]): Buffer {
@@ -57,7 +81,10 @@ function flac(pictures: { type: number; data: Buffer }[]): Buffer {
     ]);
     const last = i === pictures.length - 1 ? 0x80 : 0;
     const len = body.length;
-    return Buffer.concat([Buffer.from([last | 6, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff]), body]);
+    return Buffer.concat([
+      Buffer.from([last | 6, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff]),
+      body,
+    ]);
   });
   return Buffer.concat([Buffer.from('fLaC', 'latin1'), ...blocks]);
 }
@@ -79,40 +106,70 @@ describe('sniffImage', () => {
 
 describe('extractEmbeddedArt', () => {
   it('reads a front cover out of an ID3v2.4 APIC frame', async () => {
-    const f = await tmpFile('a.mp3', Buffer.concat([id3v24([
-      { id: 'TIT2', body: Buffer.from('\0Title', 'latin1') },
-      { id: 'APIC', body: apicBody('image/png', 3, PNG) },
-    ]), Buffer.alloc(64, 0xff)]));
+    const f = await tmpFile(
+      'a.mp3',
+      Buffer.concat([
+        id3v24([
+          { id: 'TIT2', body: Buffer.from('\0Title', 'latin1') },
+          { id: 'APIC', body: apicBody('image/png', 3, PNG) },
+        ]),
+        Buffer.alloc(64, 0xff),
+      ]),
+    );
     const art = await extractEmbeddedArt(f, 'mp3');
     expect(art?.ext).toBe('png');
     expect(art?.data.equals(PNG)).toBe(true);
   });
 
   it('prefers the front cover over other pictures, and falls back to any picture', async () => {
-    const both = await tmpFile('b.mp3', id3v24([
-      { id: 'APIC', body: apicBody('image/jpeg', 4, JPG) }, // back cover
-      { id: 'APIC', body: apicBody('image/png', 3, PNG) }, // front
-    ]));
+    const both = await tmpFile(
+      'b.mp3',
+      id3v24([
+        { id: 'APIC', body: apicBody('image/jpeg', 4, JPG) }, // back cover
+        { id: 'APIC', body: apicBody('image/png', 3, PNG) }, // front
+      ]),
+    );
     expect((await extractEmbeddedArt(both, 'mp3'))?.ext).toBe('png');
-    const backOnly = await tmpFile('c.mp3', id3v24([{ id: 'APIC', body: apicBody('image/jpeg', 4, JPG) }]));
+    const backOnly = await tmpFile(
+      'c.mp3',
+      id3v24([{ id: 'APIC', body: apicBody('image/jpeg', 4, JPG) }]),
+    );
     expect((await extractEmbeddedArt(backOnly, 'mp3'))?.ext).toBe('jpg');
   });
 
   it('handles ID3v2.3 sizes and a UTF-16 description', async () => {
-    const f = await tmpFile('d.mp3', id3v23([{ id: 'APIC', body: apicBody('image/png', 3, PNG, 1) }]));
+    const f = await tmpFile(
+      'd.mp3',
+      id3v23([{ id: 'APIC', body: apicBody('image/png', 3, PNG, 1) }]),
+    );
     expect((await extractEmbeddedArt(f, 'mp3'))?.ext).toBe('png');
   });
 
   it('reads a FLAC PICTURE block', async () => {
-    const f = await tmpFile('e.flac', flac([{ type: 4, data: JPG }, { type: 3, data: PNG }]));
+    const f = await tmpFile(
+      'e.flac',
+      flac([
+        { type: 4, data: JPG },
+        { type: 3, data: PNG },
+      ]),
+    );
     const art = await extractEmbeddedArt(f, 'flac');
     expect(art?.ext).toBe('png');
   });
 
   it('returns null for files with no picture, and never throws on junk', async () => {
-    expect(await extractEmbeddedArt(await tmpFile('f.mp3', Buffer.alloc(100, 0)), 'mp3')).toBeNull();
-    expect(await extractEmbeddedArt(await tmpFile('g.flac', Buffer.from('fLaC')), 'flac')).toBeNull();
-    expect(await extractEmbeddedArt(await tmpFile('h.mp3', id3v24([{ id: 'APIC', body: Buffer.from([0, 0]) }])), 'mp3')).toBeNull();
+    expect(
+      await extractEmbeddedArt(await tmpFile('f.mp3', Buffer.alloc(100, 0)), 'mp3'),
+    ).toBeNull();
+    expect(
+      await extractEmbeddedArt(await tmpFile('g.flac', Buffer.from('fLaC')), 'flac'),
+    ).toBeNull();
+    expect(
+      await extractEmbeddedArt(
+        await tmpFile('h.mp3', id3v24([{ id: 'APIC', body: Buffer.from([0, 0]) }])),
+        'mp3',
+      ),
+    ).toBeNull();
     expect(await extractEmbeddedArt('/nonexistent/x.mp3', 'mp3')).toBeNull();
     expect(await extractEmbeddedArt(await tmpFile('i.wav', PNG), 'wav')).toBeNull();
   });

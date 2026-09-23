@@ -49,7 +49,10 @@ function art(data: Buffer): EmbeddedArt | null {
   return ext ? { ext, mime: MIME_FOR[ext], data } : null;
 }
 
-export async function extractEmbeddedArt(absPath: string, ext: string): Promise<EmbeddedArt | null> {
+export async function extractEmbeddedArt(
+  absPath: string,
+  ext: string,
+): Promise<EmbeddedArt | null> {
   const e = ext.toLowerCase();
   try {
     if (e === 'mp3' || e === 'aac') return await readId3(absPath);
@@ -73,7 +76,10 @@ async function readExact(
 }
 
 const syncsafe = (b: Buffer, at: number) =>
-  ((b[at]! & 0x7f) << 21) | ((b[at + 1]! & 0x7f) << 14) | ((b[at + 2]! & 0x7f) << 7) | (b[at + 3]! & 0x7f);
+  ((b[at]! & 0x7f) << 21) |
+  ((b[at + 1]! & 0x7f) << 14) |
+  ((b[at + 2]! & 0x7f) << 7) |
+  (b[at + 3]! & 0x7f);
 
 /** Undo ID3 unsynchronisation: every FF 00 pair was an FF. */
 function deunsync(b: Buffer): Buffer {

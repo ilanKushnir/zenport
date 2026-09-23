@@ -2140,7 +2140,9 @@
 
 .ob-cycle .ob-art {
   grid-area: 1 / 1;
-  transition: opacity 900ms ease, transform 900ms ease;
+  transition:
+    opacity 900ms ease,
+    transform 900ms ease;
 }
 
 .ob-cycle .ob-art.off {
