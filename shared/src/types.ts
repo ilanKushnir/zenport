@@ -517,8 +517,26 @@ export interface UserPrefsDto {
 }
 
 export interface FavoriteDto {
+  /** A recording's id - or a series' key (seriesFavoriteKey). */
   itemId: string;
   createdAt: string;
+}
+
+/** A series starred as a whole: its creator and name, as one key. */
+export const seriesFavoriteKey = (creator: string, series: string): string =>
+  `series:${JSON.stringify([creator, series])}`;
+
+/** The creator and series a series key names, or null for a recording's id. */
+export function parseSeriesFavoriteKey(key: string): [string, string] | null {
+  if (!key.startsWith('series:')) return null;
+  try {
+    const v = JSON.parse(key.slice(7)) as unknown;
+    return Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'string')
+      ? [v[0] as string, v[1] as string]
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 // --- AI planning ---

@@ -255,7 +255,7 @@ export function ItemPage() {
               {!reordering && user?.role === 'admin' && !learning && item.tracks.length > 1 && (
                 <select
                   className="structure-pick"
-                  aria-label="Programme or pack"
+                  aria-label="In order or any order"
                   value={item.structureSource === 'manual' ? item.structure : ''}
                   onChange={(e) => {
                     void api
@@ -272,13 +272,13 @@ export function ItemPage() {
                 >
                   <option value="">
                     {item.structure === 'programme'
-                      ? 'Programme (auto)'
+                      ? 'In order (from the names)'
                       : item.structure === 'pack'
-                        ? 'Pack (auto)'
+                        ? 'Any order (from the names)'
                         : 'Automatic'}
                   </option>
-                  <option value="programme">Programme - in order</option>
-                  <option value="pack">Pack - any order</option>
+                  <option value="programme">In order - a step at a time</option>
+                  <option value="pack">Any order - pick what you like</option>
                 </select>
               )}
               {reordering ? null : user?.role === 'admin' && item.tracks.length > 1 ? (

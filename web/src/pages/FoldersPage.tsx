@@ -192,7 +192,7 @@ export function FoldersPage() {
 }
 
 const AI_STEPS: { key: EnhanceStepKey; label: string; sub: string; web?: boolean }[] = [
-  { key: 'levels', label: 'Levels and programmes', sub: 'Who each suits; in order or any order' },
+  { key: 'levels', label: 'Levels', sub: 'Who each recording suits, beginner to advanced' },
   { key: 'pictures', label: 'Creator pictures', sub: 'A face or logo for each', web: true },
   {
     key: 'fixes',
@@ -293,8 +293,8 @@ function StartOver() {
               <li>
                 <Icon name="sparkle" size={16} />
                 <span>
-                  <strong>Forgotten:</strong> what the AI made of it - levels, programme or pack,
-                  descriptions, the pictures it found, suggested fixes.
+                  <strong>Forgotten:</strong> what the AI made of it - levels, descriptions, the
+                  pictures it found, suggested fixes.
                 </span>
               </li>
               <li>

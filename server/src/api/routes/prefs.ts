@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { FavoriteDto, UserPrefsDto } from '@zenport/shared';
+import { parseSeriesFavoriteKey } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 
 /** Row shape of user_prefs, before the booleans are widened out of INTEGER. */
@@ -153,7 +154,13 @@ export function registerPrefsRoutes(app: FastifyInstance, ctx: AppContext): void
     const itemId = (req.params as { itemId: string }).itemId;
     // Only real library items can be starred — otherwise a typo'd id becomes a
     // permanent orphan row the UI can never show or clear.
-    const exists = db.prepare('SELECT 1 FROM items WHERE id = ?').get(itemId);
+    // A series is starred as a whole, by its creator and name.
+    const series = parseSeriesFavoriteKey(itemId);
+    const exists = series
+      ? db
+          .prepare('SELECT 1 FROM items WHERE creator = ? AND collection = ? AND missing = 0')
+          .get(series[0], series[1])
+      : db.prepare('SELECT 1 FROM items WHERE id = ?').get(itemId);
     if (!exists) return reply.code(404).send({ error: 'no such meditation' });
     db.prepare('INSERT OR IGNORE INTO favorites (user_id, item_id) VALUES (?, ?)').run(
       req.user!.id,

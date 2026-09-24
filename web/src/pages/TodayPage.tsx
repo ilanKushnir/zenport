@@ -14,13 +14,13 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { LibraryDto, PlanOccurrenceDto, PracticeSessionDto, StatsDto } from '@zenport/shared';
-import { formatDuration } from '@zenport/shared';
+import { formatDuration, seriesFavoriteKey } from '@zenport/shared';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { planNext } from './PlansPage.tsx';
-import { itemLabel, TYPE_META } from '../content.ts';
+import { groupSeries, itemLabel, TYPE_META } from '../content.ts';
 import { Cover, EmptyState, Icon, SkeletonGrid } from '../components/ui.tsx';
-import { MedCard } from './LibraryPage.tsx';
+import { MedCard, SeriesCard } from './LibraryPage.tsx';
 import { FriendsToday } from '../components/FriendsToday.tsx';
 import { FeaturedToday } from '../components/FeaturedToday.tsx';
 
@@ -63,10 +63,17 @@ export function TodayPage() {
     return out;
   }, [history.data, byId]);
 
-  const starred = useMemo(
-    () => items.filter((i) => favorites.has(i.id)).slice(0, 6),
-    [items, favorites],
-  );
+  // Starred recordings, and series starred as a whole.
+  const starred = useMemo(() => {
+    const series = groupSeries(items).series.filter((s) =>
+      favorites.has(seriesFavoriteKey(s.creator, s.name)),
+    );
+    const singles = items.filter((i) => favorites.has(i.id));
+    return [
+      ...series.map((s) => ({ key: `s:${s.key}`, series: s })),
+      ...singles.map((i) => ({ key: i.id, item: i })),
+    ].slice(0, 6);
+  }, [items, favorites]);
 
   /**
    * One suggestion, chosen without randomness so it does not change under the
@@ -80,7 +87,8 @@ export function TodayPage() {
       .find(Boolean);
     if (fromPlan) return { item: fromPlan, tag: { icon: 'plans', label: 'Your plan' } };
     if (recent[0]) return { item: recent[0], tag: { icon: 'history', label: 'Last time' } };
-    if (starred[0]) return { item: starred[0], tag: { icon: 'heart', label: 'Favourite' } };
+    const fav = starred.find((f) => 'item' in f);
+    if (fav && 'item' in fav) return { item: fav.item, tag: { icon: 'heart', label: 'Favourite' } };
     const newest = [...items].sort((a, b) => b.addedAt.localeCompare(a.addedAt))[0];
     if (newest) return { item: newest, tag: { icon: 'sparkle', label: 'New' } };
     return null;
@@ -301,9 +309,13 @@ export function TodayPage() {
                 </Link>
               </div>
               <div className="card-grid">
-                {starred.map((item) => (
-                  <MedCard key={item.id} item={item} />
-                ))}
+                {starred.map((f) =>
+                  'series' in f ? (
+                    <SeriesCard key={f.key} series={f.series} />
+                  ) : (
+                    <MedCard key={f.key} item={f.item} />
+                  ),
+                )}
               </div>
             </section>
           )}

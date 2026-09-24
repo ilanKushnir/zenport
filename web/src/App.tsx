@@ -13,6 +13,7 @@ import {
 import type { SetupStatusDto, UserInfo } from '@zenport/shared';
 import { api, ApiError } from './api.ts';
 import { clearApiCache } from './hooks.ts';
+import { SectionPill } from './components/SectionPill.tsx';
 import { carryScroll, pageScrollTop, rememberScroll, restoreScroll } from './scrollRoot.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup } from './components/Brand.tsx';
@@ -304,6 +305,7 @@ function Shell({ children }: { children: ReactNode }) {
         <OfflineBanner />
         {children}
       </main>
+      <SectionPill />
       {/* Content dissolves as it nears the tab bar instead of showing through
           the gap between the bar and the bottom of the screen. */}
       <div className="tab-fade" aria-hidden="true" />

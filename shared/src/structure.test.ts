@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { looksSequential, oneInVersions, practiceParts, sequenceNumber } from './structure.js';
+import {
+  looksSequential,
+  meantInOrder,
+  oneInVersions,
+  practiceParts,
+  sequenceNumber,
+} from './structure.js';
 
 describe('programme or pack', () => {
   it('reads a place in a sequence', () => {
@@ -60,5 +66,31 @@ describe('one meditation in versions', () => {
 
   it('an explanation frames the practice', () => {
     expect(practiceParts(['Mira explains the practice', 'The Practice'])).toEqual(['The Practice']);
+  });
+});
+
+describe('meant in order', () => {
+  it('a path: days, weeks, sessions, parts, waves', () => {
+    expect(meantInOrder(['Calm Start Day 1', 'Calm Start Day 2', 'Calm Start Day 3'])).toBe(true);
+    expect(meantInOrder(['Session 1 Part 1', 'Session 2 Part 1'])).toBe(true);
+    expect(meantInOrder(['Part 1', 'Part 2', 'Part 3'])).toBe(true);
+    expect(meantInOrder(['Wave I - Arrival', 'Wave II - Threshold'])).toBe(true);
+    expect(meantInOrder(['Harbour S1E1 Opening', 'Harbour S1E2 Tides'])).toBe(true);
+    // Every step counts: day 3 of part 1, not "part 1" three times.
+    expect(meantInOrder(['Calm Part 1 Day 1', 'Calm Part 1 Day 2', 'Calm Part 1 Day 3'])).toBe(
+      true,
+    );
+    expect(meantInOrder(['Exploring #1 - Focus', 'Exploring #2 - Intuition'])).toBe(true);
+    // Raw files recorded one after another.
+    expect(meantInOrder(['audio-2248', 'audio-2249', 'audio-2250'])).toBe(true);
+    // A short name and a rising number is a run too: ten minutes, then fifteen, then twenty.
+    expect(meantInOrder(['Take 10', 'Take 15', 'Take 20'])).toBe(true);
+  });
+
+  it('a catalogue is not a path: volumes, bare numbers, track numbers', () => {
+    expect(meantInOrder(['Energy Circles 01 - Unified', 'Energy Circles 02 - Heart'])).toBe(false);
+    expect(meantInOrder(['Calm Harbour - Vol. 1', 'Calm Harbour - Vol. 2'])).toBe(false);
+    expect(meantInOrder(['CH 1 - 1. Friday Morning', 'CH 1 - 2. Saturday Healing'])).toBe(false);
+    expect(meantInOrder(['Morning Meditation', 'Evening Meditation'])).toBe(false);
   });
 });

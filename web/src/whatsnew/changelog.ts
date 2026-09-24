@@ -25,6 +25,25 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.36.0',
+    items: [
+      {
+        emoji: '🧺',
+        text: 'One word for several meditations together: a pack. Packs meant a step at a time say "In order".',
+      },
+      {
+        emoji: '🧭',
+        text: 'An introduction and a meditation is simply a meditation - and like recordings always read alike.',
+      },
+      {
+        emoji: '🔎',
+        text: "Filter each creator's page by type - packs, meditations, courses, talks.",
+      },
+      { emoji: '❤️', text: 'Favourite a whole series.' },
+      { emoji: '📍', text: 'On long pages, the section you are in stays in view at the top.' },
+    ],
+  },
+  {
     version: '0.35.2',
     items: [
       {

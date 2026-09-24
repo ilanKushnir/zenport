@@ -9,7 +9,7 @@
  * 4. the AI's reading (item_levels, source 'ai').
  */
 import type { ItemLevel, LevelSource, Structure, StructureSource } from '@zenport/shared';
-import { looksSequential, oneInVersions, practiceParts } from '@zenport/shared';
+import { meantInOrder, oneInVersions, practiceParts } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 
 export const LEVELS: ItemLevel[] = ['beginner', 'intermediate', 'advanced', 'all'];
@@ -94,13 +94,12 @@ export function structureOf(
   const set = db
     .prepare('SELECT structure, source FROM item_structures WHERE item_id = ?')
     .get(itemId) as { structure: Structure; source: 'manual' | 'ai' } | undefined;
+  // An admin's word first; otherwise the names alone, so like reads like.
   if (set?.source === 'manual' && set.structure !== 'single')
     return { structure: set.structure, structureSource: 'manual' };
   // One meditation in versions - lying down or walking, live, with music.
   if (oneInVersions(practice)) return { structure: 'single', structureSource: null };
-  if (set && set.structure !== 'single')
-    return { structure: set.structure, structureSource: set.source };
-  return { structure: looksSequential(practice) ? 'programme' : 'pack', structureSource: 'name' };
+  return { structure: meantInOrder(practice) ? 'programme' : 'pack', structureSource: 'name' };
 }
 
 export function setStructures(db: Db, ids: string[], structure: 'programme' | 'pack' | null): void {

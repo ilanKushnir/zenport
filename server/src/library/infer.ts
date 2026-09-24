@@ -1,7 +1,7 @@
 import { naturalCompare, titleFromStem, type InferenceDecision } from '@zenport/shared';
 import { orderTracks } from './trackOrder.js';
 import type { WalkedFile } from '../scanner/walk.js';
-import { numberedStem } from './setNames.js';
+import { numberedStem, sharedLeads } from './setNames.js';
 
 /**
  * Deterministic, explainable hierarchy inference. No AI, no probabilities —
@@ -262,7 +262,12 @@ function pickFolderCover(node: DirNode, folderName: string): { rel: string; rule
   return first ? { rel: first.relPath, rule: 'cover-first-image' } : null;
 }
 
-export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
+export interface InferOptions {
+  /** Sets an admin said are not one series (setKey), never grouped again. */
+  notSets?: ReadonlySet<string>;
+}
+
+export function inferLibrary(walked: WalkedFile[], opts: InferOptions = {}): InferredItem[] {
   const root = buildTree(walked);
   const items: InferredItem[] = [];
   // Folder-item dirs, used afterwards to attach documents from audio-less subtrees.
@@ -494,7 +499,7 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
   };
   attachDeepDocs(root, null);
 
-  groupNumberedSets(items);
+  groupSets(items, opts.notSets ?? new Set());
 
   items.sort((a, b) => naturalCompare(a.itemKey, b.itemKey));
   for (const item of items) {
@@ -503,25 +508,54 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
   return items;
 }
 
+/** A set's identity: one creator, one folder, one name - to remember "not one series". */
+export const setKey = (creator: string, parent: string, stem: string): string =>
+  `set:${JSON.stringify([
+    creator,
+    parent,
+    stem
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim(),
+  ])}`;
+
+const parentOf = (itemKey: string) =>
+  itemKey.includes('/') ? itemKey.slice(0, itemKey.lastIndexOf('/')) : '';
+
 /**
- * Numbered sets filed side by side - "Calm Harbour - Vol. 1" to "Vol. 5",
- * "Quiet Walk 01" to "13", each its own folder in one folder of the creator's
- * - are one series, named by what they share. Their folders do not say so;
- * their names do, unmistakably (a number that runs through siblings with the
- * same name before it). Recordings already in a series from their folders
- * are left as they are, and an admin's series always wins over this.
+ * Sets filed side by side - each its own folder in one folder of the
+ * creator's - are one series, named by what they share. Their folders do not
+ * say so; their names do:
+ *
+ * - numbered: "Calm Harbour - Vol. 1" to "Vol. 5", "Quiet Walk 01" to "13"
+ *   (the same name before a number that differs);
+ * - a shared lead: "Generating Change", "Generating Flow", "Generating Joy",
+ *   or "Open Sky - To Rest" / "- To Joy" (three or more, a lead that says
+ *   something, each only a few words past it - setNames.ts).
+ *
+ * Recordings already in a series from their folders are left as they are;
+ * an admin's series always wins, and a set an admin said is not one series
+ * (notSets) is never grouped again.
  */
-function groupNumberedSets(items: InferredItem[]): void {
+function groupSets(items: InferredItem[], notSets: ReadonlySet<string>): void {
   const shelves = new Map<string, InferredItem[]>();
   for (const item of items) {
     if (item.collection) continue;
-    const parent = item.itemKey.includes('/')
-      ? item.itemKey.slice(0, item.itemKey.lastIndexOf('/'))
-      : '';
-    const k = `${item.creator}\u0000${parent}`;
+    const k = `${item.creator}\u0000${parentOf(item.itemKey)}`;
     shelves.set(k, [...(shelves.get(k) ?? []), item]);
   }
+  const join = (members: InferredItem[], stem: string, rule: string, evidence: string) => {
+    for (const item of members) {
+      item.collection = stem;
+      item.decisions.push({ field: 'collection', value: stem, rule, evidence });
+    }
+  };
   for (const shelf of shelves.values()) {
+    const { creator } = shelf[0]!;
+    const parent = parentOf(shelf[0]!.itemKey);
+    const allowed = (stem: string) => !notSets.has(setKey(creator, parent, stem));
+
+    // Numbered sets first.
     const sets = new Map<string, { stem: string; members: { item: InferredItem; n: number }[] }>();
     for (const item of shelf) {
       const s = numberedStem(item.title);
@@ -537,16 +571,32 @@ function groupNumberedSets(items: InferredItem[]): void {
     for (const g of sets.values()) {
       const numbers = new Set(g.members.map((m) => m.n));
       // Two or more, numbered differently: two copies of "Part 1" are not a set.
-      if (g.members.length < 2 || numbers.size < 2) continue;
-      for (const { item } of g.members) {
-        item.collection = g.stem;
-        item.decisions.push({
-          field: 'collection',
-          value: g.stem,
-          rule: 'numbered-set',
-          evidence: `one of ${g.members.length} numbered folders side by side named "${g.stem}"`,
-        });
-      }
+      if (g.members.length < 2 || numbers.size < 2 || !allowed(g.stem)) continue;
+      join(
+        g.members.map((m) => m.item),
+        g.stem,
+        'numbered-set',
+        `one of ${g.members.length} numbered folders side by side named "${g.stem}"`,
+      );
+    }
+
+    // Then those sharing a lead name.
+    const loose = shelf.filter((i) => !i.collection);
+    const leads = sharedLeads(loose.map((i) => i.title));
+    const byLead = new Map<string, InferredItem[]>();
+    for (const [i, lead] of leads) {
+      const k = lead.toLowerCase();
+      byLead.set(k, [...(byLead.get(k) ?? []), loose[i]!]);
+    }
+    for (const members of byLead.values()) {
+      const lead = leads.get(loose.indexOf(members[0]!))!;
+      if (!allowed(lead)) continue;
+      join(
+        members,
+        lead,
+        'shared-name-set',
+        `one of ${members.length} folders side by side whose names begin "${lead}"`,
+      );
     }
   }
 }

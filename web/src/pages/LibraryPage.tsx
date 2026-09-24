@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ContentType, LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
-import { isPracticeType } from '@zenport/shared';
+import { isPracticeType, seriesFavoriteKey } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { useOffline } from '../offline.ts';
 import { useAuth } from '../App.tsx';
@@ -13,6 +13,7 @@ import {
   continueSeriesKey,
   ContinueCard,
   CreatorBubble,
+  FavButton,
   MedRow,
   Rail,
   SeriesRow,
@@ -109,12 +110,15 @@ export function MedCard({
 }
 
 /** Type pill (and a video mark) over a cover's corner. Meditation, the default, goes unlabelled. */
-/** How several meditations are meant: in order, or any order. */
+/**
+ * Several meditations together are a pack; a pack meant as a path, a step
+ * at a time, says "In order" instead (internally a 'programme').
+ */
 export type Shape = 'programme' | 'pack' | 'collection';
 export const SHAPE_LABEL: Record<Shape, string> = {
-  programme: 'Programme',
+  programme: 'In order',
   pack: 'Pack',
-  collection: 'Collection',
+  collection: 'Pack',
 };
 
 export function CardBadges({
@@ -169,7 +173,7 @@ export function SeriesCard({
 }: {
   series: Series;
   inCreator?: boolean;
-  /** Programme or collection (an admin's word may differ from the names'). */
+  /** In order or any order (an admin's word may differ from the names'). */
   structure?: 'programme' | 'pack';
 }) {
   const shape: Shape =
@@ -191,6 +195,7 @@ export function SeriesCard({
           <CardProgress done={series.completedCount} total={series.trackCount} />
         )}
       </div>
+      <FavButton id={seriesFavoriteKey(series.creator, series.name)} label={series.name} />
       <div className="t">{inCreator ? displayName(series.name) : series.name}</div>
       <div className="c">
         {level && <span className={`lvl lvl-${level}`}>{LEVEL_SHORT[level]}</span>}
@@ -349,7 +354,13 @@ export function LibraryPage() {
     if (root) out = out.filter((i) => String(i.rootId) === root);
     if (format) out = out.filter((i) => i.formats.includes(format));
     if (withDocs) out = out.filter((i) => i.documentCount > 0);
-    if (onlyFavs) out = out.filter((i) => favorites.has(i.id));
+    // A series starred as a whole brings all its parts (shown as the series).
+    if (onlyFavs)
+      out = out.filter(
+        (i) =>
+          favorites.has(i.id) ||
+          (!!i.collection && favorites.has(seriesFavoriteKey(i.creator, i.collection))),
+      );
     switch (sort) {
       case 'title':
         out = [...out].sort((a, b) => a.title.localeCompare(b.title));

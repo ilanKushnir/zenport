@@ -7,7 +7,7 @@ import type { ContentType, ItemLevel, MeditationSummaryDto } from '@zenport/shar
 import {
   CONTENT_TYPES,
   LEVEL_ORDER,
-  looksSequential,
+  meantInOrder,
   naturalCompare,
   sequenceNumber,
 } from '@zenport/shared';
@@ -178,7 +178,7 @@ export function seriesStructure(
   const set = overrides?.find((o) => o.creator === series.creator && o.collection === series.name);
   if (set) return set.structure;
   if (series.type === 'course') return 'programme';
-  return looksSequential(series.items.map((i) => i.title)) ? 'programme' : 'pack';
+  return meantInOrder(series.items.map((i) => i.title)) ? 'programme' : 'pack';
 }
 
 /** A number a name leads with to say its place: "1. Opening", "6 - Rest" → 1, 6. */

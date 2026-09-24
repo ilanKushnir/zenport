@@ -184,6 +184,14 @@ export async function runScan(
 
   const warnings: string[] = [];
   let ignored = 0;
+  // Sets an admin said are not one series.
+  const notSets = new Set(
+    (
+      db.prepare("SELECT group_key FROM group_dismissals WHERE group_key LIKE 'set:%'").all() as {
+        group_key: string;
+      }[]
+    ).map((r) => r.group_key),
+  );
   const rootResults: { id: number; label: string; ok: boolean; note: string | null }[] = [];
   const seenItems = new Set<string>();
   const seenTracks = new Set<string>();
@@ -244,7 +252,7 @@ export async function runScan(
     excludedByRoot.set(root.id, exclusions);
     folderTrees.set(root.id, buildFolderTree(walk.files, root.label, exclusions));
     const kept = walk.files.filter((f) => !underAny(f.relPath, exclusions));
-    const inferred = inferLibrary(kept);
+    const inferred = inferLibrary(kept, { notSets });
     itemsSoFar += inferred.length;
     for (const it of inferred) creatorsMet.add(it.creator);
     latest = inferred

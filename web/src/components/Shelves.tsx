@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  seriesFavoriteKey,
   formatClock,
   formatDuration,
   isPracticeType,
@@ -284,7 +285,7 @@ export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCrea
         {item.structure && item.structure !== 'single' && isPracticeType(item.type) ? (
           <span className={`med-row-type s-${item.structure}`}>
             <Icon name={item.structure === 'programme' ? 'sprout' : 'grid'} size={13} />
-            <span>{item.structure === 'programme' ? 'Programme' : 'Pack'}</span>
+            <span>{item.structure === 'programme' ? 'In order' : 'Pack'}</span>
           </span>
         ) : (
           <span className={`med-row-type t-${item.type}`}>
@@ -360,20 +361,53 @@ export function SeriesRow({
         )}
       </span>
       <span className="med-row-meta">
-        <span className={`med-row-type ${programme ? 's-programme' : 's-collection'}`}>
-          <Icon name={done ? 'check-circle' : programme ? 'sprout' : 'grid'} size={13} />
-          <span>
-            {done
-              ? 'Done'
-              : series.type === 'course'
-                ? meta.label
-                : programme
-                  ? 'Programme'
-                  : 'Collection'}
+        {isPracticeType(series.type) ? (
+          <span className={`med-row-type ${programme ? 's-programme' : 's-collection'}`}>
+            <Icon name={done ? 'check-circle' : programme ? 'sprout' : 'grid'} size={13} />
+            <span>{done ? 'Done' : programme ? 'In order' : 'Pack'}</span>
           </span>
-        </span>
+        ) : (
+          // A course or a set of talks shows what it is, not a pack's shape.
+          <span className={`med-row-type t-${series.type}`}>
+            <Icon name={done ? 'check-circle' : meta.icon} size={13} />
+            <span>{done ? 'Done' : meta.label}</span>
+          </span>
+        )}
       </span>
-      <Icon name="chevron-right" size={16} />
+      <FavButton
+        id={seriesFavoriteKey(series.creator, series.name)}
+        label={series.name}
+        className="med-row-fav"
+      />
     </Link>
+  );
+}
+
+/** The heart on a card or row: starring must not follow the link it sits in. */
+export function FavButton({
+  id,
+  label,
+  className = '',
+}: {
+  id: string;
+  label: string;
+  className?: string;
+}) {
+  const { isFavorite, toggleFavorite } = usePrefs();
+  const starred = isFavorite(id);
+  return (
+    <button
+      type="button"
+      className={`fav-btn ${className}${starred ? ' on' : ''}`}
+      aria-pressed={starred}
+      aria-label={starred ? `Remove ${label} from favourites` : `Add ${label} to favourites`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void toggleFavorite(id);
+      }}
+    >
+      <Icon name="heart" size={16} />
+    </button>
   );
 }

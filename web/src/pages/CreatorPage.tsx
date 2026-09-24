@@ -1,9 +1,9 @@
 /**
- * A creator, organised the way a programme is walked - not as folders:
+ * A creator, organised the way their work is walked - not as folders:
  *
  * - Your next step: the series you are in, or the first you have not begun,
  *   with Continue.
- * - Series and programmes, easier first, then as numbered (1 before 2), then
+ * - Packs (those meant in order first), easier first, then as numbered, then
  *   by name - each with its level, progress, and Done once every part is.
  * - Each shelf (a folder of several collections, like "Extras") as its own
  *   section.
@@ -60,6 +60,34 @@ const KIND_TITLE: Record<ContentType, string> = {
   soundscape: 'Soundscapes',
 };
 
+/** What the type filter picks by: a pack (in order or not), or a kind of recording. */
+type Kind = 'in-order' | 'pack' | ContentType;
+type KindFilter = 'all' | 'packs' | Kind;
+
+const KIND_CHIP: Record<Exclude<KindFilter, 'all' | 'pack'>, string> = {
+  packs: 'Packs',
+  'in-order': 'In order',
+  meditation: 'Meditations',
+  course: 'Courses',
+  talk: 'Talks',
+  soundscape: 'Soundscapes',
+};
+
+function kindOf(e: Entry): Kind {
+  if (e.kind === 'series') {
+    const t = mainType(e.series.items);
+    if (!isPracticeType(t)) return t;
+    return e.structure === 'programme' ? 'in-order' : 'pack';
+  }
+  const i = e.item;
+  if (isPracticeType(i.type) && i.structure === 'programme') return 'in-order';
+  if (isPracticeType(i.type) && i.structure === 'pack') return 'pack';
+  return i.type;
+}
+
+const matchesKind = (e: Entry, f: KindFilter) =>
+  f === 'all' || (f === 'packs' ? ['in-order', 'pack'].includes(kindOf(e)) : kindOf(e) === f);
+
 /** What most of a series is: a course of courses, a set of meditations. */
 function mainType(items: MeditationSummaryDto[]): ContentType {
   const n = new Map<ContentType, number>();
@@ -78,6 +106,7 @@ export function CreatorPage() {
   const setsHere = (sets.data ?? []).filter((g) => g.creator === creatorName);
   const player = usePlayer();
   const [level, setLevel] = useState<ItemLevel | 'all-levels'>('all-levels');
+  const [kind, setKind] = useState<KindFilter>('all');
   const [starting, setStarting] = useState(false);
   const [mode, setMode] = useViewMode('zp-creator-view');
 
@@ -207,8 +236,22 @@ export function CreatorPage() {
   if (lib.error) return <ErrorNote message={lib.error} onRetry={lib.reload} />;
 
   const progressOf = (e: Entry) => (e.kind === 'series' ? e.series : e.item);
-  const programmeCount = view.programmes.length;
-  const programmesDone = view.programmes.filter((e) => isFinished(progressOf(e))).length;
+  // The type filter: only the kinds this creator has, each with how many.
+  const allEntries = [
+    ...view.programmes,
+    ...view.packs,
+    ...view.shelves.flatMap(([, e]) => e),
+    ...view.byKind.flatMap((g) => g.entries),
+  ];
+  const kindChips = (['all', 'packs', 'in-order', ...KIND_ORDER] as KindFilter[])
+    .map((key) => ({ key, n: allEntries.filter((e) => matchesKind(e, key)).length }))
+    .filter((c) => c.key === 'all' || c.n > 0)
+    // "Packs" and "In order" are the same chip when every pack is in order.
+    .filter((c, _i, all) => c.key !== 'in-order' || c.n !== all.find((x) => x.key === 'packs')?.n);
+  const shownCount = allEntries.filter((e) => matchesKind(e, kind)).length;
+  const allPacks = [...view.programmes, ...view.packs];
+  const packCount = allPacks.length;
+  const packsDone = allPacks.filter((e) => isFinished(progressOf(e))).length;
 
   return (
     <>
@@ -226,8 +269,8 @@ export function CreatorPage() {
             <h1>{creatorName}</h1>
             {creator && (
               <p className="lede">
-                {programmeCount > 0 &&
-                  `${programmeCount} ${programmeCount === 1 ? 'programme' : 'programmes'}${programmesDone ? ` (${programmesDone} done)` : ''} · `}
+                {packCount > 0 &&
+                  `${packCount} ${packCount === 1 ? 'pack' : 'packs'}${packsDone ? ` (${packsDone} done)` : ''} · `}
                 {creator.itemCount} {creator.itemCount === 1 ? 'recording' : 'recordings'}
                 {creator.totalDurationSec ? ` · ${formatDuration(creator.totalDurationSec)}` : ''}
               </p>
@@ -242,7 +285,7 @@ export function CreatorPage() {
         </EmptyState>
       ) : (
         <>
-          {nextInfo && nextItem && level === 'all-levels' && (
+          {nextInfo && nextItem && level === 'all-levels' && kind === 'all' && (
             <section className="cr-next" aria-label="Your next step">
               <div className="cr-next-art">
                 <Cover
@@ -262,7 +305,7 @@ export function CreatorPage() {
                 <p className="sub">
                   {next?.kind === 'series'
                     ? titleInSeries(displayName(nextItem.title), nextInfo.name)
-                    : 'Programme'}
+                    : 'In order'}
                   {nextInfo.level ? ` · ${LEVEL_SHORT[nextInfo.level]}` : ''}
                   {` · ${nextInfo.done} of ${nextInfo.total} done`}
                 </p>
@@ -311,6 +354,21 @@ export function CreatorPage() {
 
           <div className="cr-tools">
             <ViewToggle view={mode} onChange={setMode} />
+            {kindChips.length > 2 && (
+              <div className="chip-row cr-kinds" role="group" aria-label="Type">
+                {kindChips.map((c) => (
+                  <button
+                    key={c.key}
+                    className="chip"
+                    aria-pressed={kind === c.key}
+                    onClick={() => setKind(c.key)}
+                  >
+                    {c.key === 'all' ? 'All' : KIND_CHIP[c.key as keyof typeof KIND_CHIP]}
+                    {c.key !== 'all' && <span className="chip-n">{c.n}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
             {levels.length > 1 && (
               <div className="chip-row cr-levels" role="group" aria-label="Level">
                 <button
@@ -335,26 +393,29 @@ export function CreatorPage() {
           </div>
 
           <EntrySection
-            title="Programmes"
-            note="Step by step, easier first"
-            entries={view.programmes}
-            mode={mode}
-          />
-          <EntrySection
-            title="Packs and collections"
-            note="Any order"
-            entries={view.packs}
+            title="Packs"
+            note={
+              view.programmes.length > 0 && view.packs.length > 0
+                ? 'Those meant in order first'
+                : undefined
+            }
+            entries={[...view.programmes, ...view.packs].filter((e) => matchesKind(e, kind))}
             mode={mode}
           />
           {view.shelves.map(([name, entries]) => (
-            <EntrySection key={name} title={displayName(name)} entries={entries} mode={mode} />
+            <EntrySection
+              key={name}
+              title={displayName(name)}
+              entries={entries.filter((e) => matchesKind(e, kind))}
+              mode={mode}
+            />
           ))}
           {view.byKind.map((g) => (
             <EntrySection
               key={g.kind}
               title={KIND_TITLE[g.kind]}
               icon={TYPE_META[g.kind].icon}
-              entries={g.entries}
+              entries={g.entries.filter((e) => matchesKind(e, kind))}
               mode={mode}
             />
           ))}
@@ -365,6 +426,13 @@ export function CreatorPage() {
             view.byKind.length === 0 && (
               <EmptyState title="Nothing at this level">Choose another level above.</EmptyState>
             )}
+          {kind !== 'all' && shownCount === 0 && (
+            <EmptyState title="Nothing of this kind here">
+              <button className="linkish" onClick={() => setKind('all')}>
+                Show everything
+              </button>
+            </EmptyState>
+          )}
         </>
       )}
     </>

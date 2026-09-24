@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { dismissGroup, findGroups } from '../../library/groups.js';
+import { setKey } from '../../library/infer.js';
 import type { AppContext } from '../../context.js';
 import { freshSince, itemDetail, libraryDto } from '../../library/queries.js';
 import {
@@ -111,6 +112,49 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
     if (needsScan) await rescan();
     return { ok: true };
+  });
+
+  // "Not one series": take a series of recordings apart again - one ZenPort
+  // made from their names (remembered, so it is not made again) or one an
+  // admin made (their grouping undone).
+  app.post('/api/admin/series/split', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const body = z
+      .object({ creator: z.string().min(1).max(300), series: z.string().min(1).max(300) })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Which series?' });
+    const rows = db
+      .prepare(
+        `SELECT id, item_key, COALESCE(inferred_creator, creator) AS creator FROM items
+         WHERE creator = ? AND collection = ? AND missing = 0`,
+      )
+      .all(body.data.creator, body.data.series) as {
+      id: string;
+      item_key: string;
+      creator: string;
+    }[];
+    if (rows.length === 0) return reply.code(404).send({ error: 'No such series.' });
+    const now = new Date().toISOString();
+    db.exec('BEGIN');
+    try {
+      for (const r of rows) {
+        const parent = r.item_key.includes('/')
+          ? r.item_key.slice(0, r.item_key.lastIndexOf('/'))
+          : '';
+        db.prepare(
+          'INSERT INTO group_dismissals (group_key, dismissed_at) VALUES (?, ?) ON CONFLICT DO NOTHING',
+        ).run(setKey(r.creator, parent, body.data.series), now);
+        db.prepare(
+          'UPDATE item_edits SET collection = NULL, collection_set = 0 WHERE item_id = ? AND collection_set = 1',
+        ).run(r.id);
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    await rescan();
+    return { ok: true, items: rows.length };
   });
 
   app.post('/api/admin/groups/dismiss', async (req, reply) => {

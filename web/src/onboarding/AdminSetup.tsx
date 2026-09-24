@@ -539,7 +539,7 @@ export function ScanStep() {
           ))}
           {programmes > 0 && (
             <li style={{ animationDelay: `${300 + kinds.length * 120}ms` }}>
-              <Icon name="sprout" size={14} /> <Count value={programmes} /> programmes
+              <Icon name="sprout" size={14} /> <Count value={programmes} /> in order
             </li>
           )}
         </ul>
@@ -597,8 +597,8 @@ const STEPS: {
   {
     key: 'levels',
     icon: 'gauge',
-    title: 'Levels and programmes',
-    what: 'Who each recording suits, and which are step-by-step programmes - so each creator reads in order.',
+    title: 'Levels',
+    what: 'Who each recording suits - beginner to advanced - so each creator reads easier first.',
   },
   {
     key: 'pictures',

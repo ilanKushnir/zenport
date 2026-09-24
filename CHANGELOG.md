@@ -5,6 +5,29 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-09-25
+
+### Changed
+
+- **One word, and one rule: packs.** "Programme", "pack" and "collection" were three names for two ideas, decided two ways (by the names, and by the AI) that often disagreed. The same kind of recording could show as either.
+  - **The word:** anything made of several meditations is now a **pack**. A pack meant as a path, a step at a time, carries an **In order** tag, and "Your next step" follows those. Every other pack is for choosing from.
+  - **The rule:** only the names decide, so like always reads like. A pack is in order when its parts name steps: Day 3, Week 2, Session 1, Lesson 4, Part 1 Day 3, Wave III, Exploring #4, or a run of raw consecutively numbered files. Catalogue numbers and volumes ("Energy Circles 01…11", "Vol. 1…5"), track numbers and different meditations (morning and evening) are any order.
+  - **One meditation:** an introduction and a meditation, or one meditation in versions, is one meditation, with no pack badge at all.
+  - **The AI no longer judges this.** Its earlier guesses are cleared, which also makes the levels requests smaller. You can still set In order or Any order on any pack's page.
+- On a creator's page, the separate "Programmes" and "Packs and collections" sections are now one **Packs** section, those meant in order first. The count reads "14 packs".
+- **Filter a creator's page by type:** All, Packs, In order, Meditations, Courses, Talks, Soundscapes. It shows only the types that creator has, each with its count, and combines with the level filter.
+- **Your filing decides a recording's type first.** A folder named for a kind (Courses, Meditations, Livestreams, Talks, or numbered like "2. Courses") now wins over words in a recording's own name. "Livestream Extract" recordings filed under Meditations are meditations.
+- **Sets sharing a lead name become one series, like numbered sets:** "Generating Change", "Generating Flow", "Generating Joy" (three or more, with a lead that says something). If a set ZenPort made is not one series, an admin can take it apart from the series' page, and it is not made again.
+- **Where you are on a long page:** once a section's heading scrolls away, its name floats in a small pill under the top bar. It changes as you pass each section, and tapping it goes back to the section's start.
+
+### Added
+
+- **Favourite a whole series** from its card, row or page. Favourite series appear with your favourites on Today and in the Library.
+
+### Fixed
+
+- A course of several modules in the list view showed the in-order sprout. It now shows the course's own icon, as on its card.
+
 ## [0.35.2] — 2026-09-25
 
 ### Fixed

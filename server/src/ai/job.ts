@@ -1,6 +1,6 @@
 /**
  * Enhance the library in one go - what onboarding offers, and Admin can
- * start again: levels and programmes, creator pictures, suggested fixes,
+ * start again: levels, creator pictures, suggested fixes,
  * descriptions. Runs on the server, a step at a time, so it carries on while
  * the admin finishes onboarding or closes the page; the page reads how far
  * it has got. It waits for a scan under way to finish first.
@@ -118,7 +118,7 @@ const present = (ctx: EnhanceCtx, userId: number) =>
 
 const STEPS: Record<EnhanceStepKey, Step> = {
   async levels(ctx, userId, _req, step, found) {
-    // Only what has no level yet (or no programme/pack call): settled work is not paid for twice.
+    // Only what has no level yet: settled work is not paid for twice.
     const todo = levelCandidates(ctx.db, ctx.config, userId).length;
     const batches = Math.ceil(todo / LEVEL_BATCH);
     step.total = batches;
@@ -131,16 +131,14 @@ const STEPS: Record<EnhanceStepKey, Step> = {
       // A few of what it just decided, for the live feed.
       const rows = ctx.db
         .prepare(
-          `SELECT i.title, i.collection, l.level, s.structure FROM item_levels l
+          `SELECT i.title, i.collection, l.level FROM item_levels l
            JOIN items i ON i.id = l.item_id
-           LEFT JOIN item_structures s ON s.item_id = l.item_id
            WHERE l.source = 'ai' AND l.updated_at >= ? ORDER BY RANDOM() LIMIT 6`,
         )
         .all(since) as {
         title: string;
         collection: string | null;
         level: string;
-        structure: string | null;
       }[];
       for (const row of rows) {
         found(
@@ -148,7 +146,7 @@ const STEPS: Record<EnhanceStepKey, Step> = {
             row.collection ? `${row.collection.split(' / ').pop()} · ${row.title}` : row.title,
             70,
           ),
-          `${LEVEL_WORD[row.level] ?? row.level}${row.structure === 'programme' ? ' · a programme' : row.structure === 'pack' ? ' · a pack' : ''}`,
+          LEVEL_WORD[row.level] ?? row.level,
         );
       }
     }

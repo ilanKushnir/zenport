@@ -843,6 +843,11 @@ export const MIGRATIONS: string[] = [
     dismissed_at TEXT NOT NULL
   );
   `,
+  // v29: whether a pack is meant in order is read from its names (or set by
+  // an admin) - no longer the AI's guess, which read like things unalike.
+  `
+  DELETE FROM item_structures WHERE source = 'ai';
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

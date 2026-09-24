@@ -3094,7 +3094,7 @@ describe('Recordings that belong together', () => {
     await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
     expect((await lib()).find((i) => i.id === vol3.id)!.collection).toBeNull();
 
-    // A third "Open Sky - To …" makes a set by name; "Not together" is remembered.
+    // A third "Open Sky - To …" makes a set by its shared lead - grouped too.
     mkdirSync(path.join(libRoot, 'Mira Solen/Meditations/Open Sky - To Calm (2022)'), {
       recursive: true,
     });
@@ -3103,16 +3103,18 @@ describe('Recordings that belong together', () => {
       'x'.repeat(300),
     );
     await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
-    const named = await groups();
-    expect(named.map((g) => [g.name, g.why, g.items.length])).toEqual([
-      ['Open Sky', 'shared-name', 3],
-    ]);
-    await app.inject({
+    expect((await lib()).filter((i) => i.collection === 'Open Sky')).toHaveLength(3);
+
+    // "Not one series": apart again, and it stays apart on the next read.
+    const split = await app.inject({
       method: 'POST',
-      url: '/api/admin/groups/dismiss',
+      url: '/api/admin/series/split',
       headers: auth(),
-      payload: { key: named[0]!.key },
+      payload: { creator: 'Mira Solen', series: 'Open Sky' },
     });
+    expect(split.statusCode).toBe(200);
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    expect((await lib()).filter((i) => i.collection === 'Open Sky')).toHaveLength(0);
     expect(await groups()).toEqual([]);
   });
 });

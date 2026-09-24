@@ -30,3 +30,24 @@ describe('recordings that belong together, by name', () => {
     expect(sharedStem('Evening Light')).toBeNull();
   });
 });
+
+describe('a shared lead', () => {
+  it('names a set of three or more, a few words each past it', async () => {
+    const { sharedLeads } = await import('./setNames.js');
+    const leads = sharedLeads([
+      'Radiating Calm (2021)',
+      'Radiating Joy (2021)',
+      'Radiating Kindness (2021)',
+      'The Quiet Walk',
+      'The Long Night',
+      'The Open Door',
+    ]);
+    expect([...leads.values()]).toEqual(['Radiating', 'Radiating', 'Radiating']);
+  });
+
+  it('never from filler or a lone short word', async () => {
+    const { sharedLeads } = await import('./setNames.js');
+    expect(sharedLeads(['Love Your Body', 'Love Heals', 'Love the Rain']).size).toBe(0);
+    expect(sharedLeads(['Radiating Calm', 'Radiating Joy']).size).toBe(0);
+  });
+});

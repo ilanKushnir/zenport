@@ -90,3 +90,23 @@ describe('inferTrackRole', () => {
     expect(inferTrackRole('Inner Sight S1E2 Chapter 2')).toBe('lesson');
   });
 });
+
+describe('the owner’s filing comes first', () => {
+  const guess = (p: string, tracks = ['a.mp3']) =>
+    inferContentType({
+      breadcrumbs: p.split('/'),
+      tracks: tracks.map((n) => ({ name: n, ext: n.split('.').pop()! })),
+    });
+
+  it('a folder named for a kind wins over words in the recording’s own name', () => {
+    expect(guess('Mira Solen/Meditations/Open Heart (Livestream Extract)').type).toBe('meditation');
+    expect(guess('Mira Solen/Courses/Week 1', ['Meditation.mp3']).type).toBe('course');
+    expect(guess('Mira Solen/2. Courses/Open Heart').type).toBe('course');
+    expect(guess('Mira Solen/Livestreams/Evening Gathering.mp4', ['x.mp4']).type).toBe('talk');
+  });
+
+  it('a folder that only mentions a kind is still just a name', () => {
+    expect(guess('Mira Solen/Talks and Meditations/Rest').type).toBe('talk');
+    expect(guess('Mira Solen/Evening Lecture').type).toBe('talk');
+  });
+});

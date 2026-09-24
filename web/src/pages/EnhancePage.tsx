@@ -920,7 +920,7 @@ function LevelsTab({
   const [show, setShow] = useState<'unset' | 'ai' | 'all'>('all');
   const [q, setQ] = useState('');
   const stop = useRef(false);
-  // Only what has no level yet (or no programme/pack call) is sent.
+  // Only what has no level yet is sent.
   const batches = status?.levelBatches ?? 0;
   const present = items.filter((i) => !i.missing);
 

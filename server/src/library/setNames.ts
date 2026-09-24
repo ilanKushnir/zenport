@@ -45,3 +45,57 @@ export function sharedStem(title: string): string | null {
   const m = /^(.{6,}?)\s+[-–—]\s+\S/.exec(t);
   return m ? m[1]!.trim() : null;
 }
+
+/** Words too common to make a set's name on their own. */
+const FILLER = new Set(
+  'the a an my your our his her their this that of in on for to and with from by love light life meditation meditations guided walking morning evening deep new'.split(
+    ' ',
+  ),
+);
+
+const words = (s: string) => s.split(/\s+/).filter(Boolean);
+const normWord = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * Siblings that share a lead name - "Generating Change", "Generating Flow",
+ * "Generating Joy"; "Open Sky - To Rest", "Open Sky - To Joy" - grouped by
+ * that name. A set needs three or more, a lead that says something (not
+ * "The" or "Love" alone; at least 7 letters), and each title only a few
+ * words past it: the lead names the set, the rest names the one.
+ * Returns the lead for each title in a set (by index).
+ */
+export function sharedLeads(titles: string[]): Map<number, string> {
+  const plain = titles.map((t) => plainTitle(t));
+  const toks = plain.map((t) => words(t.replace(/\s+[-–—:]\s+/g, ' ')));
+  // How many titles begin with each run of words.
+  const counts = new Map<string, number>();
+  toks.forEach((ws) => {
+    for (let n = 1; n <= ws.length; n++) {
+      const key = ws.slice(0, n).map(normWord).join(' ');
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  });
+  const out = new Map<number, string>();
+  toks.forEach((ws, i) => {
+    // The longest lead three or more share.
+    for (let n = ws.length; n >= 1; n--) {
+      // A lead never ends on a joining word ("Open Sky - To …" is "Open Sky").
+      let m = n;
+      while (m > 1 && FILLER.has(normWord(ws[m - 1]!))) m--;
+      const lead = ws.slice(0, m);
+      const key = lead.map(normWord).join(' ');
+      if ((counts.get(key) ?? 0) < 3) continue;
+      const letters = key.replace(/\s/g, '').length;
+      if (lead.every((w) => FILLER.has(normWord(w))) || letters < 7) break;
+      if (ws.length - m > 5) break;
+      // Keep the lead as the first title wrote it, dash and all trimmed.
+      out.set(i, plain[i]!.slice(0, plain[i]!.indexOf(lead.at(-1)!) + lead.at(-1)!.length).trim());
+      break;
+    }
+  });
+  // Only leads that still gather three (a longer title's lead can differ).
+  const size = new Map<string, number>();
+  for (const l of out.values()) size.set(l.toLowerCase(), (size.get(l.toLowerCase()) ?? 0) + 1);
+  for (const [i, l] of out) if ((size.get(l.toLowerCase()) ?? 0) < 3) out.delete(i);
+  return out;
+}

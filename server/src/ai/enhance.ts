@@ -780,16 +780,10 @@ const LEVEL_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['handle', 'level', 'structure', 'reason'],
+        required: ['handle', 'level', 'reason'],
         properties: {
           handle: { type: 'string' },
           level: { type: 'string', enum: ['beginner', 'intermediate', 'advanced', 'all'] },
-          structure: {
-            type: 'string',
-            enum: ['programme', 'pack', 'single'],
-            description:
-              'For an item of several parts: programme if meant in order, pack if any order; single for one part.',
-          },
           reason: { type: 'string', description: 'A few words: why this level.' },
         },
       },
@@ -800,20 +794,13 @@ const LEVEL_SCHEMA = {
 const LEVEL_SYSTEM = [
   'You judge the level of each recording in a personal library of meditations, courses and',
   'talks: who it suits.',
-  '- beginner: introductions, foundations, basics, the first programmes of a sequence, short',
+  '- beginner: introductions, foundations, basics, the first parts of a sequence, short',
   '  and fully guided practices for someone new.',
-  '- intermediate: builds on the basics - later programmes of a sequence, longer or less guided',
+  '- intermediate: builds on the basics - later parts of a sequence, longer or less guided',
   '  sits, deeper themes.',
   '- advanced: long, lightly guided or unguided, retreat or workshop level, techniques that',
   '  assume practice; anything the names call advanced.',
   '- all: suits anyone equally - soundscapes, music, sleep sounds, short talks or tips.',
-  '',
-  'Also say how an item of several parts is meant: a programme (in order, each part building',
-  'on the last - days, parts, weeks, a numbered path) or a pack (a set of meditations to choose',
-  'from in any order). Single is one meditation however many files it has: one part; an',
-  'introduction (or an explanation) and one meditation; or one meditation in versions - lying',
-  'down and walking, live, with music, or its breath, its meditation and the two combined.',
-  'Answer structure for every handle, fixed or not.',
   '',
   'Keep the parts of one series at one level unless they clearly progress; in a numbered',
   'sequence the earlier ones are easier. Use what you know of these teachers and works where',
@@ -821,8 +808,7 @@ const LEVEL_SYSTEM = [
 ].join('\n');
 
 /**
- * What still wants the AI's reading: no level from anywhere yet, or several
- * parts and nobody has said whether they are a programme or a pack. What is
+ * What still wants the AI's reading: no level from anywhere yet. What is
  * settled is never sent again - a run over a read library costs nothing.
  */
 export function levelCandidates(db: Db, config: Config, userId: number) {
@@ -836,8 +822,8 @@ export function levelCandidates(db: Db, config: Config, userId: number) {
   );
   return libraryItems(db, config, userId).filter(
     (i) =>
-      // No level, or a programme/pack guessed only from the names...
-      (!i.levelSource || i.structureSource === 'name') &&
+      // No level yet...
+      !i.levelSource &&
       // ...and not already read by the AI as it is now.
       seen.get(i.id) !== levelPrint(i),
   );
@@ -890,24 +876,12 @@ export async function runLevels(
     schemaName: 'zenport_levels',
     light: true,
     schema: LEVEL_SCHEMA as unknown as Record<string, unknown>,
-  })) as { items?: { handle: string; level: string; structure?: string; reason: string }[] };
+  })) as { items?: { handle: string; level: string; reason: string }[] };
   const now = new Date().toISOString();
   let found = 0;
   for (const r of raw.items ?? []) {
     const item = handles.get(r.handle);
     if (!item) continue;
-    // Programme or pack, for several parts - never over an admin's word.
-    if (item.trackCount > 1 && (r.structure === 'programme' || r.structure === 'pack')) {
-      ctx.db
-        .prepare(
-          `INSERT INTO item_structures (item_id, structure, source, updated_at)
-           VALUES (?, ?, 'ai', ?)
-           ON CONFLICT(item_id) DO UPDATE SET structure = excluded.structure,
-             updated_at = excluded.updated_at
-           WHERE item_structures.source != 'manual'`,
-        )
-        .run(item.id, r.structure, now);
-    }
     if (item.levelSource === 'manual' || item.levelSource === 'name') continue;
     if (!['beginner', 'intermediate', 'advanced', 'all'].includes(r.level)) continue;
     ctx.db

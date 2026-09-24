@@ -62,10 +62,11 @@ Every item is one of four types, shown on its card and page and used by the Libr
 | **Course**     | Lessons worked through in order, video or audio | Learning  |
 | **Talk**       | A single lecture, livestream, workshop or Q&A   | Learning  |
 
-The scanner guesses (`server/src/library/contentType.ts`) from two kinds of evidence, in order:
+The scanner guesses (`server/src/library/contentType.ts`) from three kinds of evidence, in order:
 
-1. **Names, nearest first.** Walking up from the item, the first folder or file whose name says what it is wins: _Courses, Lessons, Class_ → course; _Livestreams, Lecture, Talk, Q&A, Webinar_ → talk; _Sound bath, Music, Ambient_ → soundscape; _Meditations, Guided_ → meditation. Hebrew equivalents are recognised too. Nearest first, so `Courses/<course>/Week 1/Meditation.mp3` is a course and `Meditations/<album> Workshop Meditations` is a meditation.
-2. **The files.** A run of episode-numbered videos (`S1E1`, `Session 2`, `Part 3`…) is a course; one or two videos are a talk; audio is a meditation.
+1. **Your filing.** A folder above the item whose whole name is a kind (_Courses, Meditations, Livestreams, Talks, Soundscapes_, or numbered, like _2. Courses_) is where you put it, and that wins: `Meditations/Open Heart (Livestream Extract)` is a meditation, and `Courses/<course>/Week 1/Meditation.mp3` is a course. The nearest such folder decides.
+2. **Names, nearest first.** Otherwise, walking up from the item, the first folder or file whose name mentions what it is wins: _Lessons, Class, Masterclass_ → course; _Livestream, Lecture, Talk, Q&A, Webinar_ → talk; _Sound bath, Music, Ambient_ → soundscape; _Meditation, Guided_ → meditation. Hebrew equivalents are recognised too.
+3. **The files.** A run of episode-numbered videos (`S1E1`, `Session 2`, `Part 3`…) is a course; one or two videos are a talk; audio is a meditation.
 
 The owner can correct any item - or a whole series - from its page. A correction is stored apart from the guess (`item_types`), so a rescan never undoes it; "Let ZenPort decide" removes it.
 
@@ -73,25 +74,28 @@ The owner can correct any item - or a whole series - from its page. A correction
 
 **Video.** `mp4`, `m4v`, `webm` and `mov` play as video in the player (with full screen and picture-in-picture); audio always plays through an audio element so it keeps going with the screen locked. `mpg` and `flv` are not playable in a browser and are skipped.
 
-## Programmes, packs and levels
+## Packs, in order or any order, and levels
 
-A recording of several parts is one of two things, and a series of several recordings too:
+Several meditations together are a **pack**. That covers a recording of several parts, and a series of several recordings. Some packs are meant **in order**, a path taken a step at a time. The rest are a set to choose from in any order (`shared/src/structure.ts`, `meantInOrder`):
 
-- **Programme** - meant in order, each part building on the last. The parts' names carry their place: _Day 1…10, Part 1…4, Week 2, Wave III, 6 - Rest_, or a run of consecutive numbers (`shared/src/structure.ts`).
-- **Pack** (a **collection**, for a series) - a set to choose from in any order.
+- **In order**: most parts' names name a step, and the steps differ. For example _Day 1…10, Week 2, Session 3, Lesson 4, Part 1 Day 3, Wave III, S1E2, Exploring #4_, or a run of raw, consecutively numbered files (_audio-2248, audio-2249…_).
+- **Any order**: everything else. That includes catalogue numbers and volumes (_Energy Circles 01…11, Vol. 1…5_), track numbers (_1. Friday Morning, 2. Saturday Healing_), and different meditations (_Morning, Evening_).
 
-Parts that frame the practice rather than being one - an introduction, instructions, an explanation ("… explains …"), a welcome, a close - do not count: an introduction and one meditation is one meditation. So does a short first part (at most 8 minutes, and at most 15% of the longest) before one long one, whatever it is called. One meditation **in versions** is one meditation too: lying down and walking, a live or music version, _Version 1 / Version 2_, or its breath, its meditation and the two combined. Different meditations (morning and evening, day and night) stay a pack. These rules come before the AI's reading; only an admin's choice overrules them. The AI can say otherwise (Enhance the library → Levels, which judges structure in the same pass), and an admin has the last word on a recording's page or a series' page.
+Parts that frame the practice rather than being one do not count, so an introduction and one meditation is **one meditation**, not a pack. Framing parts are an introduction, instructions, an explanation ("… explains …"), a welcome or a close. A short first part (at most 8 minutes, and at most 15% of the longest) before one long one counts as framing, whatever it is called. One meditation **in versions** is one meditation too: lying down and walking, a live or music version, _Version 1 / Version 2_, or its breath, its meditation and the two combined.
+
+Only the names decide, so the same kind of recording always reads the same way. The AI does not; its earlier guesses were cleared (migration v29). An admin can say otherwise on a recording's or a series' page (_In order_ / _Any order_). On a creator's page, packs are listed together, the ones meant in order first; "Your next step" follows those.
 
 Every recording also has a **level** - beginner, intermediate, advanced or every level (`server/src/library/levels.ts`). The strongest word wins: an admin's choice; then the name, which often says it outright (_(ADV)_, _Advanced_, _Basics_, _Beginners_, _Level 2_); then approved web research; then the AI's reading. A series' level is where it starts - its first part's.
 
-A creator's page is walked in that light: the next step (the programme under way, else the first not begun), then programmes easier first and as numbered (_Series 1_ before _Series 2_), then packs and collections, then each shelf (a folder of several collections), then single recordings by kind.
+A creator's page is walked in that light: the next step (the pack in order under way, else the first not begun), then packs (in order first, easier first, as numbered - _Series 1_ before _Series 2_), then each shelf (a folder of several series), then single recordings by kind (series of courses or talks with their kind).
 
 ### Recordings that belong together
 
 Each folder with audio is its own recording, so a set filed as sibling folders reads as separate recordings with no series. Only the names say they belong together.
 
 - **Numbered sets become a series as they are read** (`groupNumberedSets` in `server/src/library/infer.ts`). Two or more sibling folders of one creator share a name before a set number that differs between them: _Calm Harbour - Vol. 1_ to _Vol. 5_, _Quiet Walk 01…13_, _Open Sky Volume 1, 2_. They become one series of that name, in numbered order. A bare number needs a name of two words or more, so _Take 10_ is a title, not the tenth of a set. Recordings already in a series from their folders are left alone. An admin's series (or no series) set in Review always wins, on every later scan.
-- **Sets that only share a name are offered**, not assumed: three or more like _Open Sky - To Rest_ and _Open Sky - To Joy_. They appear in Review the library → **Belong together**, and a note on the creator's page points the admin there. **Group as one series** gives them a series named as you like; **Not together** is remembered (`server/src/library/groups.ts`).
+- **Sets sharing a lead name become a series too** (`sharedLeads` in `server/src/library/setNames.ts`): three or more siblings like _Generating Change_, _Generating Flow_, _Generating Joy_, or _Open Sky - To Rest_, _… - To Joy_. The lead must say something: at least 7 letters, not filler like _The_ or _Love_ alone. Each title can be only a few words past it, and a joining word at its end is dropped (_Open Sky - To_ is _Open Sky_).
+- **Not one series:** on a series' page, an admin can take it apart. A set ZenPort made is remembered and not made again; a grouping the admin made is undone. Anything the rules leave out can still be offered in Review the library → **Belong together** (`server/src/library/groups.ts`).
 
 Nothing in the folders changes either way.
 

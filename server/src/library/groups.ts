@@ -18,6 +18,7 @@ import {
 } from '@zenport/shared';
 import type { Config } from '../config.js';
 import type { Db } from '../db/index.js';
+import { setKey } from './infer.js';
 import { libraryDto } from './queries.js';
 import { numberedStem, plainTitle, sharedStem } from './setNames.js';
 
@@ -69,7 +70,9 @@ export function findGroups(db: Db, config: Config, userId: number): GroupSuggest
       const ids = members.map((m) => m.item.id);
       const key = keyOf(creator, folder, stem, ids);
       for (const id of ids) taken.add(id);
-      if (dismissed.has(key)) return;
+      // Not together (here), or not one series (on the series' page).
+      if (dismissed.has(key) || dismissed.has(setKey(creator, folder.replace(/^-?\d+:/, ''), stem)))
+        return;
       out.push({
         key,
         creator,

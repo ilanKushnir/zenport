@@ -232,7 +232,7 @@ function EditSourceSheet({
           <input id="es-creator" value={creator} onChange={(e) => setCreator(e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor="es-col">Collection</label>
+          <label htmlFor="es-col">Series</label>
           <input id="es-col" value={collection} onChange={(e) => setCollection(e.target.value)} />
         </div>
       </div>
@@ -442,7 +442,7 @@ function AddSourceSheet({
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="ys-col">Collection (optional)</label>
+                  <label htmlFor="ys-col">Series (optional)</label>
                   <input
                     id="ys-col"
                     value={collection}

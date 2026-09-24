@@ -1,17 +1,18 @@
 /**
- * A series: a course in parts, a meditation programme, a set of talks - the
+ * A series: a course in parts, a pack of meditations, a set of talks - the
  * items that share a creator and a collection, shown as one thing with one
  * progress and one "continue".
  */
-import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ContentType, LibraryDto, MeditationDetailDto } from '@zenport/shared';
-import { formatDuration, naturalCompare } from '@zenport/shared';
+import { seriesFavoriteKey, formatDuration, naturalCompare } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { Cover, ErrorNote, Icon } from '../components/ui.tsx';
+import { FavButton } from '../components/Shelves.tsx';
 import {
   displayName,
   groupSeries,
@@ -36,6 +37,29 @@ export function SeriesPage() {
   const { user } = useAuth();
   const [picking, setPicking] = useState(false);
   const [starting, setStarting] = useState(false);
+  const navigate = useNavigate();
+  // "Not one series": a second tap confirms, within a few seconds.
+  const [splitArmed, setSplitArmed] = useState(false);
+  const [splitting, setSplitting] = useState(false);
+  useEffect(() => {
+    if (!splitArmed) return;
+    const t = window.setTimeout(() => setSplitArmed(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [splitArmed]);
+  const split = async () => {
+    if (!splitArmed) {
+      setSplitArmed(true);
+      return;
+    }
+    setSplitting(true);
+    try {
+      await api.post('/api/admin/series/split', { creator, series: name });
+      navigate(`/creators/${encodeURIComponent(creator)}`);
+    } catch {
+      setSplitting(false);
+      setSplitArmed(false);
+    }
+  };
 
   const series = useMemo(() => {
     const items = (lib.data?.items ?? []).filter(
@@ -116,15 +140,22 @@ export function SeriesPage() {
             {type === 'course'
               ? 'Course'
               : structure === 'programme'
-                ? `${meta.label} programme · in order`
-                : `${meta.label} collection · any order`}
+                ? `${meta.label} pack · in order`
+                : `${meta.label} pack · any order`}
             {series.hasVideo && (
               <span className="eyebrow-video">
                 <Icon name="video" size={14} /> Video
               </span>
             )}
           </p>
-          <h1 className="detail-title">{displayName(name)}</h1>
+          <div className="detail-title-row">
+            <h1 className="detail-title">{displayName(name)}</h1>
+            <FavButton
+              id={seriesFavoriteKey(creator, name)}
+              label={displayName(name)}
+              className="detail-fav"
+            />
+          </div>
           <p className="detail-facts">
             {level && (
               <span>
@@ -174,7 +205,7 @@ export function SeriesPage() {
             )}
             {user?.role === 'admin' && type !== 'course' && (
               <label className="series-level">
-                <span className="visually-hidden">Programme or collection</span>
+                <span className="visually-hidden">In order or any order</span>
                 <select
                   value={
                     lib.data?.seriesStructures?.some(
@@ -189,10 +220,12 @@ export function SeriesPage() {
                   title="In order, or any order"
                 >
                   <option value="">
-                    {structure === 'programme' ? 'Programme (auto)' : 'Collection (auto)'}
+                    {structure === 'programme'
+                      ? 'In order (from the names)'
+                      : 'Any order (from the names)'}
                   </option>
-                  <option value="programme">Programme - in order</option>
-                  <option value="pack">Collection - any order</option>
+                  <option value="programme">In order - a step at a time</option>
+                  <option value="pack">Any order - pick what you like</option>
                 </select>
               </label>
             )}
@@ -213,6 +246,21 @@ export function SeriesPage() {
                   <option value="all">All levels</option>
                 </select>
               </label>
+            )}
+            {user?.role === 'admin' && (
+              <button
+                className={`btn ${splitArmed ? 'btn-danger' : 'btn-ghost'}`}
+                onClick={() => void split()}
+                disabled={splitting}
+                title="These recordings are not one series - show them apart again"
+              >
+                <Icon name="grid" size={16} />
+                {splitting
+                  ? 'Taking apart…'
+                  : splitArmed
+                    ? 'Tap again to take apart'
+                    : 'Not one series'}
+              </button>
             )}
           </div>
         </div>
