@@ -15,7 +15,7 @@
  * Missed days are information, not debt: nothing here is red, and "Done
  * anyway" is always on offer.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type {
   LibraryDto,
@@ -872,7 +872,7 @@ function PlanSheet({
   const lengthWeeks = endDate ? Math.round((dayDiff(endDate, startDate) + 1) / 7) : null;
   const lengthValue = !endDate
     ? 'Open-ended'
-    : `${lengthWeeks && lengthWeeks >= 1 ? `${lengthWeeks} week${lengthWeeks === 1 ? '' : 's'}` : `${dayDiff(endDate, startDate) + 1} days`} · until ${fmtDay(endDate)}`;
+    : `${lengthWeeks && lengthWeeks >= 1 ? `${lengthWeeks} week${lengthWeeks === 1 ? '' : 's'}` : `${dayDiff(endDate, startDate) + 1} days`} · to ${new Date(`${endDate}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
   const chosen = meds
     .map((id) => items.find((i) => i.id === id))
     .filter((i): i is MeditationSummaryDto => !!i);
@@ -909,21 +909,21 @@ function PlanSheet({
       </div>
 
       <div className="plan-title">
-        <input
+        <AutoText
           id="pl-name"
           className="plan-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={setName}
           placeholder={learning ? 'Name this study plan' : 'Name this plan'}
-          aria-label="Name"
+          label="Name"
         />
-        <input
+        <AutoText
           id="pl-int"
           className="plan-intention"
           value={intention}
-          onChange={(e) => setIntention(e.target.value)}
+          onChange={setIntention}
           placeholder="An intention, shown while you practise (optional)"
-          aria-label="Intention"
+          label="Intention"
         />
       </div>
 
@@ -1133,7 +1133,7 @@ function PlanSheet({
               ? learning
                 ? 'Choose'
                 : 'Any - just the habit'
-              : `${chosen.length} chosen`
+              : String(chosen.length)
           }
           preview={
             chosen.length > 0 ? (
@@ -1272,6 +1272,50 @@ function PlanSheet({
         </div>
       )}
     </Sheet>
+  );
+}
+
+/** A one-line field that wraps and grows instead of cutting long text off. */
+function AutoText({
+  id,
+  className,
+  value,
+  onChange,
+  placeholder,
+  label,
+}: {
+  id: string;
+  className: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  label: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      id={id}
+      ref={ref}
+      rows={1}
+      className={className}
+      value={value}
+      placeholder={placeholder}
+      aria-label={label}
+      // A name is one line: Return finishes it rather than breaking it.
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      onChange={(e) => onChange(e.target.value.replace(/\n/g, ' '))}
+    />
   );
 }
 

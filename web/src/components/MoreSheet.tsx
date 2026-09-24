@@ -8,7 +8,6 @@
  */
 import { NavLink } from 'react-router-dom';
 import { Icon, Sheet } from './ui.tsx';
-import { VersionRow } from '../whatsnew/WhatsNew.tsx';
 import { useAuth } from '../App.tsx';
 import { useInbox } from '../social.tsx';
 
@@ -20,16 +19,16 @@ export const MORE_LINKS: {
   admin?: boolean;
 }[] = [
   { to: '/friends', label: 'Friends', icon: 'friends', hint: 'Practise together' },
-  { to: '/journal', label: 'Journal', icon: 'journal', hint: 'Reflections after each sit' },
-  { to: '/stats', label: 'Practice', icon: 'stats', hint: 'Streaks, minutes, patterns' },
-  { to: '/settings', label: 'Settings', icon: 'settings', hint: 'Account, look and sound' },
-  { to: '/integrations', label: 'Integrations', icon: 'plug', hint: 'Calendars and exports' },
+  { to: '/journal', label: 'Journal', icon: 'journal', hint: 'After each sit' },
+  { to: '/stats', label: 'Practice', icon: 'stats', hint: 'Streaks and minutes' },
+  { to: '/settings', label: 'Settings', icon: 'settings', hint: 'You, look, sound' },
+  { to: '/integrations', label: 'Integrations', icon: 'plug', hint: 'Calendars, exports' },
   { to: '/people', label: 'People', icon: 'user-plus', hint: 'Invite and manage', admin: true },
   {
     to: '/library/folders',
     label: 'Folders',
     icon: 'folder',
-    hint: 'Choose what gets scanned',
+    hint: 'What gets scanned',
     admin: true,
   },
   { to: '/sources', label: 'Sources', icon: 'sources', hint: 'YouTube talks', admin: true },
@@ -67,9 +66,6 @@ export function MoreSheet({ onClose }: { onClose: () => void }) {
         <Icon name="search" size={17} />
         Search meditations, pages and settings
       </button>
-      <div className="more-foot">
-        <VersionRow />
-      </div>
     </Sheet>
   );
 }

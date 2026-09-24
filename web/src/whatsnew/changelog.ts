@@ -25,6 +25,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.12.1',
+    items: [
+      { emoji: '📐', text: 'The plan editor fits the phone again, whatever the plan holds.' },
+      { emoji: '🧭', text: 'More fits on one screen - no scrolling.' },
+    ],
+  },
+  {
     version: '0.12.0',
     items: [
       {

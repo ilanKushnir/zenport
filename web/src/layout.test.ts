@@ -123,4 +123,32 @@ describe('layout invariants', () => {
       /input\[type='date'\],\s*input\[type='time'\][^{]*\{[^}]*appearance:\s*none[^}]*min-inline-size:\s*0/,
     );
   });
+
+  it('every grid says how wide its columns are', () => {
+    // A grid with no column template gets one implicit auto column as wide as
+    // its widest unbreakable content - one long line of plan notes made the
+    // whole plan editor thousands of pixels wide on a phone.
+    const bad: string[] = [];
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const body = m[2]!;
+      if (!/display:\s*(inline-)?grid/.test(body)) continue;
+      if (
+        /grid-template-columns|grid-template:|grid-template-areas|grid-auto-columns|place-items|place-content|justify-items/.test(
+          body,
+        )
+      )
+        continue;
+      bad.push(m[1]!.trim());
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('nothing forces text below 16px over the touch-screen field rule', () => {
+    // iOS zooms into any focused field under 16px; an !important size on a
+    // field class would beat the rule that prevents it.
+    const small = [...css.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px\s*!important/g)]
+      .map((m) => Number(m[1]))
+      .filter((px) => px < 16);
+    expect(small).toEqual([]);
+  });
 });

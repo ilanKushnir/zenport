@@ -3254,6 +3254,7 @@
 .ob-cycle-cap {
   grid-area: 2 / 1;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 1.4em;
   font-size: 12.5px;
   color: var(--faint);
@@ -4377,20 +4378,22 @@
 .more-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s3);
+  gap: var(--s2);
 }
 
+/* Tiles: icon on top, the name, one line of what it is for - compact enough
+   that the whole menu fits on a phone without scrolling. */
 .more-tile {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding: var(--s4);
-  border-radius: var(--r-lg);
+  min-inline-size: 0;
+  padding: 11px 14px 12px;
+  border-radius: 18px;
   border: 1px solid var(--hairline);
   background: var(--surface);
   color: var(--text);
-  min-height: 64px;
   transition:
     background var(--t-fast) var(--ease),
     border-color var(--t-fast) var(--ease);
@@ -4416,12 +4419,12 @@
 }
 
 .more-ic {
-  margin-block-end: var(--s2);
   display: grid;
   place-items: center;
-  inline-size: 40px;
-  block-size: 40px;
-  border-radius: 12px;
+  inline-size: 36px;
+  block-size: 36px;
+  margin-block-end: 8px;
+  border-radius: 11px;
   color: var(--accent);
   background: color-mix(in oklab, var(--accent) 14%, transparent);
 }
@@ -4433,18 +4436,22 @@
 }
 
 .more-hint {
+  max-inline-size: 100%;
   font-size: 12px;
   color: var(--muted);
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .more-search {
-  margin-block-start: var(--s4);
+  margin-block-start: 10px;
   display: flex;
   align-items: center;
   gap: var(--s3);
   inline-size: 100%;
-  min-height: 48px;
+  min-height: 44px;
   padding: 0 var(--s4);
   border-radius: 999px;
   border: 1px solid var(--hairline);
@@ -4456,7 +4463,7 @@
 }
 
 .more-foot {
-  margin-block-start: var(--s4);
+  margin-block-start: var(--s3);
   display: flex;
   justify-content: center;
 }
@@ -4667,6 +4674,7 @@
   flex: none;
   color: var(--accent);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .folder-name {
@@ -5353,6 +5361,7 @@
   inset-inline-start: 0;
   z-index: 30;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   min-inline-size: 210px;
   max-inline-size: calc(100vw - 32px);
@@ -6066,6 +6075,7 @@
 /* The path at a glance: a lane per stage, bars placed on their weeks. */
 .ai-timeline {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin-block: var(--s4);
   padding: var(--s3) var(--s4);
@@ -6413,6 +6423,7 @@ span.role-chip {
   margin: 0 0 var(--s4);
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
 }
 
@@ -6570,6 +6581,7 @@ span.role-chip {
 
 .request-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s2);
 }
 
@@ -6639,6 +6651,7 @@ span.role-chip {
 
 .friend-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
   padding: var(--s4);
   border-radius: var(--r-lg);
@@ -6671,6 +6684,7 @@ span.role-chip {
 
 .friend-id {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   flex: 1;
   min-inline-size: 0;
 }
@@ -6701,6 +6715,7 @@ span.role-chip {
 
 .fs {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   line-height: 1.1;
 }
 
@@ -6770,6 +6785,7 @@ span.role-chip {
 /* One thing a friend sat with, and the bow. */
 .feed {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
@@ -6863,6 +6879,7 @@ span.role-chip {
 
 .nudge-options {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   margin-block-end: var(--s3);
 }
@@ -6964,6 +6981,7 @@ span.role-chip {
 
 .ft-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
   padding: var(--s4);
   border-radius: var(--r-lg);
@@ -7045,6 +7063,7 @@ span.role-chip {
 
 .ft-invite .grow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
 }
 
@@ -7093,6 +7112,7 @@ span.role-chip {
 /* People (admin). */
 .people-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s2);
 }
 
@@ -7113,6 +7133,7 @@ span.role-chip {
 
 .person-card .grow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
 }
 
@@ -7160,7 +7181,6 @@ span.role-chip {
 .link-field {
   inline-size: 100%;
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 13px !important;
   text-overflow: ellipsis;
 }
 
@@ -7173,6 +7193,7 @@ span.role-chip {
 
 .manage-actions {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
@@ -7192,6 +7213,7 @@ span.role-chip {
 
 .manage-row .grow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
@@ -7220,6 +7242,7 @@ span.role-chip {
 
 .people-link .grow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
@@ -7275,6 +7298,7 @@ span.role-chip {
 
 .share-choices {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
@@ -7299,6 +7323,7 @@ span.role-chip {
 
 .share-choice .grow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
@@ -7328,6 +7353,7 @@ span.role-chip {
 
 .pw-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
 }
 
@@ -7435,6 +7461,7 @@ span.role-chip {
 
 .times-text {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1px;
   min-inline-size: 0;
 }
@@ -7522,37 +7549,41 @@ span.role-chip {
 
 .plan-title {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   margin-block: var(--s4) var(--s3);
 }
 
-.plan-title input {
+.plan-title textarea {
   border: 0;
   background: none;
   padding: 4px 0;
   min-height: 0;
   border-radius: 0;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.3;
 }
 
 .plan-name {
   font-family: var(--font-display, inherit);
-  font-size: 24px !important;
-  line-height: 1.25;
+  font-size: 22px !important;
 }
 
 .plan-intention {
-  font-size: 15px !important;
+  font-size: 16px !important;
   color: var(--muted) !important;
   font-style: italic;
 }
 
-.plan-title input:focus-visible {
+.plan-title textarea:focus-visible {
   outline: none;
   box-shadow: 0 1px 0 var(--accent);
 }
 
 .prows {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   margin-block: var(--s3);
   border-radius: 18px;
   border: 1px solid var(--hairline);
@@ -7609,6 +7640,7 @@ span.role-chip {
 
 .prow-caret {
   display: inline-grid;
+  grid-template-columns: minmax(0, 1fr);
   flex: none;
   color: var(--faint);
   transition: transform var(--t-fast) var(--ease);
@@ -7624,6 +7656,7 @@ span.role-chip {
 
 .prow-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
   padding: 2px 14px 16px;
   animation: prow-in var(--t-fast) var(--ease);
@@ -7646,6 +7679,7 @@ span.role-chip {
 
 .prow-field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   margin: 0;
 }
@@ -7715,6 +7749,7 @@ span.role-chip {
 
 .prow-action .grow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
@@ -7731,6 +7766,7 @@ span.role-chip {
 
 .prow-confirm {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s2);
   padding: 12px 14px;
   font-size: 14px;
@@ -7751,6 +7787,7 @@ span.role-chip {
 /* Move: just this session, or push the rest of the plan with it. */
 .move-modes {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   margin-block-end: var(--s4);
 }
@@ -7771,6 +7808,7 @@ span.role-chip {
 
 .move-mode .grow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
@@ -7815,6 +7853,7 @@ span.role-chip {
 
 .skeleton-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
 }
 
@@ -7928,5 +7967,65 @@ span.role-chip {
 @keyframes tab-lift {
   40% {
     transform: translateY(-3px) scale(1.12);
+  }
+}
+
+/* On a phone the picker is a list: small cover, the whole title, the tick
+   (or order number) at the end - and no scroll box inside the sheet. */
+@media (max-width: 699px) {
+  .med-picker {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .med-pick {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 26px;
+    grid-template-areas:
+      'cover title check'
+      'cover meta check';
+    align-items: center;
+    column-gap: var(--s3);
+    row-gap: 1px;
+    padding: 6px 8px;
+  }
+
+  .med-pick .cover {
+    grid-area: cover;
+    inline-size: 44px;
+    block-size: 44px;
+  }
+
+  .med-pick__t {
+    grid-area: title;
+    align-self: end;
+    font-size: 14px;
+  }
+
+  .med-pick__c {
+    grid-area: meta;
+    align-self: start;
+  }
+
+  .med-pick__check {
+    grid-area: check;
+    position: static;
+  }
+}
+
+/* Short screens (an SE in a browser tab): the one-line hints step aside so
+   the tiles still fit without scrolling. */
+@media (max-height: 640px) {
+  .more-tile {
+    padding-block: 10px;
+  }
+  .more-ic {
+    margin-block-end: 6px;
+  }
+  .more-hint {
+    display: none;
   }
 }

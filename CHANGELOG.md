@@ -5,6 +5,19 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-09-24
+
+### Fixed
+
+- **The plan editor ran off the side of the phone.** Its list of rows was a grid with no stated column, so the single implicit column grew as wide as the longest unbreakable line - a plan's notes (the AI planner writes a paragraph) made every row, chip and field thousands of pixels wide and unreachable. Every stacking grid in the app now declares a column that can shrink, and a stylesheet test requires it. Checked with a long-notes plan at 320 and 390pt, every row open.
+- **Tapping a plan's intention zoomed the page on an iPhone** (it was forced to 15px, under the 16px iOS zooms into). Nothing may force text below 16px over the field rule any more, and a test checks it; the invitation link field is fixed the same way.
+
+### Changed
+
+- A plan's name and intention wrap onto more lines instead of being cut off; row values are shorter (*22 weeks · to 22 Feb*, *2* beside the chosen covers).
+- On a phone, choosing a plan's recordings is a list - small cover, whole title, the tick or order number - rather than a scroll box of cut-off tiles inside the sheet.
+- **More fits on one screen.** The same tiles, a little more compact, with one line under each name; the version row lives in Settings. On a short screen the one-liners step aside rather than scroll.
+
 ## [0.12.0] — 2026-09-24
 
 ### Changed
