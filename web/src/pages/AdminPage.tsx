@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AdminUserDto, InviteDto, ScanStateDto } from '@zenport/shared';
+import type { AdminUserDto, InviteDto, ReviewSummaryDto, ScanStateDto } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { useAuth } from '../App.tsx';
@@ -70,6 +70,7 @@ export function AdminPage() {
   const users = useApi<AdminUserDto[]>('/api/users');
   const invites = useApi<InviteDto[]>('/api/invites');
   const scan = useApi<ScanStateDto>('/api/library/scan-state');
+  const review = useApi<ReviewSummaryDto>('/api/admin/review/summary');
   const [scanning, setScanning] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -84,8 +85,9 @@ export function AdminPage() {
     if (scanning && scan.data?.status === 'idle' && scan.data.finishedAt) {
       setScanning(false);
       setNote(`Scan finished - ${scan.data.counts.items} recordings indexed.`);
+      review.reload();
     }
-  }, [scanning, scan.data]);
+  }, [scanning, scan.data, review]);
 
   const rescan = async () => {
     setNote(null);
@@ -134,6 +136,29 @@ export function AdminPage() {
           <span>recordings</span>
         </Link>
       </div>
+
+      <Link className="admin-review" to="/admin/library">
+        <span className="admin-area-ic">
+          <Icon name="eye" size={20} />
+        </span>
+        <span className="grow">
+          <span className="admin-area-t">Review library</span>
+          <span className="admin-area-h">
+            {review.data && review.data.new + review.data.look > 0
+              ? [
+                  review.data.new > 0 ? `${review.data.new} new` : null,
+                  review.data.look > 0 ? `${review.data.look} worth a look` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : 'How everything was read - titles, types, order. Correct anything.'}
+          </span>
+        </span>
+        {review.data && review.data.new + review.data.look > 0 && (
+          <span className="admin-review-n">{review.data.new + review.data.look}</span>
+        )}
+        <Icon name="chevron-right" size={16} />
+      </Link>
 
       <div className="admin-areas">
         {AREAS.map((a) => (
@@ -192,6 +217,9 @@ export function AdminPage() {
             </div>
           )}
           {note && <p className="hint">{note}</p>}
+          <Link className="admin-scan-review" to="/admin/library">
+            Review what it found <Icon name="chevron-right" size={14} />
+          </Link>
           {s && s.warnings.length > 0 && (
             <details className="admin-warnings">
               <summary>

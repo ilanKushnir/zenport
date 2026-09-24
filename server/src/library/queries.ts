@@ -28,7 +28,7 @@ export const TRACK_ORDER_JOIN =
   'LEFT JOIN track_order o ON o.track_id = t.id AND o.item_id = t.item_id';
 export const TRACK_ORDER_BY = '(o.pos IS NULL), o.pos, t.ord';
 
-interface ItemRow {
+export interface ItemRow {
   id: string;
   root_id: number;
   item_key: string;
@@ -97,7 +97,12 @@ export function resumePoint(
     : null;
 }
 
-function summarize(db: Db, config: Config, row: ItemRow, userId: number): MeditationSummaryDto {
+export function summarize(
+  db: Db,
+  config: Config,
+  row: ItemRow,
+  userId: number,
+): MeditationSummaryDto {
   const tracks = db
     .prepare(
       `SELECT COUNT(*) AS n, SUM(duration_sec) AS total,
@@ -182,7 +187,7 @@ function practiceCount(
   return { practiceCount: row.n, lastPracticedAt: row.last };
 }
 
-function asType(t: string): ContentType {
+export function asType(t: string): ContentType {
   return (CONTENT_TYPES as readonly string[]).includes(t) ? (t as ContentType) : 'meditation';
 }
 

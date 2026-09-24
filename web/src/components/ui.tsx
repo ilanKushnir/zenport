@@ -410,8 +410,8 @@ export function Sheet({
         }
         if (dy > 6) {
           const t = e.target as HTMLElement;
-          // Sliders and text selection keep their own gestures.
-          if (t.closest('.slider, textarea')) {
+          // Sliders, text selection and drag grips keep their own gestures.
+          if (t.closest('.slider, textarea, .reorder-grip, [data-no-sheet-drag]')) {
             armed = false;
             return;
           }

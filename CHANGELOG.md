@@ -5,6 +5,25 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-09-24
+
+### Added
+
+- **Review the library** (Admin → Review library): how every recording was read, and one place to correct any of it.
+  - **Filters that are also counts:** New (added since the library was first read and not looked at), Worth a look (an unknown creator, names that are still file names, or videos among audio), Corrected, Hidden and Everything. There is also search and a type filter.
+  - **The editor:** title, creator and series (each shows what the scan read, with a way back), type (for one item or its whole series), the parts' names, lesson or meditation roles, and drag-to-reorder, plus show or hide in the library and "How ZenPort read it".
+  - **A quick sweep:** the one button is **Looks right**, or **Save & next** once something changed, and goes straight to the next item. The arrows skip. ⌘/Ctrl+Enter works too.
+  - **Tidy names** offers readable names for file-like ones. "creativity pack- tip- day 27 640x360-video" becomes "Creativity pack - tip - day 27", and bare upload numbers become sessions. It only touches names you have not typed yourself.
+  - **Mark all as reviewed** clears New in one go.
+- Corrections are stored apart from the scanner's reading and laid back over it after every scan, so no rescan or moved folder undoes them. Giving a field back what the scanner read clears that correction.
+- Admin's overview leads with a Review library card and its counts. The scan card links to what the last scan found.
+- **"Library scan finished"** notice for admins: when a scan finds recordings never seen before, a small card offers to review them. It never interrupts onboarding, and says nothing about scans that found nothing.
+- The first-run tour's library step offers an optional "Review it now" for admins.
+
+### Changed
+
+- The drag-to-reorder behaviour is shared by the order editor and the review editor, and works inside a sheet: it scrolls the sheet, not the page, and pulling a grip never closes the sheet.
+
 ## [0.18.1] — 2026-09-24
 
 ### Changed

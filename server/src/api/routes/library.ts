@@ -3,8 +3,20 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../context.js';
 import { freshSince, itemDetail, libraryDto } from '../../library/queries.js';
-import { CONTENT_TYPES, type LibraryFoldersDto, type RemovedLibraryDto } from '@zenport/shared';
+import {
+  CONTENT_TYPES,
+  type LibraryFoldersDto,
+  type RemovedLibraryDto,
+  type ReviewSummaryDto,
+} from '@zenport/shared';
 import { lastFolderTree, readScanState, runScan } from '../../scanner/scan.js';
+import {
+  markReviewed,
+  reviewDetail,
+  reviewList,
+  ReviewError,
+  saveReview,
+} from '../../library/review.js';
 
 export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { db, config } = ctx;
@@ -46,6 +58,80 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
         tree: lastFolderTree(r.id),
       })),
     };
+  });
+
+  // ── Library review (admin): how everything was read, and corrections.
+  app.get('/api/admin/review', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    return reviewList(db, config, req.user!.id);
+  });
+
+  // Just the counts - for Admin's overview and the "scan finished" notice.
+  app.get('/api/admin/review/summary', async (req, reply): Promise<ReviewSummaryDto | void> => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const list = reviewList(db, config, req.user!.id);
+    return {
+      new: list.items.filter((i) => i.isNew && !i.hidden).length,
+      look: list.items.filter((i) => !i.hidden && !i.reviewedAt && i.flags.length > 0).length,
+      lastScan: list.lastScan,
+    };
+  });
+
+  app.get('/api/admin/items/:id', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const detail = reviewDetail(db, config, (req.params as { id: string }).id);
+    return detail ?? reply.code(404).send({ error: 'meditation not found' });
+  });
+
+  app.put('/api/admin/items/:id', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const text = z.string().max(300);
+    const body = z
+      .object({
+        title: text.optional(),
+        creator: text.optional(),
+        series: text.optional(),
+        type: z.enum(CONTENT_TYPES).optional(),
+        scope: z.enum(['item', 'series']).optional(),
+        tracks: z
+          .array(
+            z.object({
+              id: z.string().min(1).max(64),
+              title: text.optional(),
+              role: z.enum(['lesson', 'practice']).optional(),
+            }),
+          )
+          .max(2000)
+          .optional(),
+        order: z.array(z.string().min(1).max(64)).max(2000).nullable().optional(),
+        hidden: z.boolean().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid correction' });
+    try {
+      const { rescan: needsScan } = saveReview(
+        db,
+        config,
+        (req.params as { id: string }).id,
+        body.data,
+      );
+      if (needsScan) await rescan();
+      return { ok: true };
+    } catch (err) {
+      if (err instanceof ReviewError) return reply.code(err.status).send({ error: err.message });
+      throw err;
+    }
+  });
+
+  // "These read right": clears items from New and Worth a look.
+  app.post('/api/admin/review/reviewed', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const body = z
+      .object({ ids: z.array(z.string().min(1).max(64)).max(5000) })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'ids required' });
+    markReviewed(db, body.data.ids);
+    return { ok: true };
   });
 
   // Libraries mounted once and no longer in ZP_LIBRARY_DIRS, with what is

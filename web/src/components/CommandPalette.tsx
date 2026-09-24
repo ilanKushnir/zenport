@@ -97,6 +97,13 @@ export function CommandPalette() {
               run: go('/admin'),
             },
             {
+              id: 'review',
+              label: 'Review library - correct titles, types, order',
+              icon: 'eye',
+              group: 'Go' as const,
+              run: go('/admin/library'),
+            },
+            {
               id: 'people',
               label: 'People - invitations and roles',
               icon: 'user-plus',

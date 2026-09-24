@@ -289,6 +289,7 @@ export async function runScan(
     return id;
   };
   let recognisedItems = 0;
+  let newItems = 0;
   let recognisedTracks = 0;
 
   const itemIdentity = (rootId: number, item: (typeof passes)[number]['items'][number]) => {
@@ -321,6 +322,7 @@ export async function runScan(
         return { id: best, adopted: true };
       }
     }
+    newItems++;
     return { id: freshId(`item:${rootId}:${item.itemKey}`, takenItemIds), adopted: false };
   };
 
@@ -370,21 +372,25 @@ export async function runScan(
     db.exec('BEGIN');
     try {
       const upsertItem = db.prepare(
-        `INSERT INTO items (id, root_id, item_key, kind, title, creator, collection, breadcrumbs, evidence, missing, added_at, inferred_type, type_reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+        `INSERT INTO items (id, root_id, item_key, kind, title, creator, collection, breadcrumbs, evidence, missing, added_at, inferred_type, type_reason,
+                            inferred_title, inferred_creator, inferred_collection)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            root_id = excluded.root_id, item_key = excluded.item_key,
            kind = excluded.kind, title = excluded.title, creator = excluded.creator,
            collection = excluded.collection, breadcrumbs = excluded.breadcrumbs,
+           inferred_title = excluded.title, inferred_creator = excluded.creator,
+           inferred_collection = excluded.collection,
            evidence = excluded.evidence, missing = 0, excluded = 0,
            inferred_type = excluded.inferred_type, type_reason = excluded.type_reason`,
       );
       const upsertTrack = db.prepare(
-        `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing, inferred_role, fingerprint, fp_stamp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+        `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing, inferred_role, fingerprint, fp_stamp, inferred_title)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            item_id = excluded.item_id, root_id = excluded.root_id, rel_path = excluded.rel_path,
            name = excluded.name, ext = excluded.ext, ord = excluded.ord, title = excluded.title,
+           inferred_title = excluded.title,
            size_bytes = excluded.size_bytes, missing = 0, inferred_role = excluded.inferred_role,
            fingerprint = excluded.fingerprint, fp_stamp = excluded.fp_stamp`,
       );
@@ -441,6 +447,9 @@ export async function runScan(
           nowIso(),
           guess.type,
           guess.reason,
+          item.title,
+          item.creator,
+          item.collection,
         );
         for (const track of item.tracks) {
           const trackId = trackIdentity(root.id, track, itemId);
@@ -460,6 +469,7 @@ export async function runScan(
             inferTrackRole(track.title),
             print?.fp ?? null,
             print?.fp ? print.stamp : null,
+            track.title,
           );
         }
         if (item.coverRelPath) {
@@ -511,6 +521,9 @@ export async function runScan(
       `Recognised ${n} ${what}${n === 1 ? '' : 's'} in a new place - progress, ticks, order and settings came with ${n === 1 ? 'it' : 'them'}.`,
     );
   }
+
+  // The owner's corrections, laid over what the scan just wrote.
+  applyEdits(db);
 
   // Mark anything not seen in this pass as missing — only for roots that
   // scanned cleanly, so a temporarily unreadable mount never masks a library.
@@ -584,10 +597,31 @@ export async function runScan(
 
   const finishedAt = nowIso();
   db.prepare(
-    `UPDATE scan_state SET status = 'idle', finished_at = ?, warnings = ?, ignored = ?, roots = ? WHERE id = 1`,
-  ).run(finishedAt, JSON.stringify(warnings), ignored, JSON.stringify(rootResults));
+    `UPDATE scan_state SET status = 'idle', finished_at = ?, warnings = ?, ignored = ?, roots = ?, new_items = ? WHERE id = 1`,
+  ).run(finishedAt, JSON.stringify(warnings), ignored, JSON.stringify(rootResults), newItems);
 
   return readScanState(db);
+}
+
+/**
+ * Lay the owner's corrections over the visible columns: a title, creator or
+ * series set by hand, and parts renamed by hand. What is not corrected shows
+ * what the scanner read. Run after every scan and after every edit.
+ */
+export function applyEdits(db: Db, itemId?: string): void {
+  const one = itemId ? ' AND items.id = ?' : '';
+  const args = itemId ? [itemId] : [];
+  db.prepare(
+    `UPDATE items SET
+       title = COALESCE(e.title, items.inferred_title, items.title),
+       creator = COALESCE(e.creator, items.inferred_creator, items.creator),
+       collection = CASE WHEN e.collection_set = 1 THEN e.collection ELSE items.inferred_collection END
+     FROM item_edits e WHERE e.item_id = items.id${one}`,
+  ).run(...args);
+  db.prepare(
+    `UPDATE tracks SET title = e.title FROM track_edits e
+     WHERE e.track_id = tracks.id${itemId ? ' AND tracks.item_id = ?' : ''}`,
+  ).run(...args);
 }
 
 export function readScanState(db: Db): ScanStateDto {
@@ -598,6 +632,7 @@ export function readScanState(db: Db): ScanStateDto {
     warnings: string;
     ignored: number;
     roots: string;
+    new_items: number;
   };
   const counts = db
     .prepare(
@@ -624,5 +659,6 @@ export function readScanState(db: Db): ScanStateDto {
     roots: JSON.parse(row.roots),
     counts: { ...counts, ignored: row.ignored },
     warnings: JSON.parse(row.warnings),
+    newItems: row.new_items ?? 0,
   };
 }

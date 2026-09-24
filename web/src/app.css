@@ -9236,3 +9236,569 @@ html.scroll-locked body {
   gap: var(--s2);
   margin-block-start: var(--s2);
 }
+
+/* ===================================================================
+ * Review the library (ReviewPage.tsx)
+ * =================================================================== */
+
+/* A text button that reads as a link. */
+.linkish {
+  display: inline;
+  padding: 0;
+  margin-inline-start: 6px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-filters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s2);
+  margin-block-end: var(--s4);
+}
+
+.review-filter {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: var(--s3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+  color: var(--muted);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.review-filter strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.review-filter span {
+  font-size: 12.5px;
+}
+
+.review-filter.warn strong {
+  color: var(--amber);
+}
+
+.review-filter.on {
+  border-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  background: color-mix(in oklab, var(--accent) 12%, var(--surface));
+}
+
+.review-filter.on span {
+  color: var(--text);
+}
+
+.review-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  margin-block-end: var(--s4);
+}
+
+.review-search {
+  max-inline-size: 520px;
+}
+
+.review-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-block-end: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.review-groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5);
+  max-inline-size: 880px;
+}
+
+.review-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  margin: 0 0 var(--s2);
+  font-size: 17px;
+}
+
+.review-group-head span {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+.review-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  inline-size: 100%;
+  padding: var(--s2);
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--faint);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease);
+}
+
+.review-row:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+@media (hover: hover) {
+  .review-row:hover {
+    background: rgba(255, 255, 255, 0.045);
+  }
+}
+
+.review-row.is-hidden .review-cover,
+.review-row.is-hidden .review-title {
+  opacity: 0.5;
+}
+
+.review-cover {
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.review-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.review-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.review-new {
+  flex: none;
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+.review-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block-start: 3px;
+}
+
+.review-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.review-tag.warn {
+  color: var(--amber);
+  background: color-mix(in oklab, var(--amber) 14%, transparent);
+}
+
+.review-tag.done {
+  color: #a9e3bb;
+  background: color-mix(in oklab, #8fd6a6 14%, transparent);
+}
+
+/* The editor. */
+.review-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s5);
+}
+
+.review-edit-head {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s3);
+}
+
+.review-edit-cover {
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.review-path {
+  margin: 0 0 4px;
+  font-size: 12.5px;
+  color: var(--faint);
+  overflow-wrap: anywhere;
+}
+
+.review-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.review-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+}
+
+.review-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.review-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.review-was {
+  display: block;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+.review-type {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.review-type-opt {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--s2) 4px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.review-type-opt.on {
+  border-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.review-scope {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s3);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.review-scope input {
+  margin-block-start: 3px;
+}
+
+.review-parts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-block-end: var(--s2);
+}
+
+.review-parts-head h3 {
+  margin: 0;
+  font-size: 16px;
+  text-transform: capitalize;
+}
+
+.review-parts-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.review-part {
+  grid-template-columns: 40px 22px minmax(0, 1fr) auto;
+  gap: 4px;
+  padding-inline-end: var(--s2);
+}
+
+.review-part .reorder-grip {
+  inline-size: 40px;
+}
+
+.review-part-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  padding-block: 6px;
+  min-inline-size: 0;
+}
+
+/* A name that reads as text until it is being edited. */
+.review-part-name {
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 4px 6px;
+  margin-inline-start: -6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.review-part-name:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.review-part-reset {
+  font-size: 12px;
+}
+
+.review-visible {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+}
+
+.review-visible .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.review-why {
+  margin: 0;
+}
+
+.review-why ul {
+  margin: var(--s2) 0 0;
+  padding-inline-start: var(--s4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+/* The one button, always in reach at the bottom of the sheet. */
+/* It sits on the sheet's bottom edge, over the sheet's own bottom padding,
+   and fades the parts list out beneath it. */
+.review-foot {
+  position: sticky;
+  /* The sheet's body keeps its bottom padding clear of sticky things: sit
+     over it, flush with the sheet's edge. */
+  inset-block-end: calc((var(--s6) + env(safe-area-inset-bottom)) * -1);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin: 0 calc(var(--s6) * -1) calc((var(--s6) + env(safe-area-inset-bottom)) * -1);
+  padding: var(--s5) var(--s6) calc(var(--s4) + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--surface) 72%, transparent);
+}
+
+.review-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.review-go {
+  flex: 1;
+  min-block-size: 48px;
+}
+
+@media (max-width: 760px) {
+  /* Three across, then two sharing the row - no empty slot. */
+  .review-filters {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .review-filter {
+    grid-column: span 2;
+  }
+  .review-filter:nth-child(n + 4) {
+    grid-column: span 3;
+  }
+  .review-filter strong {
+    font-size: 19px;
+  }
+}
+
+/* Admin: the review card, first and full width - it is what changes. */
+.admin-review {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-block-end: var(--s2);
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--hairline));
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in oklab, var(--accent) 14%, transparent),
+      transparent 70%
+    ),
+    color-mix(in oklab, var(--surface) 80%, transparent);
+  color: var(--faint);
+  text-decoration: none;
+}
+
+.admin-review .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.admin-review .admin-area-ic {
+  flex: none;
+}
+
+.admin-review-n {
+  flex: none;
+  min-inline-size: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.admin-scan-review {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* "The library scan found something new" (ScanNotice.tsx): a card over the
+   bottom of the page, above the tab bar and mini player on a phone. */
+.scan-notice {
+  position: fixed;
+  z-index: 44;
+  inset-inline-end: var(--s6);
+  inset-block-end: var(--s6);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  inline-size: min(440px, calc(100vw - 2 * var(--s4)));
+  padding: var(--s3) var(--s2) var(--s3) var(--s3);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(30, 25, 41, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(6, 4, 12, 0.55);
+  animation: mini-in var(--t-med) var(--ease);
+}
+
+.shell:has(.mini) .scan-notice {
+  inset-block-end: 110px;
+}
+
+.scan-notice .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+  font-size: 14px;
+}
+
+.scan-notice-ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 38px;
+  block-size: 38px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 900px) {
+  .scan-notice {
+    inset-inline: max(10px, calc(50% - 300px));
+    inline-size: auto;
+    inset-block-end: calc(var(--tabbar-h) + var(--s2));
+  }
+  .shell:has(.mini) .scan-notice {
+    inset-block-end: calc(var(--tabbar-h) + 84px);
+  }
+}

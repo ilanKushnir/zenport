@@ -50,6 +50,8 @@ export interface ScanStateDto {
   roots: ScanRootDto[];
   counts: ScanCounts;
   warnings: string[];
+  /** Recordings the last scan found that were never seen before. */
+  newItems: number;
 }
 
 /** One folder of a library root, as the last scan walked it. */
@@ -679,4 +681,86 @@ export interface InboxDto {
   requests: PersonDto[];
   cheers: CheerDto[];
   unseen: number;
+}
+
+// --- Library review (admin) ---
+
+/** Why an item might want a look. */
+export type ReviewFlag = 'unknown-creator' | 'raw-names' | 'mixed-media';
+/** What the owner has corrected on an item. */
+export type ReviewEdit = 'title' | 'creator' | 'series' | 'type' | 'order' | 'names' | 'roles';
+
+export interface ReviewItemDto extends MeditationSummaryDto {
+  /** Left out of the library by the owner. */
+  hidden: boolean;
+  /** Added since the library was first read, and not reviewed yet. */
+  isNew: boolean;
+  reviewedAt: string | null;
+  edited: ReviewEdit[];
+  flags: ReviewFlag[];
+}
+
+export interface ReviewListDto {
+  items: ReviewItemDto[];
+  /** Every creator and series in the library, for the editor's suggestions. */
+  creators: string[];
+  series: { creator: string; collection: string }[];
+  lastScan: { finishedAt: string | null; newItems: number };
+}
+
+export interface ReviewTrackDto {
+  id: string;
+  title: string;
+  /** What the scanner read from the file name. */
+  scannedTitle: string;
+  /** A tidier name when the file name looks raw ("-video", "640x360", "audio-2248"). */
+  suggestion: string | null;
+  video: boolean;
+  ext: string;
+  durationSec: number | null;
+  role: 'lesson' | 'practice';
+  scannedRole: 'lesson' | 'practice';
+  missing: boolean;
+}
+
+export interface ReviewSummaryDto {
+  new: number;
+  look: number;
+  lastScan: { finishedAt: string | null; newItems: number };
+}
+
+export interface ReviewDetailDto {
+  id: string;
+  title: string;
+  creator: string;
+  collection: string | null;
+  type: ContentType;
+  coverId: string | null;
+  hidden: boolean;
+  hasVideo: boolean;
+  rootLabel: string;
+  /** Where it lives in the library, folder by folder. */
+  path: string[];
+  scanned: { title: string; creator: string; collection: string | null; type: ContentType };
+  customOrder: boolean;
+  /** Track ids in the order the scanner reads them. */
+  scannedOrder: string[];
+  /** Other items sharing this creator and series. */
+  seriesSize: number;
+  evidence: InferenceDecision[];
+  tracks: ReviewTrackDto[];
+}
+
+export interface ReviewSaveDto {
+  title?: string;
+  creator?: string;
+  /** '' for no series. */
+  series?: string;
+  type?: ContentType;
+  /** Creator, series and type for this item alone, or its whole series. */
+  scope?: 'item' | 'series';
+  tracks?: { id: string; title?: string; role?: 'lesson' | 'practice' }[];
+  /** Track ids in the wanted order; null for the scanner's order. */
+  order?: string[] | null;
+  hidden?: boolean;
 }

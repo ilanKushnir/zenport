@@ -25,6 +25,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.19.0',
+    items: [
+      {
+        emoji: '🔎',
+        text: 'Admins can review the whole library in one place and correct anything - titles, creators, series, types, order.',
+      },
+      {
+        emoji: '✨',
+        text: 'Tidy names turns file names like "day 27 640x360-video" into something readable.',
+      },
+      {
+        emoji: '🔔',
+        text: 'When a scan finds new recordings, admins get a gentle note to look them over.',
+      },
+    ],
+  },
+  {
     version: '0.18.1',
     items: [
       {

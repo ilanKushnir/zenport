@@ -12,6 +12,19 @@ ZenPort's scanner is deliberately boring: fixed rules over folder structure, app
 - **History-safe.** Files that disappear mark their items _missing_ instead of deleting them. Practice history, plans, and journal links survive; when the files return, the items revive. A library taken out of `ZP_LIBRARY_DIRS` leaves the shelves quietly and is kept. Admin → Library folders lists it under _No longer mounted_, where the admin can keep it or forget it for good. Forgetting removes its recordings with everyone's places, ticks, favourites, types, roles and orders; practice history and journal entries stay.
 - **Deterministic.** Same tree in, same index out, including ordering.
 
+## Reviewing and correcting (admin)
+
+**Admin → Review library** shows how every recording was read, and lets the admin correct any of it. They can change the title, creator, series and type (for one item or its whole series), and the parts' names, their lesson or meditation role, and their order. They can also hide an item from the library. It opens on what matters:
+
+- **New:** added since the library was first read, and not looked at yet.
+- **Worth a look:** ZenPort flags an unknown creator, names that are still file names (`-video`, `640x360`, `audio-2248`), or videos mixed among audio, where the order may need a check.
+
+The editor's main button is **Looks right**, or **Save & next** once something changed, and moves straight on to the next item. **Tidy names** suggests clean names for file-like ones; nothing is saved until the admin saves.
+
+Corrections are stored apart from what the scanner reads: `item_edits`, `track_edits`, `item_types`, `track_roles`, `track_order` and `excluded_folders`, keyed by ids that follow moved files. The scanner writes its own reading on every scan (`inferred_*`) and lays the corrections back over it, so nothing corrected is ever undone. Giving a field back what the scanner read clears that correction.
+
+When a scan finds recordings never seen before, admins get a small notice with a link to review them. The first-run tour offers the same link, clearly optional.
+
 ## Supported files
 
 - Audio: `mp3 m4a m4b flac ogg opus wav aac`

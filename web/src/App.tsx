@@ -23,6 +23,7 @@ import { FocusMode, PlayerBar } from './player/PlayerUi.tsx';
 import { ReflectionSheet } from './components/Reflection.tsx';
 import { MORE_LINKS, MoreSheet } from './components/MoreSheet.tsx';
 import { UpdateWatcher } from './updater.tsx';
+import { ScanNotice } from './ScanNotice.tsx';
 import { FoldersPage } from './pages/FoldersPage.tsx';
 import { SeriesPage } from './pages/SeriesPage.tsx';
 import { JoinPage, LoginPage, SetupPage } from './pages/AuthPages.tsx';
@@ -30,6 +31,7 @@ import { FriendsPage } from './pages/FriendsPage.tsx';
 import { FriendPage } from './pages/FriendPage.tsx';
 import { PeoplePage } from './pages/PeoplePage.tsx';
 import { AdminOnly, AdminPage } from './pages/AdminPage.tsx';
+import { ReviewPage } from './pages/ReviewPage.tsx';
 import { DownloadsPage } from './pages/DownloadsPage.tsx';
 import { flushOfflineSessions, useOffline, verifyDownloads } from './offline.ts';
 import { InboxProvider, useInbox } from './social.tsx';
@@ -308,6 +310,7 @@ function Shell({ children }: { children: ReactNode }) {
       <CommandPalette />
       <WhatsNew />
       <UpdateWatcher />
+      <ScanNotice />
     </div>
   );
 }
@@ -351,6 +354,7 @@ function SignedInApp() {
               <Route path="/friends/:id" element={<FriendPage />} />
               <Route path="/people" element={<Navigate to="/admin/people" replace />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/library" element={<ReviewPage />} />
               <Route
                 path="/admin/people"
                 element={

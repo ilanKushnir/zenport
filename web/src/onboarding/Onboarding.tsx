@@ -133,6 +133,24 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     <Icon name="download" /> Save meditations to play offline
                   </li>
                 </ul>
+                {user?.role === 'admin' && indexed > 0 && (
+                  <p className="ob-note ob-review">
+                    Curious how it was read?{' '}
+                    <button
+                      type="button"
+                      className="linkish"
+                      onClick={() => {
+                        // The app's router mounts once this flow ends: point
+                        // it at the review page first.
+                        window.history.replaceState(null, '', '/admin/library');
+                        void finish();
+                      }}
+                    >
+                      Review it now
+                    </button>{' '}
+                    - or any time from Admin. Nothing needs doing.
+                  </p>
+                )}
               </>
             )}
 

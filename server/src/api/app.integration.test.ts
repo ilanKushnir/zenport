@@ -1121,6 +1121,12 @@ describe('people: invitations, roles and friends', () => {
       ['POST', `/api/users/${a.id}/reset-link`, {}],
       ['POST', '/api/youtube/sources', { url: 'https://youtu.be/dQw4w9WgXcQ' }],
       ['PUT', '/api/ai/sharing', { enabled: true }],
+      ['GET', '/api/admin/review', undefined],
+      ['GET', `/api/admin/items/${itemId}`, undefined],
+      ['PUT', `/api/admin/items/${itemId}`, { title: 'Mine now' }],
+      ['POST', '/api/admin/review/reviewed', { ids: [itemId] }],
+      ['PUT', `/api/items/${itemId}/order`, { trackIds: ['x'] }],
+      ['GET', '/api/library/removed', undefined],
     ] as const;
     for (const [method, url, payload] of forbidden) {
       const res = await app.inject({ method, url, headers: as(m), payload });
@@ -1403,5 +1409,127 @@ describe('order and libraries that move', () => {
     } finally {
       rmSync(other, { recursive: true, force: true });
     }
+  });
+});
+
+describe('library review', () => {
+  const put = (rel: string) => {
+    const abs = path.join(libRoot, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, `${rel}:${'r'.repeat(300)}`);
+  };
+  const roots = () => [{ id: 0, path: libRoot, label: 'Meditations' }];
+
+  it('lists what wants a look, saves every kind of correction, and a rescan keeps them', async () => {
+    put('Quiet Harbor/Creativity/Creativity Pack Day 27-video.mp4');
+    put('Quiet Harbor/Creativity/audio-2248.mp3');
+    put('Quiet Harbor/Creativity/audio-2249.mp3');
+    await runScan(db, roots());
+    await setupAndLogin();
+    const list = (
+      await app.inject({ method: 'GET', url: '/api/admin/review', headers: auth() })
+    ).json();
+    const item = list.items.find((i: { title: string }) => i.title === 'Creativity');
+    expect(item.flags).toEqual(expect.arrayContaining(['raw-names', 'mixed-media']));
+    expect(item.isNew).toBe(true);
+
+    const d = (
+      await app.inject({ method: 'GET', url: `/api/admin/items/${item.id}`, headers: auth() })
+    ).json();
+    const part = (name: string) =>
+      d.tracks.find((t: { scannedTitle: string }) => t.scannedTitle === name) as {
+        id: string;
+        suggestion: string | null;
+      };
+    expect(part('Creativity Pack Day 27-video').suggestion).toBe('Creativity Pack Day 27');
+    expect(part('audio-2248').suggestion).toBe('Session 1');
+    expect(part('audio-2249').suggestion).toBe('Session 2');
+    const [video, a1, a2] = ['Creativity Pack Day 27-video', 'audio-2248', 'audio-2249'].map(
+      (n) => part(n).id,
+    );
+    const save = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/items/${item.id}`,
+      headers: auth(),
+      payload: {
+        title: 'Creativity Pack',
+        creator: 'Quiet Harbor Studio',
+        series: 'Creative Month',
+        type: 'course',
+        tracks: [
+          { id: video, title: 'Welcome to day 27' },
+          { id: a1, title: 'Day 27', role: 'practice' },
+        ],
+        order: [video, a2, a1],
+      },
+    });
+    expect(save.statusCode).toBe(200);
+
+    await runScan(db, roots());
+    const after = (
+      await app.inject({ method: 'GET', url: `/api/items/${item.id}`, headers: auth() })
+    ).json();
+    expect(after).toMatchObject({
+      title: 'Creativity Pack',
+      creator: 'Quiet Harbor Studio',
+      collection: 'Creative Month',
+      type: 'course',
+    });
+    expect(after.tracks.map((t: { title: string }) => t.title)).toEqual([
+      'Welcome to day 27',
+      'audio-2249',
+      'Day 27',
+    ]);
+    expect(after.tracks[2].role).toBe('practice');
+    const again = (
+      await app.inject({ method: 'GET', url: '/api/admin/review', headers: auth() })
+    ).json();
+    const row = again.items.find((i: { id: string }) => i.id === item.id);
+    expect(row.isNew).toBe(false);
+    expect(row.edited).toEqual(
+      expect.arrayContaining(['title', 'creator', 'series', 'type', 'order', 'names', 'roles']),
+    );
+    expect(again.creators).toContain('Quiet Harbor Studio');
+
+    // Giving back what the scanner read clears the correction.
+    await app.inject({
+      method: 'PUT',
+      url: `/api/admin/items/${item.id}`,
+      headers: auth(),
+      payload: { title: 'Creativity', creator: 'Quiet Harbor', series: '', order: null },
+    });
+    const reset = (
+      await app.inject({ method: 'GET', url: `/api/admin/items/${item.id}`, headers: auth() })
+    ).json();
+    expect(reset).toMatchObject({
+      title: 'Creativity',
+      creator: 'Quiet Harbor',
+      collection: null,
+      customOrder: false,
+    });
+
+    // Hide it, then bring it back.
+    await app.inject({
+      method: 'PUT',
+      url: `/api/admin/items/${item.id}`,
+      headers: auth(),
+      payload: { hidden: true },
+    });
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    expect(lib.items.some((i: { id: string }) => i.id === item.id)).toBe(false);
+    const hiddenRow = (
+      await app.inject({ method: 'GET', url: '/api/admin/review', headers: auth() })
+    )
+      .json()
+      .items.find((i: { id: string }) => i.id === item.id);
+    expect(hiddenRow.hidden).toBe(true);
+    await app.inject({
+      method: 'PUT',
+      url: `/api/admin/items/${item.id}`,
+      headers: auth(),
+      payload: { hidden: false },
+    });
+    const back = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    expect(back.items.some((i: { id: string }) => i.id === item.id)).toBe(true);
   });
 });
