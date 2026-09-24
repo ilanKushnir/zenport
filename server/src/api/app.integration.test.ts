@@ -1577,3 +1577,63 @@ describe('clearing practice history', () => {
     expect(bad.statusCode).toBe(400);
   });
 });
+
+describe('the Continue row', () => {
+  it('sets an item aside until it is shown again or played', async () => {
+    await setupAndLogin();
+    const lib = () =>
+      app.inject({ method: 'GET', url: '/api/library', headers: auth() }).then((r) => r.json());
+    const item = (await lib()).items[0];
+    const key = `item:${item.id}`;
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: '/api/continue/hidden',
+          headers: auth(),
+          payload: { key },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect((await lib()).continueHidden).toEqual([key]);
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: '/api/continue/hidden',
+          headers: auth(),
+          payload: { key: 'nonsense' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    await app.inject({
+      method: 'POST',
+      url: '/api/continue/shown',
+      headers: auth(),
+      payload: { keys: [key] },
+    });
+    expect((await lib()).continueHidden).toEqual([]);
+    await app.inject({
+      method: 'PUT',
+      url: '/api/continue/hidden',
+      headers: auth(),
+      payload: { key },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/practice/start',
+      headers: auth(),
+      payload: { meditationId: item.id },
+    });
+    expect((await lib()).continueHidden).toEqual([]);
+    // A series key survives the round trip whole (a NUL would have cut it short).
+    const sk = 'series:Mira Solen\u001fThe Long Road';
+    await app.inject({
+      method: 'PUT',
+      url: '/api/continue/hidden',
+      headers: auth(),
+      payload: { key: sk },
+    });
+    expect((await lib()).continueHidden).toEqual([sk]);
+  });
+});

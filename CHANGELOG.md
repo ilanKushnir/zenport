@@ -5,6 +5,18 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-09-24
+
+### Added
+
+- **Continue, redesigned.** A row you swipe (arrows on a desktop) of wide cards. Each shows where you are ("3 of 9 lessons", "Stopped at 12:03"), a progress bar in the type's colour, and one round button that **resumes right there**: the saved place, or the next part not done. A small ✕ on the cover sets it aside, with **Undo** for a few seconds. It stays hidden on every device until you open it or play any of it again. Starting over clears the progress, so it leaves the row too.
+- **Creators, round.** People are no longer square tiles: a ring around their artwork, like a story, in a row you swipe. **See all** opens a new Creators page. Find one by name, browse A-Z with a letter strip for long lists, or order by size. Each creator shows what kinds of work they have here (meditations, courses, talks, soundscapes) and the total length.
+- **Grid or list** for Everything. A small switch beside the section's title; grid stays the default, and the choice is remembered. The list is one compact line per recording, with its type, length, progress, offline and practised marks, and a favourite star.
+
+### Changed
+
+- A creator's page breadcrumb reads Library / Creators / name.
+
 ## [0.20.0] — 2026-09-24
 
 ### Added

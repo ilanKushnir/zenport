@@ -39,6 +39,7 @@ import { TodayPage } from './pages/TodayPage.tsx';
 import { LibraryPage } from './pages/LibraryPage.tsx';
 import { TimerPage } from './pages/TimerPage.tsx';
 import { CreatorPage } from './pages/CreatorPage.tsx';
+import { CreatorsPage } from './pages/CreatorsPage.tsx';
 import { ItemPage } from './pages/ItemPage.tsx';
 import { PlansPage } from './pages/PlansPage.tsx';
 import { StatsPage } from './pages/StatsPage.tsx';
@@ -342,6 +343,7 @@ function SignedInApp() {
               <Route path="/series/:creator/:name" element={<SeriesPage />} />
               <Route path="/breathe" element={<TimerPage />} />
               <Route path="/timer" element={<Navigate to="/breathe" replace />} />
+              <Route path="/creators" element={<CreatorsPage />} />
               <Route path="/creators/:name" element={<CreatorPage />} />
               <Route path="/m/:id" element={<ItemPage />} />
               <Route path="/plans" element={<PlansPage />} />

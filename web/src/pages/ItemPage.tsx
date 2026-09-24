@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { DocumentDto, MeditationDetailDto, PlanDto } from '@zenport/shared';
 import { PRACTICE_RESUME_MINUTES, formatClock, formatDuration } from '@zenport/shared';
@@ -7,6 +7,7 @@ import { useApi, useRefreshOn } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
 import { DoneTick } from '../components/DoneTick.tsx';
 import { TrackOrderEditor } from '../components/TrackOrderEditor.tsx';
+import { continueSeriesKey } from '../components/Shelves.tsx';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
@@ -21,6 +22,17 @@ export function ItemPage() {
   const { id = '' } = useParams();
   const detail = useApi<MeditationDetailDto>(`/api/items/${id}`);
   useRefreshOn('zenport:progress', () => detail.reload());
+  // Opening something set aside from the Library's Continue row brings it back.
+  const openedCreator = detail.data?.creator;
+  const openedSeries = detail.data?.collection;
+  useEffect(() => {
+    if (openedCreator === undefined) return;
+    void api
+      .post('/api/continue/shown', {
+        keys: [`item:${id}`, continueSeriesKey(openedCreator, openedSeries ?? '')],
+      })
+      .catch(() => {});
+  }, [id, openedCreator, openedSeries]);
   const player = usePlayer();
   const [showEvidence, setShowEvidence] = useState(false);
   const [showPlanSheet, setShowPlanSheet] = useState(false);

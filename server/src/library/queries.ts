@@ -221,6 +221,11 @@ export function libraryDto(db: Db, config: Config, userId: number): LibraryDto {
     items,
     creators: [...creators.values()].sort((a, b) => naturalCompare(a.name, b.name)),
     scan: readScanState(db),
+    continueHidden: (
+      db.prepare('SELECT key FROM continue_hidden WHERE user_id = ?').all(userId) as {
+        key: string;
+      }[]
+    ).map((r) => r.key),
   };
 }
 

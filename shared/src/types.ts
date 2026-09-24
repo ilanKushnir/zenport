@@ -213,6 +213,8 @@ export interface LibraryDto {
   items: MeditationSummaryDto[];
   creators: CreatorDto[];
   scan: ScanStateDto;
+  /** Set aside from this account's Continue row: 'item:<id>' or 'series:<creator>\u001f<series>'. */
+  continueHidden: string[];
 }
 
 // --- Player / progress ---

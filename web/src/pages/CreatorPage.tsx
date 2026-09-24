@@ -25,7 +25,9 @@ export function CreatorPage() {
     <>
       <div className="page-head">
         <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/">Library</Link>
+          <Link to="/library">Library</Link>
+          <span className="sep">/</span>
+          <Link to="/creators">Creators</Link>
           <span className="sep">/</span>
           <span aria-current="page">{creatorName}</span>
         </nav>

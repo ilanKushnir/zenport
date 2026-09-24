@@ -26,6 +26,27 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
 
   app.get('/api/library/scan-state', async () => readScanState(db));
 
+  // The Continue row: set something aside, or bring it back. Opening an item
+  // (or playing it - see practice start) brings it back on its own.
+  const continueKey = z.string().min(3).max(600);
+  app.put('/api/continue/hidden', async (req, reply) => {
+    const body = z.object({ key: continueKey }).safeParse(req.body);
+    if (!body.success || !/^(item|series):/.test(body.data.key)) {
+      return reply.code(400).send({ error: 'key required' });
+    }
+    db.prepare(
+      'INSERT INTO continue_hidden (user_id, key) VALUES (?, ?) ON CONFLICT DO NOTHING',
+    ).run(req.user!.id, body.data.key);
+    return { ok: true };
+  });
+  app.post('/api/continue/shown', async (req, reply) => {
+    const body = z.object({ keys: z.array(continueKey).max(50) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'keys required' });
+    const del = db.prepare('DELETE FROM continue_hidden WHERE user_id = ? AND key = ?');
+    for (const k of body.data.keys) del.run(req.user!.id, k);
+    return { ok: true };
+  });
+
   const rescan = (): Promise<unknown> => {
     if (!scanning) {
       scanning = runScan(db, config.libraryRoots, {

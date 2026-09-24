@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ContentType, LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
 import { isPracticeType } from '@zenport/shared';
@@ -9,6 +9,15 @@ import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { Cover, EmptyState, ErrorNote, Icon, SkeletonGrid } from '../components/ui.tsx';
+import {
+  continueSeriesKey,
+  ContinueCard,
+  CreatorBubble,
+  MedRow,
+  Rail,
+  SeriesRow,
+  type ContinueEntry,
+} from '../components/Shelves.tsx';
 import {
   groupSeries,
   progressLabel,
@@ -149,6 +158,27 @@ export function LibraryPage() {
     window.history.replaceState(null, '', u);
   };
   const [rescanning, setRescanning] = useState(false);
+  // Grid by default; a list for scanning long libraries. Remembered here.
+  const [view, setViewState] = useState<'grid' | 'list'>(() => {
+    try {
+      return localStorage.getItem('zp-lib-view') === 'list' ? 'list' : 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+  const setView = (v: 'grid' | 'list') => {
+    setViewState(v);
+    try {
+      localStorage.setItem('zp-lib-view', v);
+    } catch {
+      /* not remembered - still switches */
+    }
+  };
+  // Set aside from Continue: the server's list, plus this page's own taps
+  // (shown at once, before the server answers), and the last one for Undo.
+  const [hiddenNow, setHiddenNow] = useState<Set<string>>(new Set());
+  const [shownNow, setShownNow] = useState<Set<string>>(new Set());
+  const [lastHidden, setLastHidden] = useState<{ key: string; title: string } | null>(null);
 
   const items = lib.data?.items ?? [];
   const filtersActive =
@@ -160,8 +190,14 @@ export function LibraryPage() {
     for (const i of present) m.set(i.type, (m.get(i.type) ?? 0) + 1);
     return m;
   }, [present]);
+  const hiddenKeys = useMemo(() => {
+    const k = new Set(lib.data?.continueHidden ?? []);
+    for (const h of hiddenNow) k.add(h);
+    for (const sh of shownNow) k.delete(sh);
+    return k;
+  }, [lib.data, hiddenNow, shownNow]);
   // Courses and series someone is part-way through.
-  const continuing = useMemo(() => {
+  const continuing = useMemo((): ContinueEntry[] => {
     const { series, singles } = groupSeries(present);
     // Started and not finished: a part ticked done, or a place to pick up from.
     const open = (done: number, total: number) => done > 0 && done < total;
@@ -172,16 +208,46 @@ export function LibraryPage() {
             open(s.completedCount, s.trackCount) ||
             (s.type !== 'meditation' && s.items.some((i) => i.resumeSec !== null)),
         )
-        .map((s) => ({ kind: 'series' as const, s })),
+        .map((s) => ({ kind: 'series' as const, s, key: continueSeriesKey(s.creator, s.name) })),
       ...singles
         .filter(
           (i) =>
             i.type !== 'meditation' &&
             (open(i.completedCount, i.trackCount) || i.resumeSec !== null),
         )
-        .map((i) => ({ kind: 'item' as const, i })),
-    ].slice(0, 8);
-  }, [present]);
+        .map((i) => ({ kind: 'item' as const, i, key: `item:${i.id}` })),
+    ]
+      .filter((e) => !hiddenKeys.has(e.key))
+      .slice(0, 16);
+  }, [present, hiddenKeys]);
+
+  const hideContinue = (e: ContinueEntry) => {
+    setShownNow((s) => {
+      const n = new Set(s);
+      n.delete(e.key);
+      return n;
+    });
+    setHiddenNow((h) => new Set(h).add(e.key));
+    setLastHidden({ key: e.key, title: e.kind === 'series' ? e.s.name : e.i.title });
+    void api.put('/api/continue/hidden', { key: e.key }).catch(() => {});
+  };
+  const undoHide = () => {
+    if (!lastHidden) return;
+    const key = lastHidden.key;
+    setHiddenNow((h) => {
+      const n = new Set(h);
+      n.delete(key);
+      return n;
+    });
+    setShownNow((s) => new Set(s).add(key));
+    setLastHidden(null);
+    void api.post('/api/continue/shown', { keys: [key] }).catch(() => {});
+  };
+  useEffect(() => {
+    if (!lastHidden) return;
+    const t = window.setTimeout(() => setLastHidden(null), 7000);
+    return () => window.clearTimeout(t);
+  }, [lastHidden]);
 
   const filtered = useMemo(() => {
     let out = present;
@@ -350,43 +416,44 @@ export function LibraryPage() {
         </EmptyState>
       ) : (
         <>
-          {type === 'all' && !filtersActive && continuing.length > 0 && (
-            <section className="section" aria-labelledby="sec-continue">
+          {type === 'all' && !filtersActive && (continuing.length > 0 || lastHidden) && (
+            <section className="section shelf-continue" aria-labelledby="sec-continue">
               <div className="section-head">
                 <h2 id="sec-continue">Continue</h2>
-              </div>
-              <div className="card-grid">
-                {continuing.map((c) =>
-                  c.kind === 'series' ? (
-                    <SeriesCard key={c.s.key} series={c.s} />
-                  ) : (
-                    <MedCard key={c.i.id} item={c.i} />
-                  ),
+                {lastHidden && (
+                  <span className="rail-undo" role="status">
+                    Hid <strong>{lastHidden.title}</strong>
+                    <button type="button" className="linkish" onClick={undoHide}>
+                      Undo
+                    </button>
+                  </span>
                 )}
               </div>
+              {continuing.length > 0 ? (
+                <Rail label="Continue">
+                  {continuing.map((c) => (
+                    <ContinueCard key={c.key} entry={c} onHide={hideContinue} />
+                  ))}
+                </Rail>
+              ) : (
+                <p className="hint">Nothing left part-way - open anything to pick it back up.</p>
+              )}
             </section>
           )}
 
-          {type === 'all' && (
-            <section className="section" aria-labelledby="sec-creators">
+          {type === 'all' && lib.data!.creators.length > 0 && (
+            <section className="section shelf-creators" aria-labelledby="sec-creators">
               <div className="section-head">
                 <h2 id="sec-creators">Creators</h2>
+                <Link className="see-all" to="/creators">
+                  See all {lib.data!.creators.length} <Icon name="chevron-right" size={14} />
+                </Link>
               </div>
-              <div className="card-grid">
+              <Rail label="Creators">
                 {lib.data!.creators.map((c) => (
-                  <Link
-                    key={c.name}
-                    className="med-card"
-                    to={`/creators/${encodeURIComponent(c.name)}`}
-                  >
-                    <CreatorMosaic coverIds={c.coverIds} name={c.name} />
-                    <div className="t">{c.name}</div>
-                    <div className="c">
-                      {c.itemCount} item{c.itemCount > 1 ? 's' : ''}
-                    </div>
-                  </Link>
+                  <CreatorBubble key={c.name} creator={c} />
                 ))}
-              </div>
+              </Rail>
             </section>
           )}
 
@@ -394,6 +461,26 @@ export function LibraryPage() {
             <div className="section-head">
               <h2 id="sec-all">{type === 'all' ? 'Everything' : TYPE_META[type].plural}</h2>
               <div className="section-actions">
+                <div className="view-toggle" role="group" aria-label="Show as">
+                  <button
+                    type="button"
+                    aria-pressed={view === 'grid'}
+                    aria-label="Grid"
+                    title="Grid"
+                    onClick={() => setView('grid')}
+                  >
+                    <Icon name="grid" size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={view === 'list'}
+                    aria-label="List"
+                    title="List"
+                    onClick={() => setView('list')}
+                  >
+                    <Icon name="list" size={16} />
+                  </button>
+                </div>
                 <Link className="btn btn-sm btn-quiet" to="/downloads">
                   <Icon name="on-device" size={15} />
                   Offline
@@ -543,11 +630,19 @@ export function LibraryPage() {
                       {type === 'course' ? 'Courses in parts' : 'Series'}
                       <span>{grouped.series.length}</span>
                     </h3>
-                    <div className="card-grid shelf">
-                      {grouped.series.map((sr) => (
-                        <SeriesCard key={sr.key} series={sr} />
-                      ))}
-                    </div>
+                    {view === 'grid' ? (
+                      <div className="card-grid shelf">
+                        {grouped.series.map((sr) => (
+                          <SeriesCard key={sr.key} series={sr} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="med-rows shelf">
+                        {grouped.series.map((sr) => (
+                          <SeriesRow key={sr.key} series={sr} />
+                        ))}
+                      </div>
+                    )}
                     {grouped.singles.length > 0 && (
                       <h3 className="shelf-title">
                         {type === 'all'
@@ -558,11 +653,19 @@ export function LibraryPage() {
                     )}
                   </>
                 )}
-                <div className="card-grid">
-                  {grouped.singles.map((item) => (
-                    <MedCard key={item.id} item={item} />
-                  ))}
-                </div>
+                {view === 'grid' ? (
+                  <div className="card-grid">
+                    {grouped.singles.map((item) => (
+                      <MedCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="med-rows">
+                    {grouped.singles.map((item) => (
+                      <MedRow key={item.id} item={item} />
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </section>

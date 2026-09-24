@@ -25,6 +25,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.21.0',
+    items: [
+      {
+        emoji: '▶️',
+        text: 'Continue is a row of cards that resume right where you stopped - and can be set aside.',
+      },
+      {
+        emoji: '🫧',
+        text: 'Creators are round now, in a row you can swipe, with a page listing all of them.',
+      },
+      { emoji: '☰', text: 'Everything can be shown as a list as well as a grid.' },
+    ],
+  },
+  {
     version: '0.20.0',
     items: [
       {

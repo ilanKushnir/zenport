@@ -52,6 +52,17 @@ export function registerPracticeRoutes(app: FastifyInstance, ctx: AppContext): v
       if (!item) return reply.code(404).send({ error: 'meditation not found' });
     }
     const id = startSession(db, req.user!.id, body.data.meditationId, new Date());
+    // Playing something set aside from Continue picks it back up.
+    const it = db
+      .prepare('SELECT creator, collection FROM items WHERE id = ?')
+      .get(body.data.meditationId) as { creator: string; collection: string | null } | undefined;
+    if (it) {
+      db.prepare('DELETE FROM continue_hidden WHERE user_id = ? AND key IN (?, ?)').run(
+        req.user!.id,
+        `item:${body.data.meditationId}`,
+        `series:${it.creator}\u001f${it.collection ?? ''}`,
+      );
+    }
     return { id };
   });
 

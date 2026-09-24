@@ -593,6 +593,18 @@ export const MIGRATIONS: string[] = [
   INSERT OR IGNORE INTO app_settings (key, value)
     VALUES ('library_baseline', strftime('%Y-%m-%dT%H:%M:%SZ','now'));
   `,
+
+  // v13: things someone set aside from their Continue row. A key is
+  // 'item:<id>' or 'series:<creator>\u001f<series>'. It stays hidden until
+  // they open it again or play any of it - then the row is simply removed.
+  `
+  CREATE TABLE continue_hidden (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,
+    hidden_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    PRIMARY KEY (user_id, key)
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {
