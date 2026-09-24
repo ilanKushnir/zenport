@@ -154,8 +154,12 @@ const STEPS: Record<EnhanceStepKey, Step> = {
 
   async pictures(ctx, userId, req, step, found) {
     const lib = libraryDto(ctx.db, ctx.config, userId);
+    // Only the creators of the recordings asked about, when that is given.
+    const of = req.only
+      ? new Set(lib.items.filter((i) => req.only!.includes(i.id)).map((i) => i.creator))
+      : null;
     const names = lib.creators
-      .filter((c) => !c.imageUrl && !/^unknown/i.test(c.name))
+      .filter((c) => !c.imageUrl && !/^unknown/i.test(c.name) && (!of || of.has(c.name)))
       .map((c) => c.name);
     const groups = chunk(names, 4);
     step.total = groups.length;
@@ -216,8 +220,9 @@ const STEPS: Record<EnhanceStepKey, Step> = {
       ),
     );
     // Practice first, then courses and talks; the longest-running first within each.
+    const only = req.only ? new Set(req.only) : null;
     const todo = present(ctx, userId)
-      .filter((i) => !have.has(i.id))
+      .filter((i) => !have.has(i.id) && (!only || only.has(i.id)))
       .sort(
         (a, b) =>
           Number(isPracticeType(b.type)) - Number(isPracticeType(a.type)) ||

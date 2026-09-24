@@ -26,34 +26,8 @@ import { asType, summarize, TRACK_ORDER_BY, TRACK_ORDER_JOIN, type ItemRow } fro
 
 const UNKNOWN_CREATOR = 'Unknown creator';
 
-/** A name that is still a file name: export suffixes, sizes, upload numbers. */
-const RAW = /(\b\d{3,4}x\d{3,4}\b|[-_ ]video$|_|^audio[-_ ]?\d+$|\s-\s*$|^\s*-)/i;
-export const looksRaw = (title: string) => RAW.test(title.trim());
-
-/**
- * A tidier name for a raw one, offered - never applied - in the editor.
- * "creativity pack- tip- day 27 640x360-video" becomes
- * "Creativity pack - tip - day 27". Names that are only an upload number
- * ("audio-2248") are numbered as sessions by their place in the set.
- */
-export function tidyTitles(titles: string[]): (string | null)[] {
-  let session = 0;
-  return titles.map((t) => {
-    if (/^audio[-_ ]?\d+$/i.test(t.trim())) {
-      session += 1;
-      return `Session ${session}`;
-    }
-    if (!looksRaw(t)) return null;
-    let s = t.replace(/_+/g, ' ');
-    s = s.replace(/\b\d{3,4}x\d{3,4}\b/gi, ' ');
-    s = s.replace(/[\s-]*video\s*$/i, '');
-    s = s.replace(/\s*-\s+|\s+-\s*/g, ' - ');
-    s = s.replace(/^\s*-\s*|\s*-\s*$/g, '');
-    s = s.replace(/\s{2,}/g, ' ').trim();
-    if (s && s === s.toLowerCase()) s = s.charAt(0).toUpperCase() + s.slice(1);
-    return s && s !== t ? s : null;
-  });
-}
+export { looksRaw, tidyTitles } from './setNames.js';
+import { looksRaw, tidyTitles } from './setNames.js';
 
 const baseline = (db: Db) =>
   (

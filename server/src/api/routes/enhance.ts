@@ -9,7 +9,7 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { EnhanceStatusDto } from '@zenport/shared';
+import type { EnhanceStatusDto, EnhanceStepKey } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import {
   FIX_BATCH,
@@ -34,7 +34,7 @@ import { libraryDto } from '../../library/queries.js';
 import { setLevels, setSeriesStructure, setStructures } from '../../library/levels.js';
 import { jobState, startJob } from '../../ai/job.js';
 import { startOver } from '../../library/reset.js';
-import { isScanning, startScan } from '../../scanner/coordinator.js';
+import { isScanning, onScanned, startScan } from '../../scanner/coordinator.js';
 
 const FILE = /^[0-9a-f]{20}\.webp$/;
 
@@ -231,6 +231,57 @@ export function registerEnhanceRoutes(app: FastifyInstance, ctx: AppContext): vo
       }
     }
     return { ok: true, backup, aiStarted };
+  });
+
+  // Keeping it organized: after a scan that brought new recordings, the
+  // admin's AI sets their levels, finds pictures for new creators and writes
+  // a few descriptions - on its own, unless switched off. Not during the
+  // welcome (that has its own step), and never over a run already going.
+  const autoOn = () =>
+    (
+      db.prepare("SELECT value FROM app_settings WHERE key = 'auto_enhance'").get() as
+        { value: string } | undefined
+    )?.value !== '0';
+  const stopListening = onScanned(({ startedAt }) => {
+    if (!autoOn() || jobState()?.running) return;
+    const admin = db
+      .prepare(
+        `SELECT u.id FROM users u JOIN ai_active a ON a.user_id = u.id
+         JOIN user_prefs p ON p.user_id = u.id
+         WHERE u.role = 'admin' AND p.onboarded_at IS NOT NULL ORDER BY u.id LIMIT 1`,
+      )
+      .get() as { id: number } | undefined;
+    if (!admin) return;
+    const fresh = (
+      db
+        .prepare('SELECT id FROM items WHERE missing = 0 AND excluded = 0 AND added_at >= ?')
+        .all(startedAt) as { id: string }[]
+    ).map((r) => r.id);
+    if (fresh.length === 0) return;
+    const c = enhanceCtx(admin.id);
+    if (!c) return;
+    const steps: EnhanceStepKey[] = WEB_SEARCH[c.target.provider]
+      ? ['levels', 'pictures', 'about']
+      : ['levels'];
+    startJob(c, admin.id, { steps, apply: true, aboutLimit: 12, only: fresh });
+    app.log.info({ recordings: fresh.length }, 'organizing new recordings');
+  });
+  app.addHook('onClose', async () => stopListening());
+
+  app.get('/api/admin/auto-enhance', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    return { on: autoOn() };
+  });
+
+  app.put('/api/admin/auto-enhance', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const body = z.object({ on: z.boolean() }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'on required' });
+    db.prepare(
+      `INSERT INTO app_settings (key, value) VALUES ('auto_enhance', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    ).run(body.data.on ? '1' : '0');
+    return { on: body.data.on };
   });
 
   app.get('/api/ai/library/job', async (req, reply) => {

@@ -25,7 +25,7 @@ import type {
 } from '@zenport/shared';
 import { api } from '../api.ts';
 import { clearApiCache, useApi } from '../hooks.ts';
-import { Cover, EmptyState, ErrorNote, Icon } from '../components/ui.tsx';
+import { Cover, EmptyState, ErrorNote, Icon, Switch } from '../components/ui.tsx';
 import { CreatorFace } from '../components/Shelves.tsx';
 import { CreatorEditSheet } from '../components/CreatorsAdmin.tsx';
 import { LEVEL_LABEL, LEVEL_SHORT, TYPE_META } from '../content.ts';
@@ -54,6 +54,35 @@ const host = (url: string) => {
     return url;
   }
 };
+
+/** Keep it organized: new recordings enhanced on their own, as they arrive. */
+function AutoKeep() {
+  const auto = useApi<{ on: boolean }>('/api/admin/auto-enhance');
+  const [on, setOn] = useState<boolean | null>(null);
+  const value = on ?? auto.data?.on ?? true;
+  return (
+    <div className="enh-auto">
+      <span className="enh-auto-ic" aria-hidden="true">
+        <Icon name="sparkle" size={18} />
+      </span>
+      <div className="grow">
+        <strong>Keep it organized</strong>
+        <span className="sub">
+          When new recordings arrive, your AI gives them a level, a picture for a new creator and a
+          description - on its own. Suggested fixes still wait for you.
+        </span>
+      </div>
+      <Switch
+        checked={value}
+        onChange={(v) => {
+          setOn(v);
+          void api.put('/api/admin/auto-enhance', { on: v }).catch(() => setOn(!v));
+        }}
+        label="Keep it organized"
+      />
+    </div>
+  );
+}
 
 export function EnhancePage() {
   return (
@@ -126,11 +155,13 @@ function Enhance() {
       <div className="page-head">
         <h1>Enhance the library</h1>
         <p className="lede">
-          Your AI reads the library and suggests: corrections, what each recording is about, and a
-          picture for each creator. Nothing changes until you approve it, and anything you corrected
-          by hand stays as you left it.
+          Your AI sets levels, finds a picture for each creator and writes what each recording is
+          about - and suggests corrections, which wait for you. Anything you corrected by hand stays
+          as you left it.
         </p>
       </div>
+
+      {s?.canUse && <AutoKeep />}
 
       {s && !s.canUse && (
         <div className="enh-notice">

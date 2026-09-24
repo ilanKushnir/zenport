@@ -10,6 +10,17 @@ import { fillDurations } from './duration.js';
 import { runScan, type ScanOptions } from './scan.js';
 
 let running: Promise<void> | null = null;
+
+/** Told when a scan (and its lengths) is done, with when it began. */
+type ScannedListener = (info: { startedAt: string }) => void;
+const listeners: ScannedListener[] = [];
+export function onScanned(fn: ScannedListener): () => void {
+  listeners.push(fn);
+  return () => {
+    const i = listeners.indexOf(fn);
+    if (i >= 0) listeners.splice(i, 1);
+  };
+}
 let again = false;
 let progress: ScanProgressDto | null = null;
 
@@ -29,6 +40,7 @@ export function startScan(
   }
   const once = async (): Promise<void> => {
     let hints = idHints;
+    const startedAt = new Date().toISOString();
     do {
       again = false;
       progress = null;
@@ -63,6 +75,13 @@ export function startScan(
         onError?.(err);
       }
     } while (again);
+    for (const fn of listeners) {
+      try {
+        fn({ startedAt });
+      } catch (err) {
+        onError?.(err);
+      }
+    }
   };
   running = once().finally(() => {
     running = null;

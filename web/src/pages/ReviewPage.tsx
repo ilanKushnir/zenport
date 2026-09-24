@@ -29,7 +29,7 @@ import { TYPE_META } from '../content.ts';
 import { AdminCrumb, AdminOnly } from './AdminPage.tsx';
 import { CreatorsAdmin } from '../components/CreatorsAdmin.tsx';
 
-type Show = 'new' | 'look' | 'ai' | 'sets' | 'edited' | 'hidden' | 'all';
+type Show = 'look' | 'new' | 'edited' | 'hidden' | 'all';
 const TYPES: ContentType[] = ['meditation', 'course', 'talk', 'soundscape'];
 
 const FLAG_LABEL: Record<string, string> = {
@@ -43,7 +43,8 @@ const FLAG_HINT: Record<string, string> = {
   'mixed-media': 'Videos among audio - is the order right?',
 };
 
-const worthALook = (i: ReviewItemDto) => !i.hidden && !i.reviewedAt && i.flags.length > 0;
+/** What ZenPort was unsure of and nobody has checked yet. */
+const unsure = (i: ReviewItemDto) => !i.hidden && !i.reviewedAt && i.flags.length > 0;
 
 /** What an AI fix changes, in words. */
 const FIELD_LABEL: Record<string, string> = {
@@ -74,9 +75,8 @@ export function ReviewPage() {
       <div className="page-head">
         <h1>Review the library</h1>
         <p className="lede">
-          How ZenPort read each recording. Correct anything - titles, creators, series, types, the
-          parts&apos; names and order - or hide what does not belong. Nothing here is required, and
-          your corrections survive rescans and moved folders.
+          How ZenPort read your library. Change anything you like - it survives rescans and moved
+          folders.
         </p>
       </div>
       <div className="enh-tabs" role="tablist" aria-label="What to review">
@@ -118,8 +118,8 @@ function Review() {
   const counts = useMemo(
     () => ({
       new: items.filter((i) => i.isNew && !i.hidden).length,
-      look: items.filter(worthALook).length,
-      ai: items.filter((i) => !i.hidden && fixes.has(i.id)).length,
+      // One list of what wants a look: unsure, or with a fix the AI suggests.
+      look: items.filter((i) => unsure(i) || (!i.hidden && fixes.has(i.id))).length,
       edited: items.filter((i) => i.edited.length > 0).length,
       hidden: items.filter((i) => i.hidden).length,
       all: items.filter((i) => !i.hidden).length,
@@ -135,14 +135,15 @@ function Review() {
 
   // Open on what matters: new things first, then what wants a look.
   const asked = params.get('show') as Show | null;
-  const show: Show = asked ?? (counts.new > 0 ? 'new' : counts.look > 0 ? 'look' : 'all');
+  // Open on what wants a look - or, when nothing does, the whole library.
+  const legacy = asked === ('ai' as Show) || asked === ('sets' as Show) ? 'look' : asked;
+  const show: Show = legacy ?? (counts.look + setCount > 0 ? 'look' : 'all');
   const pick = (s: Show) => setParams({ show: s }, { replace: true });
 
   const needle = q.trim().toLowerCase();
   const shown = items.filter((i) => {
     if (show === 'new' && !(i.isNew && !i.hidden)) return false;
-    if (show === 'look' && !worthALook(i)) return false;
-    if (show === 'ai' && (i.hidden || !fixes.has(i.id))) return false;
+    if (show === 'look' && !(unsure(i) || (!i.hidden && fixes.has(i.id)))) return false;
     if (show === 'edited' && i.edited.length === 0) return false;
     if (show === 'hidden' && !i.hidden) return false;
     if (show === 'all' && i.hidden) return false;
@@ -169,28 +170,13 @@ function Review() {
   };
 
   const FILTERS: { key: Show; label: string; n: number; hint: string }[] = [
+    {
+      key: 'look',
+      label: 'Needs a look',
+      n: counts.look + setCount,
+      hint: 'What ZenPort was unsure of, and what your AI suggests',
+    },
     { key: 'new', label: 'New', n: counts.new, hint: 'Added since you last looked' },
-    { key: 'look', label: 'Worth a look', n: counts.look, hint: 'ZenPort was unsure' },
-    ...(setCount > 0 || show === 'sets'
-      ? [
-          {
-            key: 'sets' as const,
-            label: 'Belong together',
-            n: setCount,
-            hint: 'Recordings that look like one set, filed apart',
-          },
-        ]
-      : []),
-    ...(counts.ai > 0 || show === 'ai'
-      ? [
-          {
-            key: 'ai' as const,
-            label: 'AI suggests',
-            n: counts.ai,
-            hint: 'Your AI suggested a fix',
-          },
-        ]
-      : []),
     { key: 'edited', label: 'Corrected', n: counts.edited, hint: 'Changed by you' },
     { key: 'hidden', label: 'Hidden', n: counts.hidden, hint: 'Left out of the library' },
     { key: 'all', label: 'Everything', n: counts.all, hint: 'The whole library' },
@@ -214,7 +200,7 @@ function Review() {
         ))}
       </div>
 
-      <div className="review-tools" hidden={show === 'sets'}>
+      <div className="review-tools">
         <label className="folder-search review-search">
           <Icon name="search" size={16} />
           <input
@@ -261,21 +247,7 @@ function Review() {
         </div>
       )}
 
-      {show !== 'sets' && setCount > 0 && (
-        <div className="review-bulk set-banner">
-          <span>
-            <Icon name="library" size={15} />{' '}
-            {setCount === 1
-              ? 'One set of recordings looks like it belongs together.'
-              : `${setCount} sets of recordings look like they belong together.`}
-          </span>
-          <button className="btn btn-sm btn-quiet" onClick={() => pick('sets')}>
-            See them
-          </button>
-        </div>
-      )}
-
-      {show === 'sets' && (
+      {show === 'look' && setCount > 0 && (
         <SetCards
           sets={sets.data ?? []}
           onDone={() => {
@@ -288,7 +260,7 @@ function Review() {
       {list.error && <ErrorNote message={list.error} onRetry={list.reload} />}
       {list.loading && !list.data && <div className="skeleton" style={{ height: 320 }} />}
 
-      {list.data && show !== 'sets' && shown.length === 0 && (
+      {list.data && shown.length === 0 && !(show === 'look' && setCount > 0) && (
         <EmptyState title={emptyTitle(show, !!needle || type !== 'all')} art="empty-library">
           {show === 'new' || show === 'look' ? (
             <>
@@ -302,26 +274,25 @@ function Review() {
       )}
 
       <div className="review-groups">
-        {show !== 'sets' &&
-          groups.map(([creator, rows]) => (
-            <section key={creator} className="review-group" aria-label={creator}>
-              <h2 className="review-group-head">
-                {creator}
-                <span>{rows.length}</span>
-              </h2>
-              <ul className="review-list">
-                {rows.map((i) => (
-                  <li key={i.id}>
-                    <ReviewRow
-                      item={i}
-                      fixes={fixes.get(i.id) ?? []}
-                      onOpen={() => setOpen({ id: i.id, queue: shown.map((x) => x.id) })}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+        {groups.map(([creator, rows]) => (
+          <section key={creator} className="review-group" aria-label={creator}>
+            <h2 className="review-group-head">
+              {creator}
+              <span>{rows.length}</span>
+            </h2>
+            <ul className="review-list">
+              {rows.map((i) => (
+                <li key={i.id}>
+                  <ReviewRow
+                    item={i}
+                    fixes={fixes.get(i.id) ?? []}
+                    onOpen={() => setOpen({ id: i.id, queue: shown.map((x) => x.id) })}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
       </div>
 
       {open && list.data && (
@@ -358,8 +329,7 @@ function Review() {
 function emptyTitle(show: Show, narrowed: boolean): string {
   if (narrowed) return 'Nothing matches';
   if (show === 'new') return 'Nothing new';
-  if (show === 'look') return 'Nothing wants a look';
-  if (show === 'ai') return 'No open AI suggestions';
+  if (show === 'look') return 'All in order';
   if (show === 'edited') return 'No corrections yet';
   if (show === 'hidden') return 'Nothing hidden';
   return 'The library is empty';

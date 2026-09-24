@@ -282,18 +282,14 @@ export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCrea
         )}
       </span>
       <span className="med-row-meta">
-        {item.structure && item.structure !== 'single' && isPracticeType(item.type) ? (
+        {/* Only what the row does not already say: a pack's shape. Its type
+            is in its section and its subtitle. */}
+        {item.structure && item.structure !== 'single' && isPracticeType(item.type) && (
           <span className={`med-row-type s-${item.structure}`}>
             <Icon name={item.structure === 'programme' ? 'sprout' : 'grid'} size={13} />
             <span>{item.structure === 'programme' ? 'In order' : 'Pack'}</span>
           </span>
-        ) : (
-          <span className={`med-row-type t-${item.type}`}>
-            <Icon name={meta.icon} size={13} />
-            <span>{meta.label}</span>
-          </span>
         )}
-        {item.hasVideo && <Icon name="video" size={14} />}
         {offline.ids.has(item.id) && (
           <span className="med-row-offline" title="Saved offline">
             <Icon name="on-device" size={14} />
@@ -332,7 +328,6 @@ export function SeriesRow({
   inCreator?: boolean;
   structure?: 'programme' | 'pack';
 }) {
-  const meta = TYPE_META[series.type];
   const progress = progressLabel(series.completedCount, series.trackCount, series.type);
   const programme = (structure ?? seriesStructure(series)) === 'programme';
   const level = seriesLevel(series.items);
@@ -367,11 +362,13 @@ export function SeriesRow({
             <span>{done ? 'Done' : programme ? 'In order' : 'Pack'}</span>
           </span>
         ) : (
-          // A course or a set of talks shows what it is, not a pack's shape.
-          <span className={`med-row-type t-${series.type}`}>
-            <Icon name={done ? 'check-circle' : meta.icon} size={13} />
-            <span>{done ? 'Done' : meta.label}</span>
-          </span>
+          // A course or a set of talks sits with its kind: only "Done" is news.
+          done && (
+            <span className={`med-row-type t-${series.type}`}>
+              <Icon name="check-circle" size={13} />
+              <span>Done</span>
+            </span>
+          )
         )}
       </span>
       <FavButton

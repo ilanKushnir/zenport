@@ -1303,6 +1303,11 @@ export interface EnhanceJobRequest {
   apply: boolean;
   /** Descriptions for at most this many recordings (web research is slow). */
   aboutLimit?: number;
+  /**
+   * Only these recordings (new ones, after a scan): descriptions for them,
+   * pictures for their creators. Levels already go only to what has none.
+   */
+  only?: string[];
 }
 
 export interface EnhanceJobStepDto {

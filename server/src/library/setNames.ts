@@ -99,3 +99,33 @@ export function sharedLeads(titles: string[]): Map<number, string> {
   for (const [i, l] of out) if ((size.get(l.toLowerCase()) ?? 0) < 3) out.delete(i);
   return out;
 }
+
+/** A name that is still a file name: export suffixes, sizes, upload numbers. */
+const RAW = /(\b\d{3,4}x\d{3,4}\b|[-_ ]video$|_|^audio[-_ ]?\d+$|\s-\s*$|^\s*-)/i;
+export const looksRaw = (title: string) => RAW.test(title.trim());
+
+/**
+ * A tidier name for a raw one - applied as the library is read, so a file
+ * name is never what anyone sees (an admin's own name always wins).
+ * "creativity pack- tip- day 27 640x360-video" becomes
+ * "Creativity pack - tip - day 27". Names that are only an upload number
+ * ("audio-2248") are numbered as sessions by their place in the set.
+ */
+export function tidyTitles(titles: string[]): (string | null)[] {
+  let session = 0;
+  return titles.map((t) => {
+    if (/^audio[-_ ]?\d+$/i.test(t.trim())) {
+      session += 1;
+      return `Session ${session}`;
+    }
+    if (!looksRaw(t)) return null;
+    let s = t.replace(/_+/g, ' ');
+    s = s.replace(/\b\d{3,4}x\d{3,4}\b/gi, ' ');
+    s = s.replace(/[\s-]*video\s*$/i, '');
+    s = s.replace(/\s*-\s+|\s+-\s*/g, ' - ');
+    s = s.replace(/^\s*-\s*|\s*-\s*$/g, '');
+    s = s.replace(/\s{2,}/g, ' ').trim();
+    if (s && s === s.toLowerCase()) s = s.charAt(0).toUpperCase() + s.slice(1);
+    return s && s !== t ? s : null;
+  });
+}

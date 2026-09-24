@@ -1,7 +1,7 @@
 import { naturalCompare, titleFromStem, type InferenceDecision } from '@zenport/shared';
 import { orderTracks } from './trackOrder.js';
 import type { WalkedFile } from '../scanner/walk.js';
-import { numberedStem, sharedLeads } from './setNames.js';
+import { numberedStem, sharedLeads, tidyTitles } from './setNames.js';
 
 /**
  * Deterministic, explainable hierarchy inference. No AI, no probabilities —
@@ -500,6 +500,15 @@ export function inferLibrary(walked: WalkedFile[], opts: InferOptions = {}): Inf
   attachDeepDocs(root, null);
 
   groupSets(items, opts.notSets ?? new Set());
+
+  // Part names read as names, never as files ("day 27 640x360-video" is
+  // "Day 27"; bare upload numbers are sessions in their order).
+  for (const item of items) {
+    const tidy = tidyTitles(item.tracks.map((t) => t.title));
+    item.tracks.forEach((t, i) => {
+      if (tidy[i]) t.title = tidy[i]!;
+    });
+  }
 
   items.sort((a, b) => naturalCompare(a.itemKey, b.itemKey));
   for (const item of items) {

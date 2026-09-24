@@ -5,6 +5,20 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.37.0] — 2026-09-25
+
+### Changed
+
+- **The library keeps itself organized.** Messy libraries are the point: ZenPort reads, indexes, enhances and organizes them, and keeps doing so as recordings arrive.
+  - **File names are tidied as they are read.** "day 27 640x360-video" becomes "Day 27", and bare upload numbers ("audio-2248") become sessions in their order. There is nothing to approve, and a name you set yourself always wins.
+  - **New recordings are enhanced on their own.** After a scan that brings new recordings, the admin's AI gives them a level, finds a picture for any new creator and writes a few descriptions. It does only that: never the whole library again, and not during the welcome or while another run is going. Enhance the library → **Keep it organized** switches it off. Suggested fixes still wait for you.
+- **Calmer lists.** A row no longer repeats what its section already says (its type) or shows a video icon. It shows the level, the length, a small mark for packs, and the heart.
+- **Review the library has one list: Needs a look.** It holds what ZenPort was unsure of, what your AI suggests and sets that may belong together, and reads "All in order" when empty. The separate "Worth a look", "AI suggests" and "Belong together" views are gone.
+
+### Verified
+
+- **Moving folders within a library keeps everything.** A new test moves a recording's folder elsewhere under the same root and checks it keeps its id, its title and series corrections, its favourite and its finished parts.
+
 ## [0.36.0] — 2026-09-25
 
 ### Changed

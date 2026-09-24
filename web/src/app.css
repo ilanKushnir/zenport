@@ -4582,6 +4582,43 @@
   position: relative;
 }
 
+/* Enhance the library: new recordings organized on their own. */
+.enh-auto {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-block-end: var(--s5);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--hairline));
+  background: color-mix(in oklab, var(--accent) 7%, var(--surface));
+}
+
+.enh-auto .grow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.enh-auto .sub {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.enh-auto-ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 /* Where you are on a long page: the section you are in, just under the top. */
 .section-pill {
   position: fixed;

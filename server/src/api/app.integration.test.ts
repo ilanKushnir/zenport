@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -8,7 +8,8 @@ import { openDb, type Db } from '../db/index.js';
 import { AiError, type AiClient } from '../ai/providers.js';
 import { silenceMp3 } from '../ai/mp3.js';
 import { runScan } from '../scanner/scan.js';
-import { isScanning } from '../scanner/coordinator.js';
+import { isScanning, startScan } from '../scanner/coordinator.js';
+import { jobState } from '../ai/job.js';
 import type { Config } from '../config.js';
 
 let app: FastifyInstance;
@@ -1619,7 +1620,8 @@ describe('library review', () => {
       await app.inject({ method: 'GET', url: '/api/admin/review', headers: auth() })
     ).json();
     const item = list.items.find((i: { title: string }) => i.title === 'Creativity');
-    expect(item.flags).toEqual(expect.arrayContaining(['raw-names', 'mixed-media']));
+    // File names are tidied as the library is read: nothing raw left to flag.
+    expect(item.flags).toEqual(['mixed-media']);
     expect(item.isNew).toBe(true);
 
     const d = (
@@ -1630,10 +1632,10 @@ describe('library review', () => {
         id: string;
         suggestion: string | null;
       };
-    expect(part('Creativity Pack Day 27-video').suggestion).toBe('Creativity Pack Day 27');
-    expect(part('audio-2248').suggestion).toBe('Session 1');
-    expect(part('audio-2249').suggestion).toBe('Session 2');
-    const [video, a1, a2] = ['Creativity Pack Day 27-video', 'audio-2248', 'audio-2249'].map(
+    expect(part('Creativity Pack Day 27').suggestion).toBeNull();
+    expect(part('Session 1')).toBeTruthy();
+    expect(part('Session 2')).toBeTruthy();
+    const [video, a1, a2] = ['Creativity Pack Day 27', 'Session 1', 'Session 2'].map(
       (n) => part(n).id,
     );
     const save = await app.inject({
@@ -1666,7 +1668,7 @@ describe('library review', () => {
     });
     expect(after.tracks.map((t: { title: string }) => t.title)).toEqual([
       'Welcome to day 27',
-      'audio-2249',
+      'Session 2',
       'Day 27',
     ]);
     expect(after.tracks[2].role).toBe('practice');
@@ -2090,7 +2092,7 @@ describe('AI library enhancements', () => {
       to: 'course',
       confidence: 'high',
     });
-    expect(names.parts[0]).toEqual({ from: 'audio-2248', to: 'Day 1' });
+    expect(names.parts[0]).toEqual({ from: 'Session 1', to: 'Day 1' });
 
     expect(
       (
@@ -3209,5 +3211,122 @@ describe('Starting the library over', () => {
       payload: { keepCorrections: true, enhance: null },
     });
     expect(member.statusCode).not.toBe(200);
+  });
+});
+
+describe('Keeping it organized', () => {
+  const settle = async () => {
+    for (let i = 0; i < 300 && (isScanning() || jobState()?.running); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
+  const put = (rel: string) => {
+    const abs = path.join(libRoot, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, `${rel}:${'k'.repeat(300)}`);
+  };
+
+  it('gives new recordings their level on its own after a scan - and can be switched off', async () => {
+    put('Mira Solen/Morning Ritual/a.mp3');
+    await setupAndLogin();
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/prefs',
+      headers: auth(),
+      payload: { onboarded: true },
+    });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    const cfg = { ...makeConfig(), libraryRoots: [{ id: 0, path: libRoot, label: 'Meditations' }] };
+    await startScan(db, cfg);
+    await settle();
+    const level = (title: string) =>
+      (
+        db
+          .prepare(
+            "SELECT l.level FROM item_levels l JOIN items i ON i.id = l.item_id WHERE i.title = ? AND l.source = 'ai'",
+          )
+          .get(title) as { level: string } | undefined
+      )?.level ?? null;
+    expect(level('Morning Ritual')).toBe('intermediate');
+
+    // Off: a new recording waits for someone to ask.
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/auto-enhance',
+      headers: auth(),
+      payload: { on: false },
+    });
+    put('Mira Solen/Evening Sit/b.mp3');
+    await startScan(db, cfg);
+    await settle();
+    expect(level('Evening Sit')).toBeNull();
+  });
+});
+
+describe('Moving folders within the library', () => {
+  it('keeps each recording - its id, favourite, progress and corrections - wherever it moves', async () => {
+    const put = (rel: string) => {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'m'.repeat(400)}`);
+    };
+    put('Mira Solen/Unsorted/Open Heart/1 - Arrive.mp3');
+    put('Mira Solen/Unsorted/Open Heart/2 - Rest.mp3');
+    const roots = [{ id: 0, path: libRoot, label: 'Meditations' }];
+    await runScan(db, roots);
+    await setupAndLogin();
+    const lib = async () =>
+      (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json().items as {
+        id: string;
+        title: string;
+        collection: string | null;
+      }[];
+    const before = (await lib()).find((i) => i.title === 'Open Heart')!;
+    await app.inject({ method: 'PUT', url: `/api/favorites/${before.id}`, headers: auth() });
+    await app.inject({
+      method: 'PUT',
+      url: `/api/admin/items/${before.id}`,
+      headers: auth(),
+      payload: { title: 'Open Heart, Softly', series: 'Heart Practices' },
+    });
+    const track = db
+      .prepare('SELECT id FROM tracks WHERE item_id = ? ORDER BY ord')
+      .get(before.id) as {
+      id: string;
+    };
+    await app.inject({
+      method: 'PUT',
+      url: `/api/tracks/${track.id}/completed`,
+      headers: auth(),
+      payload: { completed: true },
+    });
+
+    // Tidied up on disk: same files, another place under the same root.
+    mkdirSync(path.join(libRoot, 'Mira Solen/Heart'), { recursive: true });
+    renameSync(
+      path.join(libRoot, 'Mira Solen/Unsorted/Open Heart'),
+      path.join(libRoot, 'Mira Solen/Heart/Open Heart'),
+    );
+    await runScan(db, roots);
+
+    const after = (await lib()).filter(
+      (i) => !('missing' in i) || !(i as { missing?: boolean }).missing,
+    );
+    const moved = after.find((i) => i.id === before.id)!;
+    expect(moved).toBeTruthy();
+    expect(moved.title).toBe('Open Heart, Softly');
+    expect(moved.collection).toBe('Heart Practices');
+    const favs = (
+      await app.inject({ method: 'GET', url: '/api/favorites', headers: auth() })
+    ).json();
+    expect(favs.map((f: { itemId: string }) => f.itemId)).toEqual([before.id]);
+    expect(
+      db.prepare('SELECT COUNT(*) AS n FROM track_completions WHERE track_id = ?').get(track.id),
+    ).toEqual({ n: 1 });
   });
 });
