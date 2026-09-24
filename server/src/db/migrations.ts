@@ -824,6 +824,17 @@ export const MIGRATIONS: string[] = [
     added_at TEXT NOT NULL
   );
   `,
+  // v27: what the AI already looked at for fixes, and as what - so a run
+  // sends only what is new or changed since, not the whole library again.
+  `
+  CREATE TABLE ai_reviewed (
+    item_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    reviewed_at TEXT NOT NULL,
+    PRIMARY KEY (item_id, kind)
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

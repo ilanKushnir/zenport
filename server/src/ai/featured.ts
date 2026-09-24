@@ -244,6 +244,7 @@ export async function generateFeatured(
         system: FEATURED_SYSTEM,
         user: text + extra,
         schemaName: 'zenport_featured',
+        light: true,
         schema: FEATURED_SCHEMA as unknown as Record<string, unknown>,
       });
     let pick = resolvePick(await ask(), handles, avoid);

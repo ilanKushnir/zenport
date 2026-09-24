@@ -20,6 +20,8 @@ import { isScanning } from '../scanner/coordinator.js';
 import {
   FIX_BATCH,
   LEVEL_BATCH,
+  fixCandidates,
+  levelCandidates,
   applySuggestion,
   listSuggestions,
   runAbout,
@@ -116,8 +118,11 @@ const present = (ctx: EnhanceCtx, userId: number) =>
 
 const STEPS: Record<EnhanceStepKey, Step> = {
   async levels(ctx, userId, _req, step, found) {
-    const batches = Math.max(1, Math.ceil(present(ctx, userId).length / LEVEL_BATCH));
+    // Only what has no level yet (or no programme/pack call): settled work is not paid for twice.
+    const todo = levelCandidates(ctx.db, ctx.config, userId).length;
+    const batches = Math.ceil(todo / LEVEL_BATCH);
     step.total = batches;
+    if (batches === 0) step.note = 'Every recording already has a level.';
     for (let b = 1; b <= batches; b++) {
       const since = new Date().toISOString();
       const r = await runLevels(ctx, userId, b);
@@ -180,8 +185,11 @@ const STEPS: Record<EnhanceStepKey, Step> = {
   },
 
   async fixes(ctx, userId, _req, step, found) {
-    const batches = Math.max(1, Math.ceil(present(ctx, userId).length / FIX_BATCH));
+    // Only what is new or changed since it was last checked.
+    const todo = fixCandidates(ctx.db, ctx.config, userId).length;
+    const batches = Math.ceil(todo / FIX_BATCH);
     step.total = batches;
+    if (batches === 0) step.note = 'Nothing new or changed since the last check.';
     const seen = new Set(listSuggestions(ctx.db, ctx.config).map((x) => x.id));
     for (let b = 1; b <= batches; b++) {
       const r = await runFixes(ctx, userId, b);

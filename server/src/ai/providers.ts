@@ -34,6 +34,18 @@ export interface AiJsonRequest {
   /** Let the model look things up on the web first, where the provider can. */
   webSearch?: boolean;
   maxTokens?: number;
+  /**
+   * How hard a thinking model thinks before answering. Its thinking is billed
+   * as output though never seen, and a model's own default is far more than
+   * most of these tasks need: 'low' unless a task earns more (a whole plan).
+   */
+  effort?: 'low' | 'medium';
+  /**
+   * A simple, well-shaped task (levels, fixes, finding a picture, today's
+   * pick): run it on the cheaper sibling of the chosen model - its mini,
+   * Haiku or Flash - when the key can use one.
+   */
+  light?: boolean;
 }
 
 export interface AiSpeechRequest {
@@ -224,6 +236,65 @@ export function rankModels(provider: AiProvider, all: string[]): string[] {
   }
 }
 
+// ── Spending less ─────────────────────────────────────────────────────────
+
+/** An OpenAI model that thinks before it answers (and bills that as output). */
+export const thinks = (model: string) => /^(gpt-5|o\d)/.test(model) && !/chat/.test(model);
+
+/** Gemini's thinking, kept small: a level on Gemini 3, a token budget on 2.5. */
+export function geminiThinking(
+  model: string,
+  effort: 'low' | 'medium',
+): Record<string, unknown> | null {
+  if (/^gemini-3/.test(model)) return { thinkingLevel: effort === 'low' ? 'low' : 'high' };
+  if (/^gemini-2\.5-flash/.test(model)) return { thinkingBudget: effort === 'low' ? 0 : 1024 };
+  if (/^gemini-2\.5-pro/.test(model)) return { thinkingBudget: effort === 'low' ? 128 : 1024 };
+  return null;
+}
+
+/**
+ * The cheaper sibling of a chosen model, from the models the key can use:
+ * the newest mini for GPT, Haiku for Claude, Flash for Gemini. The model
+ * itself when it already is one, or there is none.
+ */
+export function lightModel(provider: AiProvider, model: string, available: string[]): string {
+  const newest = (re: RegExp) =>
+    available.filter((m) => re.test(m)).sort((a, b) => version(b) - version(a))[0];
+  switch (provider) {
+    case 'openai':
+      if (/-(mini|nano)\b/.test(model)) return model;
+      return newest(/^gpt-5(\.\d+)?-mini$/) ?? model;
+    case 'anthropic':
+      if (/haiku/.test(model)) return model;
+      return newest(/^claude-haiku-[\d-]+$/) ?? newest(/^claude-.*haiku/) ?? model;
+    case 'gemini':
+      if (/flash/.test(model)) return model;
+      return newest(/^gemini-[\d.]+-flash$/) ?? model;
+    case 'openrouter': {
+      if (/(mini|nano|haiku|flash)/.test(model)) return model;
+      if (model.startsWith('openai/')) return newest(/^openai\/gpt-5(\.\d+)?-mini$/) ?? model;
+      if (model.startsWith('anthropic/')) return newest(/^anthropic\/claude-.*haiku/) ?? model;
+      if (model.startsWith('google/')) return newest(/^google\/gemini-[\d.]+-flash$/) ?? model;
+      return model;
+    }
+    case 'compatible':
+      return model;
+  }
+}
+
+/** A request the provider turned down for a setting it does not take. */
+const refusedSetting = (err: unknown) =>
+  err instanceof AiError &&
+  /reasoning|thinking|search_context|max_results|unsupported|unrecognized|unknown (field|parameter|name)|not supported|invalid.*(param|argument|value)/i.test(
+    err.message,
+  );
+
+/** A model the key cannot use (gone, renamed, not on this plan). */
+const modelRefused = (err: unknown) =>
+  err instanceof AiError &&
+  /model|not found|does not exist|no access|not available/i.test(err.message) &&
+  !/credit|rate/i.test(err.message);
+
 // ── The providers ─────────────────────────────────────────────────────────
 
 const OPENAI = 'https://api.openai.com/v1';
@@ -248,7 +319,7 @@ function chatHeaders(t: Omit<AiTarget, 'model'>): Record<string, string> {
 }
 
 /** OpenAI-style chat completions: OpenAI, OpenRouter, and compatible servers. */
-async function chatCompletions(t: AiTarget, req: AiJsonRequest): Promise<unknown> {
+async function chatCompletions(t: AiTarget, req: SendRequest): Promise<unknown> {
   const url = `${chatBase(t)}/chat/completions`;
   const messages = [
     { role: 'system', content: req.system },
@@ -259,7 +330,14 @@ async function chatCompletions(t: AiTarget, req: AiJsonRequest): Promise<unknown
     json_schema: { name: req.schemaName, schema: req.schema, strict: true },
   };
   const body: Record<string, unknown> = { model: t.model, messages, response_format: strict };
-  if (req.webSearch && t.provider === 'openrouter') body.plugins = [{ id: 'web' }];
+  if (req.webSearch && t.provider === 'openrouter') {
+    body.plugins = [req.plain ? { id: 'web' } : { id: 'web', max_results: 3 }];
+  }
+  if (!req.plain) {
+    const effort = req.effort ?? 'low';
+    if (t.provider === 'openai' && thinks(t.model)) body.reasoning_effort = effort;
+    if (t.provider === 'openrouter') body.reasoning = { effort };
+  }
   try {
     const data = (await call(t.provider, url, {
       method: 'POST',
@@ -297,7 +375,7 @@ async function chatCompletions(t: AiTarget, req: AiJsonRequest): Promise<unknown
 }
 
 /** OpenAI with web search: the Responses API and its web_search tool. */
-async function openAiResponses(t: AiTarget, req: AiJsonRequest): Promise<unknown> {
+async function openAiResponses(t: AiTarget, req: SendRequest): Promise<unknown> {
   const data = (await call('openai', `${OPENAI}/responses`, {
     method: 'POST',
     headers: chatHeaders(t),
@@ -305,7 +383,11 @@ async function openAiResponses(t: AiTarget, req: AiJsonRequest): Promise<unknown
       model: t.model,
       instructions: req.system,
       input: req.user,
-      tools: [{ type: 'web_search' }],
+      // What a search pulls in is billed as input: the short version.
+      tools: [
+        req.plain ? { type: 'web_search' } : { type: 'web_search', search_context_size: 'low' },
+      ],
+      ...(thinks(t.model) && !req.plain ? { reasoning: { effort: req.effort ?? 'low' } } : {}),
       text: {
         format: { type: 'json_schema', name: req.schemaName, schema: req.schema, strict: true },
       },
@@ -326,7 +408,7 @@ async function openAiResponses(t: AiTarget, req: AiJsonRequest): Promise<unknown
   return parseJsonText(text);
 }
 
-async function anthropicJson(t: AiTarget, req: AiJsonRequest): Promise<unknown> {
+async function anthropicJson(t: AiTarget, req: SendRequest): Promise<unknown> {
   const tools: Record<string, unknown>[] = [
     {
       name: req.schemaName,
@@ -334,8 +416,14 @@ async function anthropicJson(t: AiTarget, req: AiJsonRequest): Promise<unknown> 
       input_schema: req.schema,
     },
   ];
-  if (req.webSearch)
-    tools.unshift({ type: 'web_search_20250305', name: 'web_search', max_uses: 8 });
+  // Every search result is billed as input: a few are enough.
+  if (req.webSearch) {
+    tools.unshift({
+      type: 'web_search_20250305',
+      name: 'web_search',
+      max_uses: req.effort === 'medium' ? 6 : 4,
+    });
+  }
   const data = (await call('anthropic', `${ANTHROPIC}/messages`, {
     method: 'POST',
     headers: {
@@ -367,11 +455,13 @@ async function anthropicJson(t: AiTarget, req: AiJsonRequest): Promise<unknown> 
   throw new AiError('Anthropic returned an empty answer.', 502);
 }
 
-async function geminiJson(t: AiTarget, req: AiJsonRequest): Promise<unknown> {
+async function geminiJson(t: AiTarget, req: SendRequest): Promise<unknown> {
   const url = `${GEMINI}/models/${encodeURIComponent(t.model)}:generateContent`;
   const generationConfig: Record<string, unknown> = req.webSearch
     ? {}
     : { responseMimeType: 'application/json', responseJsonSchema: req.schema };
+  const thinking = req.plain ? null : geminiThinking(t.model, req.effort ?? 'low');
+  if (thinking) generationConfig.thinkingConfig = thinking;
   const data = (await call('gemini', url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': t.apiKey },
@@ -393,6 +483,34 @@ async function geminiJson(t: AiTarget, req: AiJsonRequest): Promise<unknown> {
     throw new AiError(`Gemini returned an empty answer${why ? ` (${why})` : ''}.`, 502);
   }
   return parseJsonText(text);
+}
+
+type SendRequest = AiJsonRequest & { plain?: boolean };
+
+function dispatch(t: AiTarget, req: SendRequest): Promise<unknown> {
+  if (t.provider === 'anthropic') return anthropicJson(t, req);
+  if (t.provider === 'gemini') return geminiJson(t, req);
+  if (t.provider === 'openai' && req.webSearch) return openAiResponses(t, req);
+  return chatCompletions(t, req);
+}
+
+/** The models a key can use, remembered for a while: listing them is free, but not instant. */
+const modelLists = new Map<string, { at: number; models: string[] }>();
+const LIST_TTL = 12 * 60 * 60_000;
+
+async function lightFor(t: AiTarget): Promise<string> {
+  if (t.provider === 'compatible') return t.model;
+  const key = `${t.provider}:${t.apiKey.slice(-12)}`;
+  let hit = modelLists.get(key);
+  if (!hit || Date.now() - hit.at > LIST_TTL) {
+    try {
+      hit = { at: Date.now(), models: await aiClient.listModels(t) };
+      modelLists.set(key, hit);
+    } catch {
+      return t.model;
+    }
+  }
+  return lightModel(t.provider, t.model, hit.models);
 }
 
 export const aiClient: AiClient = {
@@ -464,10 +582,27 @@ export const aiClient: AiClient = {
   },
 
   async chatJson(t, req) {
-    if (t.provider === 'anthropic') return anthropicJson(t, req);
-    if (t.provider === 'gemini') return geminiJson(t, req);
-    if (t.provider === 'openai' && req.webSearch) return openAiResponses(t, req);
-    return chatCompletions(t, req);
+    const send = async (target: AiTarget) => {
+      try {
+        return await dispatch(target, req);
+      } catch (err) {
+        // A setting this model does not take: ask again without the savings.
+        if (!refusedSetting(err)) throw err;
+        return dispatch(target, { ...req, effort: undefined, plain: true });
+      }
+    };
+    if (req.light) {
+      const light = await lightFor(t);
+      if (light !== t.model) {
+        try {
+          return await send({ ...t, model: light });
+        } catch (err) {
+          if (!modelRefused(err)) throw err;
+          // Fall through to the chosen model.
+        }
+      }
+    }
+    return send(t);
   },
 };
 

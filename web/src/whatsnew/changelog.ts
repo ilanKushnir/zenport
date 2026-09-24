@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.33.0',
+    items: [
+      {
+        emoji: '💸',
+        text: 'The AI costs much less: less hidden thinking, a cheaper model for simple jobs, and nothing checked twice.',
+      },
+      {
+        emoji: '🧭',
+        text: 'Levels and fixes now look only at what is new or changed - a settled library costs nothing to re-run.',
+      },
+    ],
+  },
+  {
     version: '0.32.4',
     items: [
       {

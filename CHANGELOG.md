@@ -5,6 +5,19 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-09-24
+
+### Changed
+
+- **AI costs much less, with the same answers.** Every AI feature was gone through:
+  - **Thinking kept small.** Thinking models (GPT-5, o-series, Gemini 2.5/3, and through OpenRouter) are asked for low reasoning effort, or medium for a whole plan. Their default is far more, and that hidden thinking is billed as output.
+  - **A cheaper model for simple jobs.** Levels, fixes, finding creator pictures and today's pick run on the cheaper sibling of the model you chose: the newest GPT mini, Claude Haiku or Gemini Flash, when your key has one. Writing, plans, the guide, Discover and descriptions stay on your chosen model. The AI page says which model is used for what.
+  - **Settled work is not paid for twice.** Levels go only to recordings without one (or whose programme/pack reading was a guess from names). Fixes go only to recordings that are new or changed since the AI last looked; each is remembered by a fingerprint of how it read. Running either over a settled library makes no request at all. "Look for fixes" and "Set the missing levels" say how much is left.
+  - **Leaner web searches.** OpenAI's search pulls in the short version of each page; Claude searches at most 4 times per request; OpenRouter takes 3 results.
+  - **Safe.** If a provider or model turns a setting down, the request is asked again without it. If the cheaper model is not available, the chosen one answers.
+
+  On a copy of a 174-recording library, levels, pictures and fixes together took 146 seconds. A second run made no AI requests and took no time.
+
 ## [0.32.4] — 2026-09-24
 
 ### Fixed

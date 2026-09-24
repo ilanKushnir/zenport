@@ -12,6 +12,7 @@
  * Nothing changes until the admin applies a suggestion; a dismissed one is
  * remembered so it does not come back.
  */
+import { createHash } from 'node:crypto';
 import { rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -21,6 +22,7 @@ import {
   type EnhanceRunDto,
   type ItemAboutDto,
   type ItemLevel,
+  type MeditationSummaryDto,
   type ReviewSaveDto,
   type SuggestionDto,
   type SuggestionField,
@@ -210,30 +212,61 @@ function describeForFixes(db: Db, config: Config, id: string, handle: string): s
   ].join('\n');
 }
 
+/** What an item looked like to the AI, as a short hash: it changes when the item does. */
+const fingerprint = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 24);
+
+/**
+ * What still wants checking for fixes: recordings never checked, or changed
+ * since (renamed, reordered, rescanned into new parts). An item is checked
+ * as it read at the time; the same item, unchanged, is not sent again.
+ */
+export function fixCandidates(
+  db: Db,
+  config: Config,
+  userId: number,
+): { id: string; text: string; print: string }[] {
+  const seen = new Map(
+    (
+      db.prepare("SELECT item_id, fingerprint FROM ai_reviewed WHERE kind = 'fixes'").all() as {
+        item_id: string;
+        fingerprint: string;
+      }[]
+    ).map((r) => [r.item_id, r.fingerprint]),
+  );
+  const out: { id: string; text: string; print: string }[] = [];
+  for (const item of libraryItems(db, config, userId)) {
+    const text = describeForFixes(db, config, item.id, '@');
+    if (!text) continue;
+    const print = fingerprint(text);
+    if (seen.get(item.id) !== print) out.push({ id: item.id, text, print });
+  }
+  return out;
+}
+
 export async function runFixes(
   ctx: EnhanceCtx,
   userId: number,
   batch: number,
 ): Promise<EnhanceRunDto> {
-  const all = libraryItems(ctx.db, ctx.config, userId);
-  const batches = Math.max(1, Math.ceil(all.length / FIX_BATCH));
-  const b = Math.min(Math.max(1, batch), batches);
-  const slice = all.slice((b - 1) * FIX_BATCH, b * FIX_BATCH);
+  const all = fixCandidates(ctx.db, ctx.config, userId);
+  const b = Math.max(1, batch);
+  const batches = Math.max(1, b - 1 + Math.ceil(all.length / FIX_BATCH));
+  const slice = all.slice(0, FIX_BATCH);
+  if (slice.length === 0) {
+    return { batch: b, batches: b, found: 0, notes: ['Nothing new or changed to check.'] };
+  }
   const handles = new Map<string, string>();
   const lines: string[] = [];
-  slice.forEach((item, i) => {
+  slice.forEach((c, i) => {
     const h = `i${i + 1}`;
-    const text = describeForFixes(ctx.db, ctx.config, item.id, h);
-    if (text) {
-      handles.set(h, item.id);
-      lines.push(text);
-    }
+    handles.set(h, c.id);
+    lines.push(c.text.replace(/^@/, h));
   });
-  if (lines.length === 0) return { batch: b, batches, found: 0, notes: [] };
   const raw = (await ctx.ai.chatJson(ctx.target, {
     system: FIX_SYSTEM,
     user: `Library items (${lines.length}):\n${lines.join('\n')}`,
     schemaName: 'zenport_fixes',
+    light: true,
     schema: FIX_SCHEMA as unknown as Record<string, unknown>,
   })) as {
     suggestions?: {
@@ -322,6 +355,14 @@ export async function runFixes(
     }
     if (saved) found++;
   }
+  // Checked, as they read now: not sent again until they change.
+  const mark = ctx.db.prepare(
+    `INSERT INTO ai_reviewed (item_id, kind, fingerprint, reviewed_at) VALUES (?, 'fixes', ?, ?)
+     ON CONFLICT(item_id, kind) DO UPDATE SET fingerprint = excluded.fingerprint,
+       reviewed_at = excluded.reviewed_at`,
+  );
+  const at = new Date().toISOString();
+  for (const c of slice) mark.run(c.id, c.print, at);
   return { batch: b, batches, found, notes: [] };
 }
 
@@ -504,6 +545,7 @@ export async function runCreatorImages(
     ].join('\n'),
     user: `Creators:\n${lines.join('\n')}`,
     schemaName: 'zenport_creator_images',
+    light: true,
     schema: IMAGE_SCHEMA as unknown as Record<string, unknown>,
     webSearch: true,
   })) as {
@@ -776,16 +818,50 @@ const LEVEL_SYSTEM = [
   'you know them. Items marked [fixed] already have a level: keep that level in your answer.',
 ].join('\n');
 
-/** The AI's reading of levels, a batch at a time; never over an admin's or a name's. */
+/**
+ * What still wants the AI's reading: no level from anywhere yet, or several
+ * parts and nobody has said whether they are a programme or a pack. What is
+ * settled is never sent again - a run over a read library costs nothing.
+ */
+export function levelCandidates(db: Db, config: Config, userId: number) {
+  const seen = new Map(
+    (
+      db.prepare("SELECT item_id, fingerprint FROM ai_reviewed WHERE kind = 'levels'").all() as {
+        item_id: string;
+        fingerprint: string;
+      }[]
+    ).map((r) => [r.item_id, r.fingerprint]),
+  );
+  return libraryItems(db, config, userId).filter(
+    (i) =>
+      // No level, or a programme/pack guessed only from the names...
+      (!i.levelSource || i.structureSource === 'name') &&
+      // ...and not already read by the AI as it is now.
+      seen.get(i.id) !== levelPrint(i),
+  );
+}
+
+/** What a recording looked like for its level: it is read again if this changes. */
+const levelPrint = (i: MeditationSummaryDto) =>
+  fingerprint(`${i.creator}|${i.collection ?? ''}|${i.title}|${i.trackCount}|${i.type}`);
+
+/**
+ * The AI's reading of levels, a batch at a time; never over an admin's or a
+ * name's. Each call takes the next batch of what is still unread, so a
+ * sequence of calls (batch 1, 2, …) walks through it however many settle.
+ */
 export async function runLevels(
   ctx: EnhanceCtx,
   userId: number,
   batch: number,
 ): Promise<EnhanceRunDto> {
-  const all = libraryItems(ctx.db, ctx.config, userId);
-  const batches = Math.max(1, Math.ceil(all.length / LEVEL_BATCH));
-  const b = Math.min(Math.max(1, batch), batches);
-  const slice = all.slice((b - 1) * LEVEL_BATCH, b * LEVEL_BATCH);
+  const all = levelCandidates(ctx.db, ctx.config, userId);
+  const batches = Math.max(1, batch - 1 + Math.ceil(all.length / LEVEL_BATCH));
+  const b = Math.max(1, batch);
+  const slice = all.slice(0, LEVEL_BATCH);
+  if (slice.length === 0) {
+    return { batch: b, batches: b, found: 0, notes: ['Every recording already has a level.'] };
+  }
   const handles = new Map<string, (typeof slice)[number]>();
   const lines = slice.map((i, n) => {
     const h = `i${n + 1}`;
@@ -810,6 +886,7 @@ export async function runLevels(
     system: LEVEL_SYSTEM,
     user: `Library items (${lines.length}):\n${lines.join('\n')}`,
     schemaName: 'zenport_levels',
+    light: true,
     schema: LEVEL_SCHEMA as unknown as Record<string, unknown>,
   })) as { items?: { handle: string; level: string; structure?: string; reason: string }[] };
   const now = new Date().toISOString();
@@ -842,5 +919,12 @@ export async function runLevels(
       .run(item.id, r.level, clip(String(r.reason ?? ''), 200), ctx.target.model, now);
     found++;
   }
+  // Read, as they are now - whatever the answer was - so not sent again.
+  const mark = ctx.db.prepare(
+    `INSERT INTO ai_reviewed (item_id, kind, fingerprint, reviewed_at) VALUES (?, 'levels', ?, ?)
+     ON CONFLICT(item_id, kind) DO UPDATE SET fingerprint = excluded.fingerprint,
+       reviewed_at = excluded.reviewed_at`,
+  );
+  for (const i of slice) mark.run(i.id, levelPrint(i), now);
   return { batch: b, batches, found, notes: [] };
 }

@@ -613,6 +613,11 @@ export interface AiSettingsDto {
   model: string | null;
   /** Chat models the connection in use can choose from, best first. */
   models: string[];
+  /**
+   * The cheaper sibling simple jobs run on (levels, fixes, pictures, today's
+   * pick) - its mini, Haiku or Flash - or null when that is the model itself.
+   */
+  lightModel?: string | null;
   connections: AiConnectionDto[];
   /** Admin only: whether members without a key may use this one. */
   sharing?: boolean;

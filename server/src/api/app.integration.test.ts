@@ -2743,8 +2743,22 @@ describe('Levels', () => {
       })
     ).json();
     expect(run.batches).toBe(status.levelBatches);
-    expect(lastPrompt).toContain('[fixed: advanced]');
+    // Only what has no level is sent; a name's level is settled already.
+    expect(lastPrompt).toContain('Evening Sit');
+    expect(lastPrompt).not.toContain('River Practice');
     const after = await levels();
+    // Read once: a second run sends nothing at all.
+    lastPrompt = '';
+    const again = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/ai/library/levels',
+        headers: auth(),
+        payload: { batch: 1 },
+      })
+    ).json();
+    expect(lastPrompt).toBe('');
+    expect(again.notes).toEqual(['Every recording already has a level.']);
     expect(after['Evening Sit']).toBe('intermediate/ai');
     // What a name says, the AI does not overrule.
     expect(after['River Practice (ADV)']).toBe('advanced/name');

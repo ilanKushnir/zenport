@@ -46,29 +46,12 @@ const FIELD_LABEL: Record<SuggestionField, string> = {
 
 const ABOUT_MAX = 6;
 const PICTURES_MAX = 4;
-const BATCH_KEY = 'zp-enhance-fix-batch';
 
 const host = (url: string) => {
   try {
     return new URL(url).host.replace(/^www\./, '');
   } catch {
     return url;
-  }
-};
-
-const readBatch = (): number => {
-  try {
-    return Number(localStorage.getItem(BATCH_KEY) ?? 0) || 0;
-  } catch {
-    return 0;
-  }
-};
-const writeBatch = (n: number) => {
-  try {
-    if (n > 0) localStorage.setItem(BATCH_KEY, String(n));
-    else localStorage.removeItem(BATCH_KEY);
-  } catch {
-    /* a convenience only */
   }
 };
 
@@ -321,31 +304,29 @@ function FixesTab({ status, list, onDecide, onFound }: TabProps) {
   const [run, setRun] = useState<EnhanceRunDto | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resume, setResume] = useState(readBatch);
   const stop = useRef(false);
-  const batches = status?.batches ?? 1;
-  const canResume = resume > 0 && resume < batches;
+  // Only what is new or changed since the AI last looked is sent; a stopped
+  // run simply carries on from what is still unchecked next time.
+  const batches = status?.batches ?? 0;
 
   useEffect(() => () => void (stop.current = true), []);
 
-  const go = async (from: number) => {
+  const go = async () => {
     stop.current = false;
     setError(null);
     setRunning(true);
     let found = 0;
     let notes: string[] = [];
-    setRun({ batch: from - 1, batches, found: 0, notes: [] });
+    setRun({ batch: 0, batches, found: 0, notes: [] });
     try {
-      for (let b = from; b <= batches; b++) {
+      for (let b = 1; b <= batches; b++) {
         if (stop.current) break;
         const r = await api.post<EnhanceRunDto>('/api/ai/library/fixes', { batch: b });
         found += r.found;
         notes = [...notes, ...r.notes];
         setRun({ batch: b, batches: r.batches, found, notes });
-        const next = b >= r.batches ? 0 : b;
-        writeBatch(next);
-        setResume(next);
         if (r.found > 0) onFound();
+        if (b >= r.batches) break;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The AI could not answer.');
@@ -368,10 +349,14 @@ function FixesTab({ status, list, onDecide, onFound }: TabProps) {
         <div className="enh-card-text">
           <h2>Look for fixes</h2>
           <p>
-            The AI reads every recording - {status?.items ?? '…'} of them
-            {batches > 1 ? `, in ${batches} parts` : ''} - and suggests corrections: a type that is
-            off, a title that is still a file name, a creator or series spelled two ways, parts out
-            of order.
+            The AI reads your recordings and suggests corrections: a type that is off, a title that
+            is still a file name, a creator or series spelled two ways, parts out of order. It reads
+            only what is new or changed since it last looked -{' '}
+            {!status
+              ? '…'
+              : batches === 0
+                ? 'and everything has been checked.'
+                : `${batches === 1 ? 'one part' : `${batches} parts`} to read now.`}
           </p>
         </div>
         <div className="enh-card-actions">
@@ -380,25 +365,14 @@ function FixesTab({ status, list, onDecide, onFound }: TabProps) {
               Stop after this part
             </button>
           ) : (
-            <>
-              {canResume && (
-                <button
-                  className="btn btn-primary"
-                  disabled={!status?.canUse}
-                  onClick={() => void go(resume + 1)}
-                >
-                  Continue from part {resume + 1}
-                </button>
-              )}
-              <button
-                className={`btn ${canResume ? 'btn-quiet' : 'btn-primary'}`}
-                disabled={!status?.canUse}
-                onClick={() => void go(1)}
-              >
-                <Icon name="sparkle" size={16} />
-                {canResume ? 'Start over' : 'Look for fixes'}
-              </button>
-            </>
+            <button
+              className="btn btn-primary"
+              disabled={!status?.canUse || batches === 0}
+              onClick={() => void go()}
+            >
+              <Icon name="sparkle" size={16} />
+              {status && batches === 0 ? 'All checked' : 'Look for fixes'}
+            </button>
           )}
         </div>
         <RunState run={run} running={running} label="Reading the library" />
@@ -946,7 +920,8 @@ function LevelsTab({
   const [show, setShow] = useState<'unset' | 'ai' | 'all'>('all');
   const [q, setQ] = useState('');
   const stop = useRef(false);
-  const batches = status?.levelBatches ?? 1;
+  // Only what has no level yet (or no programme/pack call) is sent.
+  const batches = status?.levelBatches ?? 0;
   const present = items.filter((i) => !i.missing);
 
   const go = async () => {
@@ -961,6 +936,7 @@ function LevelsTab({
         const r = await api.post<EnhanceRunDto>('/api/ai/library/levels', { batch: b });
         found += r.found;
         setRun({ batch: b, batches: r.batches, found, notes: [] });
+        if (b >= r.batches) break;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The AI could not answer.');
@@ -1016,11 +992,16 @@ function LevelsTab({
           ) : (
             <button
               className="btn btn-primary"
-              disabled={!status?.canUse}
+              disabled={!status?.canUse || batches === 0}
               onClick={() => void go()}
+              title={
+                batches === 0
+                  ? 'Every recording has a level - change any by hand below'
+                  : 'Only recordings without a level are sent'
+              }
             >
               <Icon name="sparkle" size={16} />
-              {l && l.byAi > 0 ? 'Set levels again with AI' : 'Set levels with AI'}
+              {status && batches === 0 ? 'Every recording has a level' : 'Set the missing levels'}
             </button>
           )}
         </div>

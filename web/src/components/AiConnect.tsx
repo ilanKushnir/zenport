@@ -233,6 +233,12 @@ export function ModelPicker({
           ))}
         </select>
       </label>
+      {settings.lightModel && (
+        <p className="hint ai-light">
+          To spend less, simple jobs - levels, fixes, finding pictures, today&apos;s pick - run on{' '}
+          <strong>{settings.lightModel}</strong>. Writing, plans and the guide use {settings.model}.
+        </p>
+      )}
       {open && (
         <span className="ai-key-row">
           <input

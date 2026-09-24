@@ -19,7 +19,7 @@ import {
   type IntentionsDto,
 } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
-import { AiError, PROVIDER_NAME } from '../../ai/providers.js';
+import { AiError, lightModel, PROVIDER_NAME } from '../../ai/providers.js';
 import {
   activeProvider,
   activeRow,
@@ -132,6 +132,15 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       keyHint: cur?.key_hint ?? null,
       model: cur?.model ?? null,
       models: cur ? (modelCache.get(cacheKey(userId, cur.provider)) ?? [cur.model]) : [],
+      lightModel: (() => {
+        if (!cur) return null;
+        const light = lightModel(
+          cur.provider,
+          cur.model,
+          modelCache.get(cacheKey(userId, cur.provider)) ?? [],
+        );
+        return light === cur.model ? null : light;
+      })(),
       connections: rows.map((r) => ({
         provider: r.provider,
         keyHint: r.key_hint,
@@ -413,6 +422,8 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
           system,
           user: user + extra,
           schemaName: 'zenport_plan',
+          // A whole path through the library: worth a little more thought.
+          effort: 'medium',
           schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
         });
       const resolve = (raw: unknown) =>
@@ -603,6 +614,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
         system,
         user: user + rework,
         schemaName: 'zenport_plan',
+        effort: 'medium',
         schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
       });
       let proposal = resolveProposal(raw, entries, request, target.model, new Set());

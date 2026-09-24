@@ -14,6 +14,8 @@ import type { AppContext } from '../../context.js';
 import {
   FIX_BATCH,
   LEVEL_BATCH,
+  fixCandidates,
+  levelCandidates,
   runLevels,
   applySuggestion,
   dismissSuggestion,
@@ -73,8 +75,9 @@ export function registerEnhanceRoutes(app: FastifyInstance, ctx: AppContext): vo
       canUse: !!target,
       webSearch: target ? WEB_SEARCH[target.provider] : false,
       items: items.length,
-      batches: Math.max(1, Math.ceil(items.length / FIX_BATCH)),
-      levelBatches: Math.max(1, Math.ceil(items.length / LEVEL_BATCH)),
+      // What a run would send: only what is still unread or changed.
+      batches: Math.ceil(fixCandidates(db, config, req.user!.id).length / FIX_BATCH),
+      levelBatches: Math.ceil(levelCandidates(db, config, req.user!.id).length / LEVEL_BATCH),
       levels: {
         set: items.filter((i) => i.level).length,
         byName: items.filter((i) => i.levelSource === 'name').length,

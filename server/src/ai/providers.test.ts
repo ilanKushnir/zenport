@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { aiClient, cleanUrl, parseJsonText, rankModels, stripCitations } from './providers.js';
+import {
+  aiClient,
+  cleanUrl,
+  geminiThinking,
+  lightModel,
+  parseJsonText,
+  rankModels,
+  stripCitations,
+} from './providers.js';
 
 const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] };
 const req = { system: 'sys', user: 'hi', schemaName: 'answer', schema };
@@ -130,7 +138,8 @@ describe('providers', () => {
       { ...req, webSearch: true },
     );
     expect(calls[0]!.url).toBe('https://api.openai.com/v1/responses');
-    expect(calls[0]!.body.tools).toEqual([{ type: 'web_search' }]);
+    // The lean search, and little thinking.
+    expect(calls[0]!.body.tools).toEqual([{ type: 'web_search', search_context_size: 'low' }]);
   });
 
   it('a rejected key reads as such', async () => {
@@ -152,5 +161,75 @@ describe('web-search citations', () => {
       'https://example.org/a?id=3',
     );
     expect(cleanUrl('https://example.org/a?utm_source=openai')).toBe('https://example.org/a');
+  });
+
+  it('picks the cheaper sibling of the chosen model, where the key has one', () => {
+    const openai = ['gpt-5.5', 'gpt-5', 'gpt-5-mini', 'gpt-5.4-mini', 'gpt-4o'];
+    expect(lightModel('openai', 'gpt-5.5', openai)).toBe('gpt-5.4-mini');
+    expect(lightModel('openai', 'gpt-5-mini', openai)).toBe('gpt-5-mini');
+    expect(lightModel('openai', 'gpt-5.5', ['gpt-5.5'])).toBe('gpt-5.5');
+    expect(
+      lightModel('anthropic', 'claude-sonnet-5', ['claude-sonnet-5', 'claude-haiku-4-5']),
+    ).toBe('claude-haiku-4-5');
+    expect(
+      lightModel('gemini', 'gemini-3-pro', ['gemini-3-pro', 'gemini-2.5-flash', 'gemini-3-flash']),
+    ).toBe('gemini-3-flash');
+    expect(lightModel('compatible', 'llama3', ['llama3', 'tiny'])).toBe('llama3');
+  });
+
+  it('keeps thinking small, per model family', () => {
+    expect(geminiThinking('gemini-3-pro', 'low')).toEqual({ thinkingLevel: 'low' });
+    expect(geminiThinking('gemini-2.5-flash', 'low')).toEqual({ thinkingBudget: 0 });
+    expect(geminiThinking('gemini-2.5-pro', 'low')).toEqual({ thinkingBudget: 128 });
+    expect(geminiThinking('gemini-2.0-flash', 'low')).toBeNull();
+  });
+
+  it('asks a thinking model to think little, and only thinking models', async () => {
+    const answer = { json: { choices: [{ message: { content: '{"ok":true}' } }] } };
+    let calls = mockFetch(answer);
+    await aiClient.chatJson({ provider: 'openai', apiKey: 'k', model: 'gpt-5.5' }, req);
+    expect(calls[0]!.body.reasoning_effort).toBe('low');
+    calls = mockFetch(answer);
+    await aiClient.chatJson(
+      { provider: 'openai', apiKey: 'k', model: 'gpt-5.5' },
+      { ...req, effort: 'medium' },
+    );
+    expect(calls[0]!.body.reasoning_effort).toBe('medium');
+    calls = mockFetch(answer);
+    await aiClient.chatJson({ provider: 'openai', apiKey: 'k', model: 'gpt-4o' }, req);
+    expect(calls[0]!.body.reasoning_effort).toBeUndefined();
+  });
+
+  it('asks again without the savings when a model turns a setting down', async () => {
+    const calls = mockFetch(
+      { status: 400, json: { error: { message: "Unsupported parameter: 'reasoning_effort'" } } },
+      { json: { choices: [{ message: { content: '{"ok":true}' } }] } },
+    );
+    const out = await aiClient.chatJson({ provider: 'openai', apiKey: 'k', model: 'o9' }, req);
+    expect(out).toEqual({ ok: true });
+    expect(calls[0]!.body.reasoning_effort).toBe('low');
+    expect(calls[1]!.body.reasoning_effort).toBeUndefined();
+  });
+
+  it('runs a light task on the mini, and on the chosen model if the mini is refused', async () => {
+    const models = { json: { data: [{ id: 'gpt-5.5' }, { id: 'gpt-5-mini' }] } };
+    const ok = { json: { choices: [{ message: { content: '{"ok":true}' } }] } };
+    let calls = mockFetch(models, ok);
+    await aiClient.chatJson(
+      { provider: 'openai', apiKey: 'key-light-1', model: 'gpt-5.5' },
+      { ...req, light: true },
+    );
+    expect(calls.at(-1)!.body.model).toBe('gpt-5-mini');
+    calls = mockFetch(
+      models,
+      { status: 404, json: { error: { message: 'The model gpt-5-mini does not exist' } } },
+      ok,
+    );
+    const out = await aiClient.chatJson(
+      { provider: 'openai', apiKey: 'key-light-2', model: 'gpt-5.5' },
+      { ...req, light: true },
+    );
+    expect(out).toEqual({ ok: true });
+    expect(calls.at(-1)!.body.model).toBe('gpt-5.5');
   });
 });
