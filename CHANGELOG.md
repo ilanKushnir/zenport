@@ -5,6 +5,15 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-09-24
+
+### Added
+
+- **Must include.** When planning with AI you can pick courses, and meditations too if you like, that have to be in the plan. The picker shows what is done, part-way or already in another plan. The AI places them in the right order and may add more. If it leaves one out, ZenPort asks once more, and if it is still missing, places it itself and says so.
+- **Long plans.** Lengths go up to 6 months, 1, 2 or 3 years, or until done. A long path comes in phases, and every stage has a milestone: what you will have done by its end. Milestones show in the plan review and in each plan's "Why this path".
+- **This week.** Plans opens with a check-in per path: the last seven days as dots (done, missed, skipped, today) and how many sessions were done. When several slipped by, it says so kindly and offers Adjust with AI.
+- **Adjust with AI** (on the check-in and on every path). Say what changed ("I have less time now", "I want to go deeper"), and the AI reworks the rest of the path. It sees how the path has gone: sessions done and missed, courses finished or part-way. What is finished stays finished, and unfinished courses stay in the path. Accepting ends the old stages today, with their history kept, and continues the same path from tomorrow.
+
 ## [0.22.0] — 2026-09-24
 
 ### Added

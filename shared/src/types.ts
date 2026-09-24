@@ -288,6 +288,8 @@ export interface PlanGuide {
   /** A few practical tips for following it. */
   tips: string[];
   model: string;
+  /** This stage's milestone, when the plan is one stage of a longer path. */
+  milestone?: string;
 }
 
 export interface PlanShift {
@@ -641,6 +643,19 @@ export interface AiPlanRequest {
   includeFinished: boolean;
   /** Courses and talks already in another of this account's plans may be used again. */
   includePlanned?: boolean;
+  /** Items that must be in the plan (by id). The planner places them; it may add more. */
+  mustInclude?: string[];
+}
+
+/** Rework the rest of a path from how it actually went. */
+export interface AiAdjustRequest {
+  /** The plans of the path (or the single plan) to rework. */
+  planIds: number[];
+  /** In the person's words: what changed, what they want now. */
+  note: string;
+  /** New pace, if it changed. */
+  practice?: { daysPerWeek: number; minutes: number } | null;
+  learning?: { minutesPerWeek: number; daysPerWeek: number } | null;
 }
 
 export interface AiPlanItemDto {
@@ -663,6 +678,8 @@ export interface AiPlanStageDto {
   minutesPerSession: number;
   preferredTime: string | null;
   items: AiPlanItemDto[];
+  /** What the person will have done, or be able to do, by the end of this stage. */
+  milestone: string;
 }
 
 export interface AiPlanProposalDto {
@@ -679,6 +696,10 @@ export interface AiPlanProposalDto {
   /** How long the whole path runs - the person's choice, or the planner's. */
   weeks: number;
   model: string;
+  /** Must-include items the planner left out, placed by ZenPort itself (titles). */
+  added?: string[];
+  /** A reworked path: the date its first week starts. */
+  startDate?: string;
 }
 
 // --- People: invites, accounts, friends ---

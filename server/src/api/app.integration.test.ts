@@ -1761,3 +1761,101 @@ describe('AI providers and intentions', () => {
     expect(lastPrompt).toContain('No long lectures please.');
   });
 });
+
+describe('planning with must-includes, and reworking a path', () => {
+  const put = (rel: string) => {
+    const abs = path.join(libRoot, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, `${rel}:${'m'.repeat(300)}`);
+  };
+
+  beforeEach(async () => {
+    put('Mira Solen/Courses/The Long Road/Session 1.mp4');
+    put('Mira Solen/Courses/The Long Road/Session 2.mp4');
+    put('Mira Solen/Livestreams/Evening Gathering.mp4');
+    put('Quiet Harbor/Courses/Deep Rest/Lesson 1.mp4');
+    put('Quiet Harbor/Courses/Deep Rest/Lesson 2.mp4');
+    put('Quiet Harbor/Rain/rain.mp3');
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+  });
+
+  it('keeps every must-include - asking again, then placing what is still missing', async () => {
+    await setupAndLogin();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const id = (t: string) => lib.items.find((i: { title: string }) => i.title === t).id;
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/ai/plan',
+      headers: auth(),
+      payload: {
+        goal: '',
+        weeks: 104,
+        startDate: '2026-10-05',
+        practice: { daysPerWeek: 5, minutes: 20 },
+        learning: { minutesPerWeek: 90, daysPerWeek: 2 },
+        mustInclude: [id('Deep Rest'), id('Rain')],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const p = res.json();
+    const titles = p.stages.flatMap((s: { items: { item: { title: string } }[] }) =>
+      s.items.map((i) => i.item.title),
+    );
+    expect(titles).toEqual(expect.arrayContaining(['Deep Rest', 'Rain']));
+    expect(p.added).toEqual(['Deep Rest', 'Rain']);
+    expect(p.weeks).toBe(104);
+    expect(lastPrompt).toContain('left out items marked [must include]');
+    expect(lastPrompt).toMatch(/Deep Rest.*\[must include\]/);
+  });
+
+  it('reworks the rest of a path from how it went, keeping unfinished courses', async () => {
+    await setupAndLogin();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const id = (t: string) => lib.items.find((i: { title: string }) => i.title === t).id;
+    const plan = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/plans',
+        headers: auth(),
+        payload: {
+          name: 'Foundations · Study',
+          startDate: '2026-09-01',
+          daysOfWeek: [2, 4],
+          targetMinutes: 45,
+          meditationIds: [id('Deep Rest')],
+          focus: 'learning',
+          path: { name: 'Foundations', step: 1 },
+        },
+      })
+    ).json();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/ai/plan/adjust',
+      headers: auth(),
+      payload: { planIds: [plan.id], note: 'I have less time now' },
+    });
+    expect(res.statusCode).toBe(200);
+    const p = res.json();
+    expect(p.name).toBe('Foundations');
+    expect(p.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const titles = p.stages.flatMap((s: { items: { item: { title: string } }[] }) =>
+      s.items.map((i) => i.item.title),
+    );
+    expect(titles).toContain('Deep Rest');
+    expect(lastPrompt).toContain('The path so far, and how it went:');
+    expect(lastPrompt).toContain('I have less time now');
+    expect(lastPrompt).toMatch(/sessions done, \d+ missed/);
+  });
+});

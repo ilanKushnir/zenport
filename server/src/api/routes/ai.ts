@@ -33,8 +33,10 @@ import {
   saveIntentions,
 } from '../../ai/intentions.js';
 import {
+  MAX_WEEKS,
   PLAN_SCHEMA,
   buildCatalog,
+  ensureMustInclude,
   planPrompt,
   practiceHistory,
   renderCatalog,
@@ -42,13 +44,35 @@ import {
 } from '../../ai/planner.js';
 import { sealSecret } from '../../ai/secret.js';
 import { libraryDto } from '../../library/queries.js';
+import { expandOccurrences } from '../../plans/occurrences.js';
+import { dayKey } from '../../stats/compute.js';
+import { isPracticeType } from '@zenport/shared';
+
+interface AdjustPlanRow {
+  id: number;
+  name: string;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+  days_of_week: string;
+  meditation_ids: string;
+  shifts: string | null;
+  focus: string;
+  target_minutes: number | null;
+  path_name: string | null;
+}
+
+/** The day after a date: a reworked path picks up tomorrow, the old plans end today. */
+function tomorrow(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+}
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PROVIDERS = AI_PROVIDERS.map((p) => p.id) as [AiProvider, ...AiProvider[]];
 
 const planRequest = z.object({
   goal: z.string().max(1200).default(''),
-  weeks: z.number().int().min(1).max(52).nullable(),
+  weeks: z.number().int().min(1).max(MAX_WEEKS).nullable(),
   untilComplete: z.boolean().default(false),
   approach: z.enum(['together', 'learn-first', 'alternate', 'ai']).default('together'),
   startDate: z.string().regex(DATE),
@@ -69,6 +93,7 @@ const planRequest = z.object({
   creators: z.array(z.string().max(200)).max(50).default([]),
   includeFinished: z.boolean().default(false),
   includePlanned: z.boolean().default(false),
+  mustInclude: z.array(z.string().min(1).max(64)).max(60).default([]),
 });
 
 export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -359,32 +384,219 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
         planned.set(id, [...(planned.get(id) ?? []), p.name]);
       }
     }
+    const must = new Set(body.data.mustInclude);
     const { system, user } = planPrompt(
       body.data,
-      renderCatalog(entries, history, planned),
+      renderCatalog(entries, history, planned, must),
       history.summary,
       intentionsSummary(readIntentions(db, req.user!.id)),
     );
     try {
-      const raw = await deps.ai.chatJson(target, {
-        system,
-        user,
-        schemaName: 'zenport_plan',
-        schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
-      });
-      const proposal = resolveProposal(
-        raw,
-        entries,
-        body.data,
-        target.model,
-        new Set(planned.keys()),
-      );
+      const ask = (extra = '') =>
+        deps.ai.chatJson(target, {
+          system,
+          user: user + extra,
+          schemaName: 'zenport_plan',
+          schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
+        });
+      const resolve = (raw: unknown) =>
+        resolveProposal(raw, entries, body.data, target.model, new Set(planned.keys()));
+      let proposal = resolve(await ask());
+      // Everything the person said must be in it: one more try with a plain
+      // reminder, then ZenPort places whatever is still missing itself.
+      const left = () => {
+        const got = new Set(proposal.stages.flatMap((s) => s.items.map((i) => i.id)));
+        return entries.filter((e) => must.has(e.item.id) && !got.has(e.item.id));
+      };
+      if (left().length > 0) {
+        const names = left()
+          .map((e) => `${e.handle} (${e.item.title})`)
+          .join(', ');
+        proposal = resolve(
+          await ask(
+            `\n\nYour previous answer left out items marked [must include]: ${names}. Include every one of them this time, in the right place in the order.`,
+          ),
+        );
+      }
+      proposal = ensureMustInclude(proposal, entries, [...must], body.data);
       if (proposal.stages.length === 0) {
         return reply
           .code(502)
           .send({ error: 'The answer did not use anything from your library. Try again.' });
       }
       return proposal;
+    } catch (err) {
+      return send(err, reply);
+    }
+  });
+
+  // ── Rework the rest of a path from how it went ──
+  const adjustRequest = z.object({
+    planIds: z.array(z.number().int().positive()).min(1).max(20),
+    note: z.string().max(1200).default(''),
+    practice: z
+      .object({
+        daysPerWeek: z.number().int().min(1).max(7),
+        minutes: z.number().int().min(1).max(180),
+      })
+      .nullish(),
+    learning: z
+      .object({
+        minutesPerWeek: z.number().int().min(10).max(1800),
+        daysPerWeek: z.number().int().min(1).max(7),
+      })
+      .nullish(),
+  });
+
+  app.post('/api/ai/plan/adjust', async (req, reply) => {
+    const body = adjustRequest.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Choose the plans to adjust.' });
+    const target = targetFor(db, secret, req.user!.id);
+    if (!target) return reply.code(400).send({ error: 'Set up AI first.' });
+    const userId = req.user!.id;
+    const rows = db
+      .prepare(
+        `SELECT * FROM plans WHERE user_id = ? AND id IN (${body.data.planIds.map(() => '?').join(', ')})
+         ORDER BY COALESCE(path_step, 0), start_date`,
+      )
+      .all(userId, ...body.data.planIds) as unknown as AdjustPlanRow[];
+    if (rows.length === 0) return reply.code(404).send({ error: 'plan not found' });
+
+    const today = dayKey(new Date().toISOString(), req.user!.timezone);
+    const lib = libraryDto(db, config, userId);
+    const entries = buildCatalog(db, lib.items, userId);
+    const handleOf = new Map(entries.map((e) => [e.item.id, e]));
+    const history = practiceHistory(db, userId, req.user!.timezone);
+
+    // The path as it stands, and how it has gone so far.
+    const lines: string[] = ['The path so far, and how it went:'];
+    const inPath = new Set<string>();
+    const unfinishedLearning: string[] = [];
+    let practicePace: { daysPerWeek: number; minutes: number } | null = null;
+    let learningPace: { minutesPerWeek: number; daysPerWeek: number } | null = null;
+    for (const row of rows) {
+      const days = JSON.parse(row.days_of_week) as number[];
+      const ids = JSON.parse(row.meditation_ids) as string[];
+      const occ = expandOccurrences(
+        {
+          id: row.id,
+          name: row.name,
+          status: row.status as 'active',
+          startDate: row.start_date,
+          endDate: row.end_date,
+          daysOfWeek: days,
+          meditationIds: ids,
+          shifts: JSON.parse(row.shifts ?? '[]'),
+        },
+        (
+          db
+            .prepare(
+              'SELECT date, status, moved_to, moved_from, session_id FROM plan_entries WHERE plan_id = ?',
+            )
+            .all(row.id) as {
+            date: string;
+            status: 'completed' | 'skipped' | null;
+            moved_to: string | null;
+            moved_from: string | null;
+            session_id: number | null;
+          }[]
+        ).map((e) => ({
+          date: e.date,
+          status: e.status,
+          movedTo: e.moved_to,
+          movedFrom: e.moved_from,
+          sessionId: e.session_id,
+        })),
+        today,
+        0,
+      ).filter((o) => o.date <= today);
+      const count = (st: string) => occ.filter((o) => o.status === st).length;
+      const focus = row.focus === 'learning' ? 'learning' : 'practice';
+      if (focus === 'practice' && !practicePace) {
+        practicePace = {
+          daysPerWeek: Math.max(1, days.length || 7),
+          minutes: row.target_minutes ?? 20,
+        };
+      }
+      if (focus === 'learning' && !learningPace) {
+        const d = Math.max(1, days.length || 2);
+        learningPace = {
+          daysPerWeek: d,
+          minutesPerWeek: Math.max(10, (row.target_minutes ?? 30) * d),
+        };
+      }
+      lines.push(
+        `- ${focus === 'learning' ? 'Learning' : 'Practice'} stage "${row.name}", ${row.start_date} to ${row.end_date ?? 'open'}${row.start_date > today ? ' (not started)' : ''}: ${count('completed')} sessions done, ${count('missed')} missed, ${count('skipped')} skipped so far.`,
+      );
+      for (const id of ids) {
+        const e = handleOf.get(id);
+        if (!e) continue;
+        inPath.add(id);
+        const i = e.item;
+        const finished = i.trackCount > 0 && i.completedCount >= i.trackCount;
+        const state = finished
+          ? 'finished'
+          : i.completedCount > 0
+            ? `part-way, ${i.completedCount}/${i.trackCount} done`
+            : 'not started';
+        lines.push(`    ${e.handle} ${i.title} - ${state}`);
+        if (!isPracticeType(i.type) && !finished) unfinishedLearning.push(id);
+      }
+    }
+
+    const startDate = tomorrow(today);
+    const request = {
+      goal: body.data.note.trim()
+        ? `Rework the rest of my path. What changed: ${body.data.note.trim()}`
+        : 'Rework the rest of my path so it fits how it has actually gone.',
+      weeks: null,
+      untilComplete: true,
+      approach: 'ai' as const,
+      startDate,
+      practice: body.data.practice === undefined ? practicePace : body.data.practice,
+      learning: body.data.learning === undefined ? learningPace : body.data.learning,
+      timeOfDay: 'any' as const,
+      level: 'some' as const,
+      creators: [],
+      includeFinished: false,
+      includePlanned: true,
+      mustInclude: unfinishedLearning,
+    };
+    if (!request.practice && !request.learning) {
+      return reply.code(400).send({ error: 'Keep practice, learning, or both.' });
+    }
+    const must = new Set(unfinishedLearning);
+    const { system, user } = planPrompt(
+      request,
+      renderCatalog(entries, history, undefined, must),
+      history.summary,
+      intentionsSummary(readIntentions(db, userId)),
+    );
+    const rework = [
+      '',
+      ...lines,
+      '',
+      'Rework only what is still ahead, starting ' + startDate + ':',
+      '- Leave out what is finished; continue part-way courses from where they are.',
+      '- Keep the direction and order of the path unless the note or the progress says otherwise.',
+      '- If many sessions were missed, make the pace gentler than before, unless the person asked for more.',
+      '- Say in "why" what you changed and why, kindly and without blame.',
+    ].join('\n');
+    try {
+      const raw = await deps.ai.chatJson(target, {
+        system,
+        user: user + rework,
+        schemaName: 'zenport_plan',
+        schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
+      });
+      let proposal = resolveProposal(raw, entries, request, target.model, new Set());
+      proposal = ensureMustInclude(proposal, entries, [...must], request);
+      if (proposal.stages.length === 0) {
+        return reply
+          .code(502)
+          .send({ error: 'The answer did not use anything from your library. Try again.' });
+      }
+      return { ...proposal, startDate, name: rows[0]!.path_name ?? rows[0]!.name };
     } catch (err) {
       return send(err, reply);
     }

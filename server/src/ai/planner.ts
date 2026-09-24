@@ -132,6 +132,7 @@ export function renderCatalog(
   entries: CatalogEntry[],
   history?: PracticeHistory,
   planned?: Map<string, string[]>,
+  must: ReadonlySet<string> = new Set(),
 ): string {
   const lines: string[] = [];
   for (const e of entries) {
@@ -148,7 +149,8 @@ export function renderCatalog(
             .get(i.id)!
             .map((n) => `"${clip(n, 40)}"`)
             .join(', ')}]`
-        : '');
+        : '') +
+      (must.has(i.id) ? ', [must include]' : '');
     lines.push(
       `${e.handle} | ${i.type}${i.hasVideo ? ' (video)' : ''} | ${clip(i.creator, 60)}${
         i.collection ? ` > ${clip(i.collection, 80)}` : ''
@@ -182,9 +184,15 @@ const stageSchema = {
     'minutesPerSession',
     'preferredTime',
     'items',
+    'milestone',
   ],
   properties: {
     title: { type: 'string', description: 'A few words naming this stage, e.g. "Foundations".' },
+    milestone: {
+      type: 'string',
+      description:
+        'One short sentence to the person: what they will have done, or be able to do, by the end of this stage.',
+    },
     focus: { type: 'string', enum: ['practice', 'learning'] },
     startWeek: { type: 'integer', minimum: 1, maximum: MAX_WEEKS },
     weeks: { type: 'integer', minimum: 1, maximum: MAX_WEEKS },
@@ -302,6 +310,11 @@ export function planPrompt(
     '- Spread the days of the week evenly (0 = Sunday). Stages must end by the last week of the path.',
     '- Write each item\'s "why" as one short, specific sentence. Keep the tone warm, plain and unhyped.',
     '- Write dates in words (Monday 28 September), never as YYYY-MM-DD.',
+    '- Items marked [must include] were chosen by the person: every one of them must appear in a',
+    '  stage, placed where it best fits the order. You may add other items around them.',
+    '- Give every stage a milestone: one sentence on what the person will have done, or can do, by',
+    '  its end. For a long path, think in phases - foundations, deepening, integration - and let',
+    '  the milestones show the way forward so the person can see how far they have come.',
     '- Explain the whole path in "why": the reasoning behind the order and the foundations, so the person',
     '  can trust it. Draw on what you genuinely know about the teachers and courses in the catalogue (for',
     '  example which course is usually taken first); never invent facts, and say "usually" rather than',
@@ -353,6 +366,7 @@ interface RawStage {
   minutesPerSession: number;
   preferredTime: string | null;
   items: { handle: string; why: string }[];
+  milestone?: string;
 }
 
 interface RawPlan {
@@ -402,8 +416,15 @@ export function resolveProposal(
     for (const { handle, why } of st.items ?? []) {
       const item = byHandle.get(handle);
       if (!item || seen.has(item.id) || !want(item.type)) continue;
-      // A course already scheduled elsewhere is not planned twice unless asked.
-      if (focus === 'learning' && !req.includePlanned && planned.has(item.id)) continue;
+      // A course already scheduled elsewhere is not planned twice unless asked
+      // (or unless the person said it must be in this plan).
+      if (
+        focus === 'learning' &&
+        !req.includePlanned &&
+        planned.has(item.id) &&
+        !req.mustInclude?.includes(item.id)
+      )
+        continue;
       seen.add(item.id);
       items.push({ id: item.id, why: clip(String(why ?? ''), 240), item });
     }
@@ -431,6 +452,7 @@ export function resolveProposal(
         ? st.preferredTime
         : TIME[req.timeOfDay],
       items,
+      milestone: clip(String(st.milestone ?? ''), 240),
     });
   }
   stages.sort((a, b) => a.startWeek - b.startWeek || (a.focus === 'learning' ? -1 : 1));
@@ -457,4 +479,56 @@ export function resolveProposal(
     weeks: total,
     model,
   };
+}
+
+/**
+ * Every must-include item in the proposal: the ones the planner left out are
+ * placed by ZenPort - a course or talk at the end of the last learning stage
+ * (or a new stage after the path), a meditation into the first practice
+ * stage - with a plain note that the person asked for it.
+ */
+export function ensureMustInclude(
+  proposal: AiPlanProposalDto,
+  entries: CatalogEntry[],
+  must: string[],
+  req: AiPlanRequest,
+): AiPlanProposalDto {
+  const inPlan = new Set(proposal.stages.flatMap((s) => s.items.map((i) => i.id)));
+  const missing = must
+    .map((id) => entries.find((e) => e.item.id === id)?.item)
+    .filter((i): i is MeditationSummaryDto => !!i && !inPlan.has(i.id));
+  if (missing.length === 0) return proposal;
+  const stages = proposal.stages.map((s) => ({ ...s, items: [...s.items] }));
+  const why = 'You asked for this one to be in the plan.';
+  let weeks = proposal.weeks;
+  for (const item of missing) {
+    const learning = !isPracticeType(item.type);
+    const kind = learning ? 'learning' : 'practice';
+    const into = learning
+      ? [...stages].reverse().find((s) => s.focus === 'learning')
+      : stages.find((s) => s.focus === 'practice');
+    if (into) {
+      into.items.push({ id: item.id, why, item });
+      continue;
+    }
+    // No stage of that kind: one after the path, on the pace asked for.
+    const start = stages.reduce((w, s) => Math.max(w, s.startWeek + s.weeks), 1);
+    const length = 4;
+    const daysPer = learning ? (req.learning?.daysPerWeek ?? 2) : (req.practice?.daysPerWeek ?? 5);
+    stages.push({
+      title: learning ? 'Your chosen courses' : 'Your chosen practices',
+      focus: kind,
+      startWeek: Math.min(start, MAX_WEEKS),
+      weeks: length,
+      daysOfWeek: [1, 3, 5, 0, 2, 4, 6].slice(0, daysPer).sort(),
+      minutesPerSession: learning
+        ? Math.round((req.learning?.minutesPerWeek ?? 60) / Math.max(1, daysPer))
+        : (req.practice?.minutes ?? 20),
+      preferredTime: stages[0]?.preferredTime ?? null,
+      items: [{ id: item.id, why, item }],
+      milestone: 'Everything you asked to include, done.',
+    });
+    if (!req.weeks) weeks = Math.max(weeks, Math.min(start, MAX_WEEKS) + length - 1);
+  }
+  return { ...proposal, stages, weeks, added: missing.map((i) => i.title) };
 }

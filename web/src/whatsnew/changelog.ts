@@ -25,6 +25,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.23.0',
+    items: [
+      { emoji: '📌', text: 'Plan with AI: choose courses that must be in it - none is left out.' },
+      { emoji: '🏔️', text: 'Plans up to three years, in phases, each stage with a milestone.' },
+      {
+        emoji: '🌤️',
+        text: 'This week on Plans shows how it is going - and Adjust with AI reworks the rest when life changes.',
+      },
+    ],
+  },
+  {
     version: '0.22.0',
     items: [
       {

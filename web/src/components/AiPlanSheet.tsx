@@ -14,12 +14,15 @@ import type {
   AiPlanStageDto,
   AiSettingsDto,
   LibraryDto,
+  MeditationSummaryDto,
   PlanApproach,
+  PlanDto,
   PlanLevel,
 } from '@zenport/shared';
 import { AI_PROVIDERS, formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { Link } from 'react-router-dom';
+import { PickTag, standingOf } from './PickTag.tsx';
 import { useApi } from '../hooks.ts';
 import { TYPE_META } from '../content.ts';
 import { Cover, Icon, Sheet, Switch } from './ui.tsx';
@@ -182,16 +185,32 @@ function Choices<T extends string | number>({
   );
 }
 
+/** Rework the rest of an existing path (or plan) from how it has gone. */
+export interface AdjustTarget {
+  planIds: number[];
+  /** The path's name, kept for the reworked stages. */
+  name: string;
+  /** Path steps already used, so new stages continue the numbering. */
+  lastStep: number;
+}
+
 export function AiPlanSheet({
   onClose,
   onCreated,
+  adjust,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  adjust?: AdjustTarget;
 }) {
   const settings = useApi<AiSettingsDto>('/api/ai/settings');
   const lib = useApi<LibraryDto>('/api/library');
-  const [step, setStep] = useState<'goal' | 'time' | 'library' | 'thinking' | 'review'>('goal');
+  const [step, setStep] = useState<'goal' | 'time' | 'library' | 'adjust' | 'thinking' | 'review'>(
+    adjust ? 'adjust' : 'goal',
+  );
+  const [note, setNote] = useState('');
+  const [must, setMust] = useState<string[]>([]);
+  const plans = useApi<PlanDto[]>('/api/plans');
 
   const [goal, setGoal] = useState('');
   const [level, setLevel] = useState<PlanLevel>('some');
@@ -241,6 +260,7 @@ export function AiPlanSheet({
     creators,
     includeFinished,
     includePlanned,
+    mustInclude: must,
   };
 
   const generate = async () => {
@@ -248,13 +268,18 @@ export function AiPlanSheet({
     setThought(0);
     setStep('thinking');
     try {
-      const p = await api.post<AiPlanProposalDto>('/api/ai/plan', request);
+      const p = adjust
+        ? await api.post<AiPlanProposalDto>('/api/ai/plan/adjust', {
+            planIds: adjust.planIds,
+            note,
+          })
+        : await api.post<AiPlanProposalDto>('/api/ai/plan', request);
       setProposal(p);
       setName(p.name);
       setStep('review');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The plan could not be made.');
-      setStep('library');
+      setStep(adjust ? 'adjust' : 'library');
     }
   };
 
@@ -263,11 +288,20 @@ export function AiPlanSheet({
     setSaving(true);
     setError(null);
     const title = name.trim() || proposal.name;
-    const multi = proposal.stages.length > 1;
+    const multi = proposal.stages.length > 1 || !!adjust;
+    const from = proposal.startDate ?? startDate;
     try {
+      // Reworking: the old plans end today - their history stays - and the
+      // new stages carry the path on from tomorrow.
+      if (adjust) {
+        const today = addDays(from, -1);
+        for (const id of adjust.planIds) {
+          await api.patch(`/api/plans/${id}`, { endDate: today, status: 'ended' });
+        }
+      }
       // One plan per stage, dated into the path; together they carry its name.
       for (const [n, st] of proposal.stages.entries()) {
-        const start = addDays(startDate, (st.startWeek - 1) * 7);
+        const start = addDays(from, (st.startWeek - 1) * 7);
         await api.post('/api/plans', {
           name: multi ? `${title} · ${st.title}` : title,
           intention: proposal.intention || null,
@@ -281,10 +315,11 @@ export function AiPlanSheet({
             why: proposal.why.slice(0, 2000),
             tips: proposal.tips.slice(0, 6),
             model: proposal.model,
+            ...(st.milestone ? { milestone: st.milestone.slice(0, 300) } : {}),
           },
           meditationIds: st.items.map((i) => i.id),
           focus: st.focus,
-          path: multi ? { name: title, step: n + 1 } : null,
+          path: multi ? { name: title, step: (adjust?.lastStep ?? 0) + n + 1 } : null,
         });
       }
       onCreated();
@@ -318,8 +353,57 @@ export function AiPlanSheet({
   }
 
   return (
-    <Sheet title="Plan with AI" onClose={onClose} labelId="ai-plan">
-      {step !== 'thinking' && step !== 'review' && (
+    <Sheet
+      title={adjust ? `Adjust ${adjust.name}` : 'Plan with AI'}
+      onClose={onClose}
+      labelId="ai-plan"
+    >
+      {step === 'adjust' && adjust && (
+        <div className="ai-step">
+          <label htmlFor="ai-note" className="rf-label">
+            What has changed?
+          </label>
+          <textarea
+            id="ai-note"
+            rows={3}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="In your own words - optional. The AI also sees how the path has gone so far."
+          />
+          <div className="rf-starters">
+            {ADJUST_STARTERS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className="chip"
+                onClick={() => setNote((n) => (n.trim() ? `${n.trim()} ${t}` : t))}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <p className="ai-privacy">
+            <Icon name="sparkle" size={14} />
+            The path, how many sessions were done or missed, which courses are finished, your note
+            and your intentions go to{' '}
+            {settings.data?.provider
+              ? `${AI_PROVIDERS.find((p) => p.id === settings.data!.provider)?.label} (${settings.data.model})`
+              : 'the shared AI'}
+            . What is finished stays finished; unfinished courses stay in the path.
+          </p>
+          {error && <p className="error-note">{error}</p>}
+          <div className="ai-nav">
+            <button className="btn btn-quiet" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={() => void generate()}>
+              <Icon name="sparkle" size={16} /> Rework the rest
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step !== 'thinking' && step !== 'review' && step !== 'adjust' && (
         <ol className="ai-steps" aria-label="Steps">
           {(['goal', 'time', 'library'] as const).map((s, i) => (
             <li key={s} className={s === step ? 'on' : ''}>
@@ -471,16 +555,36 @@ export function AiPlanSheet({
             <label>Plan length</label>
             <Choices
               label="Weeks"
-              options={[0, -1, 2, 4, 8, 12] as const}
+              options={[0, -1, 4, 8, 12, 26, 52, 104, 156] as const}
               value={weeks as 0}
               onChange={setWeeks}
-              render={(v) => (v === 0 ? 'AI decides' : v === -1 ? 'Until done' : `${v}w`)}
+              render={(v) =>
+                v === 0
+                  ? 'AI decides'
+                  : v === -1
+                    ? 'Until done'
+                    : v === 26
+                      ? '6 months'
+                      : v === 52
+                        ? '1 year'
+                        : v === 104
+                          ? '2 years'
+                          : v === 156
+                            ? '3 years'
+                            : `${v}w`
+              }
             />
+            {weeks >= 26 && (
+              <p className="hint">
+                A long path comes in phases, each with a milestone. Adjust it with AI whenever life
+                changes - what is done stays done.
+              </p>
+            )}
             {weeks <= 0 && (
               <p className="hint">
                 {weeks === 0
                   ? 'A sensible first stretch for your goal, chosen by the AI.'
-                  : 'The whole path to your goal - every course and practice it needs - however many weeks that takes.'}
+                  : 'The whole path to your goal - every course and practice it needs - however long that takes, up to three years, in phases with milestones.'}
               </p>
             )}
           </div>
@@ -538,6 +642,14 @@ export function AiPlanSheet({
               ))}
             </div>
           </div>
+          <MustPicker
+            items={(lib.data?.items ?? []).filter(
+              (i) => !i.missing && (creators.length === 0 || creators.includes(i.creator)),
+            )}
+            plans={plans.data ?? []}
+            chosen={must}
+            onChange={setMust}
+          />
           <div className="set-switch sit-switch">
             <div>
               <div className="set-switch-t">Include what I have finished</div>
@@ -605,12 +717,24 @@ export function AiPlanSheet({
           />
           <p className="ai-length">
             {proposal.weeks === 1 ? 'One week' : `${proposal.weeks} weeks`}
-            {weeks === 0 ? ', the length the AI chose' : weeks === -1 ? ', start to finish' : ''}
+            {adjust
+              ? ', from tomorrow'
+              : weeks === 0
+                ? ', the length the AI chose'
+                : weeks === -1
+                  ? ', start to finish'
+                  : ''}
             {proposal.stages.length > 1 && learningAndPractice(proposal)
               ? ` · ${APPROACHES.find((a) => a.value === proposal.approach)?.title ?? ''}`
               : ''}
           </p>
           {proposal.intention && <p className="ai-intention">“{proposal.intention}”</p>}
+          {proposal.added && proposal.added.length > 0 && (
+            <p className="notice">
+              The AI left out {proposal.added.join(', ')}, so ZenPort placed{' '}
+              {proposal.added.length === 1 ? 'it' : 'them'} in the path - as you asked.
+            </p>
+          )}
           <PlanGuideView
             guide={{ summary: proposal.summary, why: proposal.why, tips: proposal.tips }}
             title="Why this path"
@@ -635,8 +759,8 @@ export function AiPlanSheet({
 
           {error && <p className="error-note">{error}</p>}
           <div className="ai-nav">
-            <button className="btn btn-quiet" onClick={() => setStep('goal')}>
-              Adjust
+            <button className="btn btn-quiet" onClick={() => setStep(adjust ? 'adjust' : 'goal')}>
+              {adjust ? 'Back' : 'Adjust'}
             </button>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost" onClick={() => void generate()} disabled={saving}>
@@ -645,9 +769,11 @@ export function AiPlanSheet({
               <button className="btn btn-primary" onClick={() => void accept()} disabled={saving}>
                 {saving
                   ? 'Saving…'
-                  : proposal.stages.length > 1
-                    ? `Create the path · ${proposal.stages.length} plans`
-                    : 'Create the plan'}
+                  : adjust
+                    ? 'Use the reworked path'
+                    : proposal.stages.length > 1
+                      ? `Create the path · ${proposal.stages.length} plans`
+                      : 'Create the plan'}
               </button>
             </div>
           </div>
@@ -715,6 +841,11 @@ function StagePreview({ stage: track, step }: { stage: AiPlanStageDto; step: num
         {track.minutesPerSession} min
         {track.preferredTime ? ` · ${track.preferredTime}` : ''}
       </p>
+      {track.milestone && (
+        <p className="ai-milestone">
+          <Icon name="flag" size={13} /> {track.milestone}
+        </p>
+      )}
       <ol className="ai-items">
         {track.items.map((it, n) => (
           <li key={it.id}>
@@ -739,5 +870,120 @@ function StagePreview({ stage: track, step }: { stage: AiPlanStageDto; step: num
         ))}
       </ol>
     </section>
+  );
+}
+
+const ADJUST_STARTERS = [
+  'I fell behind.',
+  'I have less time now.',
+  'I have more time now.',
+  'I want to go deeper.',
+  'Change the order.',
+];
+
+/**
+ * Courses (and, if wanted, meditations) that must be in the plan. The
+ * planner places them in the right order and may add more around them;
+ * ZenPort makes sure none goes missing.
+ */
+function MustPicker({
+  items,
+  plans,
+  chosen,
+  onChange,
+}: {
+  items: MeditationSummaryDto[];
+  plans: PlanDto[];
+  chosen: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [open, setOpen] = useState(chosen.length > 0);
+  const [q, setQ] = useState('');
+  const [practiceToo, setPracticeToo] = useState(false);
+  const elsewhere = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const p of plans) {
+      if (p.status === 'ended') continue;
+      for (const id of p.meditationIds) m.set(id, [...(m.get(id) ?? []), p.path?.name ?? p.name]);
+    }
+    return m;
+  }, [plans]);
+  const needle = q.trim().toLowerCase();
+  const list = items
+    .filter((i) => practiceToo || i.type === 'course' || i.type === 'talk')
+    .filter(
+      (i) =>
+        !needle || `${i.title} ${i.creator} ${i.collection ?? ''}`.toLowerCase().includes(needle),
+    )
+    .slice(0, 80);
+  const toggle = (id: string) =>
+    onChange(chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
+
+  if (!open) {
+    return (
+      <button type="button" className="btn btn-quiet must-open" onClick={() => setOpen(true)}>
+        <Icon name="plus" size={15} /> Courses that must be in it
+      </button>
+    );
+  }
+  return (
+    <div className="field must">
+      <label>
+        Must include
+        {chosen.length > 0 && <span className="must-n">{chosen.length} chosen</span>}
+      </label>
+      <p className="hint" style={{ marginTop: 0 }}>
+        The AI puts them in the right order and may add more. None will be left out.
+      </p>
+      <div className="must-tools">
+        <input
+          type="search"
+          placeholder="Find a course"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          aria-label="Find a course"
+        />
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={practiceToo}
+          onClick={() => setPracticeToo((v) => !v)}
+        >
+          Meditations too
+        </button>
+      </div>
+      <ul className="must-list">
+        {list.map((i) => {
+          const on = chosen.includes(i.id);
+          return (
+            <li key={i.id}>
+              <button
+                type="button"
+                className={`must-row${on ? ' on' : ''}`}
+                aria-pressed={on}
+                onClick={() => toggle(i.id)}
+              >
+                <span className="must-check" aria-hidden="true">
+                  {on && <Icon name="check" size={13} />}
+                </span>
+                <span className="grow">
+                  <span className="must-t">
+                    {i.collection ? `${i.collection} · ${i.title}` : i.title}
+                  </span>
+                  <span className="sub">
+                    {TYPE_META[i.type].label} · {i.creator}
+                  </span>
+                </span>
+                <PickTag
+                  item={i}
+                  standing={standingOf(i, elsewhere.has(i.id))}
+                  plans={elsewhere.get(i.id)}
+                />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

@@ -11125,3 +11125,251 @@ html.scroll-locked body {
   display: flex;
   justify-content: flex-end;
 }
+
+/* Planner: milestones, must-include picker. */
+.ai-milestone,
+.guide-milestone {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 var(--s2);
+  font-size: 13px;
+  line-height: 1.45;
+  color: color-mix(in oklab, #8fd6a6 80%, var(--text));
+}
+
+.ai-milestone .nav-ic,
+.guide-milestone .nav-ic {
+  flex: none;
+  margin-block-start: 2px;
+}
+
+.must-open {
+  justify-self: start;
+  margin-block-end: var(--s3);
+}
+
+.must label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.must-n {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.must-tools {
+  display: flex;
+  gap: var(--s2);
+  margin-block-end: var(--s2);
+}
+
+.must-tools input {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.must-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  max-block-size: 300px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.must-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  inline-size: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.must-row.on {
+  background: var(--accent-soft);
+}
+
+.must-row .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  min-inline-size: 0;
+}
+
+.must-t {
+  font-size: 14px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.must-row .sub {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.must-check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  color: #fff;
+}
+
+.must-row.on .must-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+@media (hover: hover) {
+  .must-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .must-row.on:hover {
+    background: var(--accent-soft);
+  }
+}
+
+/* Plans: this week's check-in. */
+.week-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--s3);
+}
+
+@media (max-width: 360px) {
+  .week-rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.week-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 86%, transparent);
+}
+
+.week-row.behind {
+  border-color: color-mix(in oklab, var(--amber) 40%, var(--hairline));
+  background:
+    radial-gradient(
+      130% 150% at 0% 0%,
+      color-mix(in oklab, var(--amber) 10%, transparent),
+      transparent 60%
+    ),
+    var(--surface);
+}
+
+.week-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.week-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.week-count {
+  flex: none;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.week-dots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week-dot {
+  display: grid;
+  place-items: center;
+  block-size: 30px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--faint);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.week-dot.completed {
+  background: var(--accent);
+  color: #fff;
+}
+
+.week-dot.missed {
+  background: transparent;
+  border: 1.5px dashed color-mix(in oklab, var(--amber) 60%, transparent);
+  color: var(--amber);
+}
+
+.week-dot.skipped {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+}
+
+.week-dot.today {
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+}
+
+.week-ok {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.week-nudge {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s2);
+}
+
+.week-nudge p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.week-nudge .btn {
+  justify-self: start;
+}
+
+.path-adjust {
+  margin-inline-start: auto;
+}

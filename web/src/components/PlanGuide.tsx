@@ -12,7 +12,7 @@ export function PlanGuideView({
   collapsible = false,
   title = 'Why this plan',
 }: {
-  guide: Pick<PlanGuide, 'summary' | 'why' | 'tips'> & { model?: string };
+  guide: Pick<PlanGuide, 'summary' | 'why' | 'tips'> & { model?: string; milestone?: string };
   collapsible?: boolean;
   title?: string;
 }) {
@@ -28,6 +28,11 @@ export function PlanGuideView({
         {guide.model && <span className="guide-model">by {guide.model}</span>}
       </header>
       {guide.summary && <p className="guide-summary">{guide.summary}</p>}
+      {guide.milestone && (
+        <p className="guide-milestone">
+          <Icon name="flag" size={13} /> By the end of this stage: {guide.milestone}
+        </p>
+      )}
       {more && open && (
         <>
           {guide.why && <p className="guide-why">{guide.why}</p>}

@@ -34,6 +34,7 @@ const planSchema = z.object({
       why: z.string().max(2000).default(''),
       tips: z.array(z.string().max(300)).max(6).default([]),
       model: z.string().max(80).default(''),
+      milestone: z.string().max(300).optional(),
     })
     .nullish(),
 });
@@ -76,6 +77,7 @@ function parseGuide(raw: string | null): PlanGuide | null {
       why: String(g.why ?? ''),
       tips: Array.isArray(g.tips) ? g.tips.map(String) : [],
       model: String(g.model ?? ''),
+      ...(g.milestone ? { milestone: String(g.milestone) } : {}),
     };
   } catch {
     return null;

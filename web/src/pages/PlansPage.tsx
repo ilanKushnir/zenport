@@ -28,7 +28,8 @@ import { formatDuration, shiftedDate } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
-import { AiPlanSheet } from '../components/AiPlanSheet.tsx';
+import { AiPlanSheet, type AdjustTarget } from '../components/AiPlanSheet.tsx';
+import { PickTag } from '../components/PickTag.tsx';
 import { PlanGuideView } from '../components/PlanGuide.tsx';
 import { itemLabel, TYPE_META } from '../content.ts';
 import { isPracticeType } from '@zenport/shared';
@@ -109,6 +110,7 @@ export function PlansPage() {
   const [editing, setEditing] = useState<PlanDto | 'new' | null>(null);
   const [rescheduling, setRescheduling] = useState<PlanOccurrenceDto | null>(null);
   // /plans?ai=1 (from the AI page, or back from setting AI up) opens the planner.
+  const [adjust, setAdjust] = useState<AdjustTarget | null>(null);
   const [aiOpen, setAiOpen] = useState(
     () => new URLSearchParams(window.location.search).get('ai') === '1',
   );
@@ -240,6 +242,15 @@ export function PlansPage() {
       ) : (
         <>
           {activePlans.length > 0 && (
+            <WeekCheckIn
+              plans={activePlans}
+              occurrences={occ.data?.occurrences ?? []}
+              today={today}
+              onAdjust={setAdjust}
+            />
+          )}
+
+          {activePlans.length > 0 && (
             <section className="section" aria-labelledby="sec-active">
               <div className="section-head">
                 <h2 id="sec-active">In motion</h2>
@@ -261,6 +272,13 @@ export function PlansPage() {
                     />
                   )}
                   onEdit={setEditing}
+                  onAdjust={() =>
+                    setAdjust({
+                      planIds: stages.map((s) => s.id),
+                      name: pathName,
+                      lastStep: Math.max(...stages.map((s) => s.path!.step)),
+                    })
+                  }
                 />
               ))}
               {singlePlans.length > 0 && (
@@ -357,6 +375,16 @@ export function PlansPage() {
         </>
       )}
 
+      {adjust && (
+        <AiPlanSheet
+          adjust={adjust}
+          onClose={() => setAdjust(null)}
+          onCreated={() => {
+            setAdjust(null);
+            reloadAll();
+          }}
+        />
+      )}
       {aiOpen && (
         <AiPlanSheet
           onClose={() => setAiOpen(false)}
@@ -429,12 +457,14 @@ function PathBlock({
   today,
   render,
   onEdit,
+  onAdjust,
 }: {
   name: string;
   stages: PlanDto[];
   today: string;
   render: (p: PlanDto) => ReactNode;
   onEdit: (p: PlanDto) => void;
+  onAdjust: () => void;
 }) {
   const state = (p: PlanDto) =>
     p.endDate && shiftedDate(p.endDate, p.shifts) < today
@@ -459,6 +489,9 @@ function PathBlock({
             <Icon name="sparkle" size={13} /> Why this path
           </button>
         )}
+        <button type="button" className="guide-more path-adjust" onClick={onAdjust}>
+          <Icon name="restart" size={13} /> Adjust with AI
+        </button>
       </div>
       {why && stages[0]?.guide && (
         <Sheet title={name} onClose={() => setWhy(false)} labelId="path-why">
@@ -1410,33 +1443,6 @@ function AutoText({
   );
 }
 
-/** Why an item may not belong in this plan: done, part-way, or already planned. */
-function PickTag({
-  item,
-  standing,
-  plans,
-}: {
-  item: MeditationSummaryDto;
-  standing: 'done' | 'started' | 'planned' | 'fresh';
-  plans: string[] | undefined;
-}) {
-  if (standing === 'done') return <span className="pick-tag done">Done</span>;
-  if (standing === 'planned')
-    return (
-      <span className="pick-tag planned" title={plans?.join(', ')}>
-        In {plans?.[0]}
-        {plans && plans.length > 1 ? ` +${plans.length - 1}` : ''}
-      </span>
-    );
-  if (standing === 'started')
-    return (
-      <span className="pick-tag started">
-        {item.completedCount}/{item.trackCount} done
-      </span>
-    );
-  return null;
-}
-
 type RowKey = 'days' | 'start' | 'length' | 'target' | 'time' | 'items' | 'notes';
 
 /**
@@ -1620,5 +1626,120 @@ function RescheduleSheet({
         </button>
       </div>
     </Sheet>
+  );
+}
+
+const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+function daysBefore(day: string, n: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * This week at a glance, per path (or plan on its own): the last seven days
+ * as dots, and how many of the planned sessions were done. When a few slipped
+ * by, it says so without judgement and offers to rework the rest with AI -
+ * a plan should bend to a life, not the other way round.
+ */
+function WeekCheckIn({
+  plans,
+  occurrences,
+  today,
+  onAdjust,
+}: {
+  plans: PlanDto[];
+  occurrences: PlanOccurrenceDto[];
+  today: string;
+  onAdjust: (t: AdjustTarget) => void;
+}) {
+  const week = Array.from({ length: 7 }, (_, i) => daysBefore(today, 6 - i));
+  const groups = new Map<string, PlanDto[]>();
+  for (const p of plans) {
+    const key = p.path ? `path:${p.path.name}` : `plan:${p.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), p]);
+  }
+  const rows = [...groups.values()]
+    .map((list) => {
+      const ids = new Set(list.map((p) => p.id));
+      const inWeek = occurrences.filter(
+        (o) => ids.has(o.planId) && o.date >= week[0]! && o.date <= today && !o.movedTo,
+      );
+      const byDay = new Map<string, string>();
+      for (const o of inWeek) {
+        const cur = byDay.get(o.date);
+        // A day with several sessions shows its best news.
+        const rank = { completed: 4, today: 3, skipped: 2, missed: 1, upcoming: 0 } as const;
+        if (!cur || rank[o.status as keyof typeof rank] > rank[cur as keyof typeof rank]) {
+          byDay.set(o.date, o.status);
+        }
+      }
+      const planned = inWeek.filter((o) => o.status !== 'today').length;
+      const done = inWeek.filter((o) => o.status === 'completed').length;
+      const missed = inWeek.filter((o) => o.status === 'missed').length;
+      const name = list[0]!.path?.name ?? list[0]!.name;
+      return { list, name, byDay, planned, done, missed };
+    })
+    .filter((r) => r.planned > 0 || r.byDay.size > 0);
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="section week-check" aria-labelledby="sec-week">
+      <div className="section-head">
+        <h2 id="sec-week">This week</h2>
+      </div>
+      <div className="week-rows">
+        {rows.map((r) => {
+          const behind = r.missed >= 2 && r.done < r.planned / 2;
+          return (
+            <div key={r.name} className={`week-row${behind ? ' behind' : ''}`}>
+              <div className="week-top">
+                <span className="week-name">{r.name}</span>
+                <span className="week-count">
+                  {r.done} of {r.planned} done
+                </span>
+              </div>
+              <ol className="week-dots" aria-label="The last seven days">
+                {week.map((d) => {
+                  const st = r.byDay.get(d) ?? 'rest';
+                  return (
+                    <li key={d} className={`week-dot ${st}`} title={`${d}: ${st}`}>
+                      <span>{DAY_LETTERS[new Date(`${d}T12:00:00`).getDay()]}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {behind ? (
+                <div className="week-nudge">
+                  <p>
+                    A few sessions slipped by - that is alright. Want the rest of it to fit your
+                    life as it is now?
+                  </p>
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() =>
+                      onAdjust({
+                        planIds: r.list.map((p) => p.id),
+                        name: r.name,
+                        lastStep: Math.max(0, ...r.list.map((p) => p.path?.step ?? 0)),
+                      })
+                    }
+                  >
+                    <Icon name="sparkle" size={14} /> Adjust with AI
+                  </button>
+                </div>
+              ) : (
+                <p className="week-ok">
+                  {r.planned === 0
+                    ? 'A fresh week - today is the first one.'
+                    : r.done >= r.planned
+                      ? 'Every session this week. Lovely rhythm.'
+                      : 'On your way - keep the rhythm gentle.'}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
