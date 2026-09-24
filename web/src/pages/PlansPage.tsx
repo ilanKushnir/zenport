@@ -15,7 +15,7 @@
  * Missed days are information, not debt: nothing here is red, and "Done
  * anyway" is always on offer.
  */
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type {
   LibraryDto,
@@ -108,7 +108,18 @@ export function PlansPage() {
   const lib = useApi<LibraryDto>('/api/library');
   const [editing, setEditing] = useState<PlanDto | 'new' | null>(null);
   const [rescheduling, setRescheduling] = useState<PlanOccurrenceDto | null>(null);
-  const [aiOpen, setAiOpen] = useState(false);
+  // /plans?ai=1 (from the AI page, or back from setting AI up) opens the planner.
+  const [aiOpen, setAiOpen] = useState(
+    () => new URLSearchParams(window.location.search).get('ai') === '1',
+  );
+  useEffect(() => {
+    if (!aiOpen) return;
+    const u = new URL(window.location.href);
+    if (u.searchParams.has('ai')) {
+      u.searchParams.delete('ai');
+      window.history.replaceState(null, '', u);
+    }
+  }, [aiOpen]);
 
   const reloadAll = () => {
     plans.reload();

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AiPlanRequest, MeditationSummaryDto } from '@zenport/shared';
-import { chatModels } from './openai.js';
+import { rankModels } from './providers.js';
+const chatModels = (all: string[]) => rankModels('openai', all);
 import { planPrompt, renderCatalog, resolveProposal, type CatalogEntry } from './planner.js';
 import { openSecret, sealSecret } from './secret.js';
 

@@ -5,6 +5,23 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-09-24
+
+### Added
+
+- **AI, its own section** (sidebar, and More on a phone). One page for your AI and everything it does: the provider and model in use, the owner's choice to share it with everyone here, your intentions, and the features.
+- **Bring your own AI.**
+  - **Providers:** OpenAI, Anthropic (Claude), Google Gemini, OpenRouter (one key, many models), or your own OpenAI-compatible server such as Ollama or LM Studio, which is admin only because the server connects to the address given.
+  - **Keys:** each key is checked with its provider, sealed on this server, and never shown again. Connect several and switch between them without pasting a key twice. Models are ranked per provider, and OpenRouter and your own server take any model name.
+  - **The provider layer:** it also supports each provider's own web search, for the features to come.
+- **Your intentions.** Six short questions, mostly taps: why you practise, what you hope for a year from now, your experience, your time, what you enjoy, and anything to keep in mind. They are asked once in onboarding (the first four, optional) and editable under AI → Your intentions. Plans with AI already use them.
+- **Plan with AI without AI set up** leads to Set up AI and back into the planner. The AI page's "Plan with AI" opens the planner directly (`/plans?ai=1`).
+
+### Changed
+
+- Your existing OpenAI key moves across by itself (migration v14). Settings' AI section is now a card that leads to the AI page.
+- The planner's privacy note names the provider and model in use, and says your intentions go with the request.
+
 ## [0.21.0] — 2026-09-24
 
 ### Added

@@ -276,6 +276,7 @@ export function planPrompt(
   req: AiPlanRequest,
   catalog: string,
   history = '',
+  intentions = '',
 ): { system: string; user: string } {
   const both = Boolean(req.practice && req.learning);
   const system = [
@@ -313,6 +314,7 @@ export function planPrompt(
       : `Length: your call - a sensible first stretch for this goal at this pace (1 to 52 weeks), starting ${req.startDate}. Return it as weeks.`;
   const user = [
     `What I want: ${req.goal.trim() || 'a steady, balanced practice'}`,
+    intentions,
     length,
     req.practice
       ? `Practice: ${req.practice.daysPerWeek} days a week, about ${req.practice.minutes} minutes each.`

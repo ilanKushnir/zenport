@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AiSettingsDto, ShareLevel } from '@zenport/shared';
+import { AI_PROVIDERS, type AiSettingsDto, type ShareLevel } from '@zenport/shared';
 import { Link } from 'react-router-dom';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
@@ -9,7 +9,6 @@ import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { REPO_URL, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
 import { Avatar, Icon, Slider, Switch } from '../components/ui.tsx';
-import { AiKeyForm } from '../components/AiPlanSheet.tsx';
 import { formatBytes, offlineSupported, useOffline } from '../offline.ts';
 
 const COMMON_TIMEZONES = [
@@ -340,112 +339,33 @@ function PreferencesSection() {
   );
 }
 
-/** An account's own AI key: add, see that it is set, choose a model, remove. */
+/** AI lives in its own section now; Settings says where it stands and leads there. */
 function AiSection() {
   const ai = useApi<AiSettingsDto>('/api/ai/settings');
-  const [busy, setBusy] = useState(false);
-  const [replacing, setReplacing] = useState(false);
   const d = ai.data;
-  const setModel = async (model: string) => {
-    setBusy(true);
-    await api.put('/api/ai/settings', { model }).catch(() => {});
-    ai.reload();
-    setBusy(false);
-  };
-  const setSharing = async (enabled: boolean) => {
-    await api.put('/api/ai/sharing', { enabled }).catch(() => {});
-    ai.reload();
-  };
-  const remove = async () => {
-    if (!window.confirm('Remove your OpenAI key from ZenPort?')) return;
-    await api.del('/api/ai/settings').catch(() => {});
-    ai.reload();
-  };
   return (
     <section className="section" aria-labelledby="s-ai">
       <div className="section-head">
-        <h2 id="s-ai">AI planning</h2>
+        <h2 id="s-ai">AI</h2>
       </div>
-      <div className="set-groups">
-        <div className="set-group">
-          <header className="set-group-head">
-            <span className="set-group-ic">
-              <Icon name="sparkle" size={19} />
-            </span>
-            <div>
-              <h3>Your OpenAI key</h3>
-              <p>Lets ZenPort read your library and draft plans around your time.</p>
-            </div>
-          </header>
-          <div className="set-group-body">
-            {!d ? (
-              <div className="skeleton" style={{ height: 44 }} />
-            ) : d.configured && !replacing ? (
-              <>
-                <div className="set-switch" style={{ borderTop: 0, marginTop: 0, paddingTop: 0 }}>
-                  <div>
-                    <div className="set-switch-t">Key saved {d.keyHint}</div>
-                    <div className="set-switch-h">
-                      Encrypted on this server; never shown or sent to the browser.
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-sm btn-quiet" onClick={() => setReplacing(true)}>
-                      Replace
-                    </button>
-                    <button className="btn btn-sm btn-quiet" onClick={() => void remove()}>
-                      Remove
-                    </button>
-                  </div>
-                </div>
-                <div className="field" style={{ marginTop: 12 }}>
-                  <label htmlFor="ai-model">Model</label>
-                  <select
-                    id="ai-model"
-                    value={d.model ?? ''}
-                    disabled={busy}
-                    onChange={(e) => void setModel(e.target.value)}
-                  >
-                    {(d.models.length ? d.models : [d.model ?? '']).map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="hint" style={{ marginTop: 6 }}>
-                    The first in the list is the recommended one. Plans open from Plans → Plan with
-                    AI.
-                  </p>
-                </div>
-                {d.sharing !== undefined && (
-                  <SwitchRow
-                    title="Everyone here can plan with it"
-                    hint="People you invite can use Plan with AI without a key of their own. They never see the key; you pay for their plans."
-                    checked={d.sharing}
-                    onChange={(v) => void setSharing(v)}
-                  />
-                )}
-              </>
-            ) : (
-              <>
-                {d.sharedBy && !replacing && (
-                  <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
-                    You can already plan with AI - {d.sharedBy} shares their key with everyone here.
-                    Add your own only if you would rather use it.
-                  </p>
-                )}
-                <AiKeyForm
-                  compact
-                  onSaved={() => {
-                    setReplacing(false);
-                    ai.reload();
-                  }}
-                />
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      <Link className="people-link card settings-card" to="/ai">
+        <span className="set-group-ic">
+          <Icon name="sparkle" size={19} />
+        </span>
+        <span className="grow">
+          <strong>
+            {!d
+              ? 'AI'
+              : d.provider
+                ? `${AI_PROVIDERS.find((p) => p.id === d.provider)?.label} · ${d.model}`
+                : d.sharedBy
+                  ? `Using ${d.sharedBy}'s AI`
+                  : 'Not set up'}
+          </strong>
+          <span className="sub">Provider, key, model, your intentions and every AI feature.</span>
+        </span>
+        <Icon name="chevron-right" size={16} />
+      </Link>
     </section>
   );
 }

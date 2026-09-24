@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { openDb, type Db } from '../db/index.js';
-import { AiError, type OpenAiClient } from '../ai/openai.js';
+import { AiError, type AiClient } from '../ai/providers.js';
 import { runScan } from '../scanner/scan.js';
 import type { Config } from '../config.js';
 
@@ -54,13 +54,14 @@ const auth = () => ({ cookie: `zp_session=${cookie}`, ...CSRF });
 /** OpenAI without the network: any key starting "sk-good" works, and the plan
  * answer picks from whatever catalogue it was shown. */
 let lastPrompt = '';
-function fakeOpenAi(): OpenAiClient {
+function fakeOpenAi(): AiClient {
   return {
-    listModels: async (key) => {
+    listModels: async ({ apiKey: key }) => {
       if (!key.startsWith('sk-good')) throw new AiError('OpenAI did not accept that key.', 400);
-      return ['gpt-5.5', 'gpt-4o', 'gpt-image-2'];
+      // A real client ranks and filters (rankModels, unit-tested in ai.test.ts).
+      return ['gpt-5.5', 'gpt-4o'];
     },
-    chatJson: async ({ user }) => {
+    chatJson: async (_t, { user }) => {
       lastPrompt = user;
       const handle = (word: string) =>
         user
@@ -137,7 +138,7 @@ beforeEach(async () => {
         { videoId: 'bbbbbbbbbbb', title: 'Two', creator: 'T' },
       ],
       transcribe: null,
-      openai: fakeOpenAi(),
+      ai: fakeOpenAi(),
     },
   });
   await app.ready();
@@ -160,7 +161,7 @@ describe('first-start flow with a setup token', () => {
         fetchVideoMeta: async () => null,
         listPlaylist: null,
         transcribe: null,
-        openai: fakeOpenAi(),
+        ai: fakeOpenAi(),
       },
     });
     await locked.ready();
@@ -908,7 +909,7 @@ describe('content types, lessons and AI planning', () => {
     });
     const settings = await app.inject({ method: 'GET', url: '/api/ai/settings', headers: auth() });
     expect(settings.body).not.toContain('sk-good');
-    const stored = db.prepare('SELECT api_key_enc FROM ai_settings').get() as {
+    const stored = db.prepare('SELECT api_key_enc FROM ai_keys').get() as {
       api_key_enc: string;
     };
     expect(stored.api_key_enc).not.toContain('sk-good');
@@ -1635,5 +1636,128 @@ describe('the Continue row', () => {
       payload: { key: sk },
     });
     expect((await lib()).continueHidden).toEqual([sk]);
+  });
+});
+
+describe('AI providers and intentions', () => {
+  it('connects several providers, switches between them, and never returns a key', async () => {
+    await setupAndLogin();
+    const settings = () =>
+      app.inject({ method: 'GET', url: '/api/ai/settings', headers: auth() }).then((r) => r.json());
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/ai/connect',
+      headers: auth(),
+      payload: { provider: 'anthropic', apiKey: 'sk-bad-0000000000000000' },
+    });
+    expect(bad.statusCode).toBe(400);
+    const a = await app.inject({
+      method: 'POST',
+      url: '/api/ai/connect',
+      headers: auth(),
+      payload: { provider: 'anthropic', apiKey: 'sk-good-anthropic-1111' },
+    });
+    expect(a.json()).toMatchObject({ configured: true, provider: 'anthropic', keyHint: '…1111' });
+    await app.inject({
+      method: 'POST',
+      url: '/api/ai/connect',
+      headers: auth(),
+      payload: { provider: 'gemini', apiKey: 'sk-good-gemini-2222' },
+    });
+    let s = await settings();
+    expect(s.provider).toBe('gemini');
+    expect(s.connections.map((c: { provider: string }) => c.provider).sort()).toEqual([
+      'anthropic',
+      'gemini',
+    ]);
+    expect(JSON.stringify(s)).not.toContain('sk-good');
+    // Switch back without pasting the key again, and pick a model.
+    const sw = await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { provider: 'anthropic', model: 'gpt-4o' },
+    });
+    expect(sw.json()).toMatchObject({ provider: 'anthropic', model: 'gpt-4o' });
+    // Forget the one in use: the other takes over.
+    await app.inject({ method: 'DELETE', url: '/api/ai/connections/anthropic', headers: auth() });
+    s = await settings();
+    expect(s).toMatchObject({ provider: 'gemini', canUse: true });
+    await app.inject({ method: 'DELETE', url: '/api/ai/connections/gemini', headers: auth() });
+    expect(await settings()).toMatchObject({ configured: false, canUse: false, provider: null });
+  });
+
+  it('lets only an admin connect a server by address, and checks the address', async () => {
+    await setupAndLogin();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/ai/connect',
+      headers: auth(),
+      payload: { provider: 'compatible', baseUrl: 'not a url', apiKey: 'sk-good-local' },
+    });
+    expect(res.statusCode).toBe(400);
+    const ok = await app.inject({
+      method: 'POST',
+      url: '/api/ai/connect',
+      headers: auth(),
+      payload: {
+        provider: 'compatible',
+        baseUrl: 'http://ollama.lan:11434/v1/',
+        apiKey: 'sk-good-local',
+        model: 'llama3.3',
+      },
+    });
+    expect(ok.json()).toMatchObject({ provider: 'compatible', model: 'llama3.3' });
+    expect(ok.json().connections[0].baseUrl).toBe('http://ollama.lan:11434/v1');
+  });
+
+  it('keeps intentions and plans with them', async () => {
+    await setupAndLogin();
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/me/intentions', headers: auth() })).json(),
+    ).toBeNull();
+    const bad = await app.inject({
+      method: 'PUT',
+      url: '/api/me/intentions',
+      headers: auth(),
+      payload: { reasons: ['world-domination'] },
+    });
+    expect(bad.statusCode).toBe(400);
+    const saved = await app.inject({
+      method: 'PUT',
+      url: '/api/me/intentions',
+      headers: auth(),
+      payload: {
+        reasons: ['sleep', 'calm'],
+        hope: 'Fall asleep without my phone.',
+        experience: 'new',
+        minutes: '15',
+        daysPerWeek: 5,
+        likes: ['guided', 'body'],
+        notes: 'No long lectures please.',
+      },
+    });
+    expect(saved.json()).toMatchObject({ reasons: ['sleep', 'calm'], experience: 'new' });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/ai/plan',
+      headers: auth(),
+      payload: {
+        goal: '',
+        weeks: 4,
+        startDate: '2026-10-05',
+        practice: { daysPerWeek: 5, minutes: 15 },
+        learning: null,
+      },
+    });
+    expect(lastPrompt).toContain('I practise for: better sleep, calm and less stress.');
+    expect(lastPrompt).toContain('Fall asleep without my phone.');
+    expect(lastPrompt).toContain('No long lectures please.');
   });
 });

@@ -32,6 +32,7 @@ import { FriendPage } from './pages/FriendPage.tsx';
 import { PeoplePage } from './pages/PeoplePage.tsx';
 import { AdminOnly, AdminPage } from './pages/AdminPage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
+import { AiPage, AiSetupPage, IntentionsPage } from './pages/AiPage.tsx';
 import { DownloadsPage } from './pages/DownloadsPage.tsx';
 import { flushOfflineSessions, useOffline, verifyDownloads } from './offline.ts';
 import { InboxProvider, useInbox } from './social.tsx';
@@ -88,6 +89,7 @@ const NAV: NavItem[] = [
   { to: '/library', label: 'Library', icon: 'library', end: true },
   { to: '/breathe', label: 'Breathe', icon: 'breath' },
   { to: '/plans', label: 'Plans', icon: 'plans' },
+  { to: '/ai', label: 'AI', icon: 'sparkle' },
   { to: '/friends', label: 'Friends', icon: 'friends', badge: true },
   { to: '/journal', label: 'Journal', icon: 'journal' },
   { to: '/stats', label: 'Practice', icon: 'stats' },
@@ -98,9 +100,9 @@ const NAV: NavItem[] = [
 
 /** The sidebar, in three quiet groups rather than one long list. */
 const NAV_GROUPS = [
-  { label: 'Practice', items: NAV.slice(0, 4) },
-  { label: 'Reflect', items: NAV.slice(4, 7) },
-  { label: 'You', items: NAV.slice(7) },
+  { label: 'Practice', items: NAV.slice(0, 5) },
+  { label: 'Reflect', items: NAV.slice(5, 8) },
+  { label: 'You', items: NAV.slice(8) },
 ];
 
 /**
@@ -355,6 +357,9 @@ function SignedInApp() {
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/friends/:id" element={<FriendPage />} />
               <Route path="/people" element={<Navigate to="/admin/people" replace />} />
+              <Route path="/ai" element={<AiPage />} />
+              <Route path="/ai/setup" element={<AiSetupPage />} />
+              <Route path="/ai/intentions" element={<IntentionsPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/library" element={<ReviewPage />} />
               <Route

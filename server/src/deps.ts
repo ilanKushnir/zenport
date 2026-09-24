@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { Config } from './config.js';
 import type { ExternalDeps, VideoMeta } from './context.js';
-import { openAiClient } from './ai/openai.js';
+import { aiClient } from './ai/providers.js';
 
 const execFileP = promisify(execFile);
 
@@ -11,8 +11,8 @@ const execFileP = promisify(execFile);
  *  - YouTube oEmbed metadata for a URL the user pasted;
  *  - yt-dlp metadata listing (local binary, user-configured);
  *  - the self-hoster's own Whisper-compatible endpoint, when configured;
- *  - OpenAI with an account's own key, when that account saves a key or asks
- *    for a plan.
+ *  - The AI provider an account connects (OpenAI, Anthropic, Gemini, OpenRouter or an
+ *    OpenAI-compatible server), only when that account connects it or asks for something.
  * There is no telemetry anywhere.
  */
 export function buildDeps(config: Config): ExternalDeps {
@@ -82,5 +82,5 @@ export function buildDeps(config: Config): ExternalDeps {
       }
     : null;
 
-  return { fetchVideoMeta, listPlaylist, transcribe, openai: openAiClient };
+  return { fetchVideoMeta, listPlaylist, transcribe, ai: aiClient };
 }

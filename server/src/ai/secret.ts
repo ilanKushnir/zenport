@@ -2,7 +2,7 @@
  * At-rest encryption for an account's AI key.
  *
  * AES-256-GCM under a key derived from the server's session secret, so a copy
- * of the database alone does not hand over anyone's OpenAI key. Output is
+ * of the database alone does not hand over anyone's AI key. Output is
  * "v1:<iv>:<tag>:<ciphertext>", base64url.
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';

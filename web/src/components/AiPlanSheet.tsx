@@ -17,8 +17,9 @@ import type {
   PlanApproach,
   PlanLevel,
 } from '@zenport/shared';
-import { formatDuration } from '@zenport/shared';
+import { AI_PROVIDERS, formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
+import { Link } from 'react-router-dom';
 import { useApi } from '../hooks.ts';
 import { TYPE_META } from '../content.ts';
 import { Cover, Icon, Sheet, Switch } from './ui.tsx';
@@ -294,11 +295,24 @@ export function AiPlanSheet({
     }
   };
 
-  // No key yet: ask for one here rather than sending people off to Settings.
-  if (settings.data && !settings.data.configured && !settings.data.sharedBy) {
+  // No AI yet: set it up, then come straight back here to plan.
+  if (settings.data && !settings.data.canUse) {
     return (
       <Sheet title="Plan with AI" onClose={onClose} labelId="ai-plan">
-        <AiKeyForm onSaved={settings.reload} />
+        <div className="ai-key">
+          <img className="ai-key-art" src="/art/ob-rhythm.webp" alt="" width={120} height={120} />
+          <p className="sit-sheet-lede">
+            Planning with AI reads your library and builds a path around your time - with your own
+            AI: OpenAI, Anthropic, Google Gemini, OpenRouter, or your own server.
+          </p>
+          <Link
+            className="btn btn-primary"
+            to={`/ai/setup?return=${encodeURIComponent('/plans?ai=1')}`}
+          >
+            <Icon name="sparkle" size={16} /> Set up AI
+          </Link>
+          <p className="hint">It takes a minute. You come straight back here to plan.</p>
+        </div>
       </Sheet>
     );
   }
@@ -550,9 +564,12 @@ export function AiPlanSheet({
           </div>
           <p className="ai-privacy">
             <Icon name="sparkle" size={14} />
-            Titles, creators, lengths and lesson names from your library go to OpenAI with your key
-            ({settings.data?.model}) to make this plan. Nothing else, and only when you press Make
-            my plan.
+            Titles, creators, lengths and lesson names from your library, your practice history and
+            your intentions go to{' '}
+            {settings.data?.provider
+              ? `${AI_PROVIDERS.find((p) => p.id === settings.data!.provider)?.label} (${settings.data.model})`
+              : 'the shared AI'}{' '}
+            to make this plan. Nothing else, and only when you press Make my plan.
           </p>
           {error && <p className="error-note">{error}</p>}
           <div className="ai-nav">
@@ -722,67 +739,5 @@ function StagePreview({ stage: track, step }: { stage: AiPlanStageDto; step: num
         ))}
       </ol>
     </section>
-  );
-}
-
-/** Add or replace the account's OpenAI key. Used here and in Settings. */
-export function AiKeyForm({
-  onSaved,
-  compact = false,
-}: {
-  onSaved: () => void;
-  compact?: boolean;
-}) {
-  const [key, setKey] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const save = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api.put('/api/ai/settings', { apiKey: key.trim() });
-      setKey('');
-      onSaved();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'That key did not work.');
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="ai-key">
-      {!compact && (
-        <>
-          <img className="ai-key-art" src="/art/ob-rhythm.webp" alt="" width={120} height={120} />
-          <p className="sit-sheet-lede">
-            ZenPort can read your library and build a plan around your time - with your own OpenAI
-            key. It is stored encrypted on this server and never shown again.
-          </p>
-        </>
-      )}
-      <div className="ai-key-row">
-        <input
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="sk-…"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          aria-label="OpenAI API key"
-        />
-        <button
-          className="btn btn-primary"
-          disabled={busy || key.trim().length < 20}
-          onClick={() => void save()}
-        >
-          {busy ? 'Checking…' : 'Save key'}
-        </button>
-      </div>
-      {error && <p className="error-note">{error}</p>}
-      <p className="hint">
-        Create one at platform.openai.com → API keys. Planning costs a few cents per plan on your
-        account.
-      </p>
-    </div>
   );
 }

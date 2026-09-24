@@ -18,6 +18,7 @@ export const MORE_LINKS: {
   hint: string;
   admin?: boolean;
 }[] = [
+  { to: '/ai', label: 'AI', icon: 'sparkle', hint: 'Your companion' },
   { to: '/friends', label: 'Friends', icon: 'friends', hint: 'Practise together' },
   { to: '/journal', label: 'Journal', icon: 'journal', hint: 'After each sit' },
   { to: '/stats', label: 'Practice', icon: 'stats', hint: 'Streaks and minutes' },

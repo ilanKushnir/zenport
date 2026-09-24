@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AiSettingsDto, ScanStateDto, UserPrefsDto } from '@zenport/shared';
+import type { AiSettingsDto, IntentionsDto, ScanStateDto, UserPrefsDto } from '@zenport/shared';
 import { useApi } from '../hooks.ts';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
@@ -22,7 +22,8 @@ import { Icon, Slider } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
 import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
 import { Scene, SceneCycle } from './scenes.tsx';
-import { AiKeyForm } from '../components/AiPlanSheet.tsx';
+import { ProviderConnect } from '../components/AiConnect.tsx';
+import { IntentionsForm } from '../components/IntentionsForm.tsx';
 
 const GOALS = [5, 10, 15, 20, 30, 45] as const;
 const TIMERS = [3, 5, 10, 15, 20, 30, 45, 60] as const;
@@ -31,12 +32,15 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const { prefs, save } = usePrefs();
   const [step, setStep] = useState(0);
   const [aiSaved, setAiSaved] = useState(false);
+  const [intentionsSaved, setIntentionsSaved] = useState(false);
+  const intentions = useApi<IntentionsDto | null>('/api/me/intentions');
   const ai = useApi<AiSettingsDto>('/api/ai/settings');
   const { user, refresh } = useAuth();
   const scan = useApi<ScanStateDto>('/api/library/scan-state');
 
   const steps = [
     { key: 'welcome', art: <Scene name="welcome" breathe /> },
+    { key: 'why', art: <Scene name="feel" /> },
     { key: 'library', art: <Scene name="kinds" /> },
     { key: 'shape', art: <SceneCycle /> },
     { key: 'sit', art: <Scene name="breathe" breathe /> },
@@ -107,6 +111,31 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
             {step === 1 && (
               <>
+                <h1 id="ob-title">What brings you here?</h1>
+                <p className="ob-lede">
+                  A few taps, so plans and suggestions fit you. Change them any time under AI.
+                </p>
+                {intentionsSaved ? (
+                  <p className="ob-note ob-ok">
+                    <Icon name="check" size={15} /> Thank you - that helps everything fit you.
+                  </p>
+                ) : (
+                  <IntentionsForm
+                    short
+                    initial={intentions.data ?? null}
+                    saveLabel="Save and continue"
+                    onSaved={() => {
+                      setIntentionsSaved(true);
+                      setStep((s) => s + 1);
+                    }}
+                  />
+                )}
+                <p className="ob-note">Optional - skip with Continue.</p>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
                 <h1 id="ob-title">Your library, in place</h1>
                 {indexed > 0 ? (
                   <p className="ob-lede">
@@ -154,7 +183,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 2 && (
+            {step === 3 && (
               <>
                 <h1 id="ob-title">Shape it so it reads well</h1>
                 <p className="ob-lede">
@@ -180,7 +209,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <>
                 <h1 id="ob-title">Or just breathe</h1>
                 <p className="ob-lede">
@@ -204,7 +233,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <>
                 <h1 id="ob-title">Find a rhythm you'll keep</h1>
                 <p className="ob-lede">A gentle daily target - or none at all.</p>
@@ -252,12 +281,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <>
-                <h1 id="ob-title">Let AI plan it</h1>
+                <h1 id="ob-title">Your own AI companion</h1>
                 <p className="ob-lede">
-                  Share your goal and your time; it plans practice and study from your library, in
-                  order.
+                  Connect an AI and it plans from your library, reviews how your practice is going,
+                  and suggests what might help next.
                 </p>
                 <div className="ob-field">
                   {ai.data?.sharedBy && !ai.data.configured ? (
@@ -267,18 +296,28 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     </p>
                   ) : aiSaved || ai.data?.configured ? (
                     <p className="ob-note ob-ok">
-                      <Icon name="check" size={15} /> Your key is set. Find it under Plans → Plan
-                      with AI.
+                      <Icon name="check" size={15} /> Your AI is connected. Find it under Plans →
+                      Plan with AI, and everything else under AI.
                     </p>
                   ) : (
-                    <AiKeyForm compact onSaved={() => setAiSaved(true)} />
+                    <ProviderConnect
+                      compact
+                      settings={ai.data ?? null}
+                      onConnected={() => {
+                        setAiSaved(true);
+                        ai.reload();
+                      }}
+                    />
                   )}
                 </div>
-                <p className="ob-note">Optional - uses your own OpenAI key. Also in Settings.</p>
+                <p className="ob-note">
+                  Optional - OpenAI, Anthropic, Gemini, OpenRouter or your own server, with your own
+                  key. Also under AI.
+                </p>
               </>
             )}
 
-            {step === 6 && (
+            {step === 7 && (
               <>
                 <h1 id="ob-title">Practise together</h1>
                 <p className="ob-lede">
@@ -317,7 +356,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 7 && (
+            {step === 8 && (
               <>
                 <h1 id="ob-title">Make it yours</h1>
                 <div className="ob-field">
@@ -396,7 +435,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 8 && (
+            {step === 9 && (
               <>
                 <h1 id="ob-title">That's everything</h1>
                 <p className="ob-lede">

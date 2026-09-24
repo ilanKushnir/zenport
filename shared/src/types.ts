@@ -474,17 +474,146 @@ export interface FavoriteDto {
 
 // --- AI planning ---
 
+export type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'compatible';
+
+export interface AiProviderInfo {
+  id: AiProvider;
+  label: string;
+  /** One line on what it is. */
+  blurb: string;
+  needsKey: boolean;
+  /** A local or self-hosted server at an address you give. */
+  needsBaseUrl: boolean;
+  /** It can look things up on the web (Discover, library research). */
+  webSearch: boolean;
+  /** Only an admin may point the server at an address of their choosing. */
+  adminOnly: boolean;
+  /** Where to get a key. */
+  keyUrl: string | null;
+}
+
+export const AI_PROVIDERS: readonly AiProviderInfo[] = [
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    blurb: 'GPT models, from the makers of ChatGPT.',
+    needsKey: true,
+    needsBaseUrl: false,
+    webSearch: true,
+    adminOnly: false,
+    keyUrl: 'https://platform.openai.com/api-keys',
+  },
+  {
+    id: 'anthropic',
+    label: 'Anthropic',
+    blurb: 'Claude - careful, thoughtful writing.',
+    needsKey: true,
+    needsBaseUrl: false,
+    webSearch: true,
+    adminOnly: false,
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+  },
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    blurb: "Google's Gemini models, with Google Search.",
+    needsKey: true,
+    needsBaseUrl: false,
+    webSearch: true,
+    adminOnly: false,
+    keyUrl: 'https://aistudio.google.com/apikey',
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    blurb: 'One key for hundreds of models from many makers.',
+    needsKey: true,
+    needsBaseUrl: false,
+    webSearch: true,
+    adminOnly: false,
+    keyUrl: 'https://openrouter.ai/keys',
+  },
+  {
+    id: 'compatible',
+    label: 'Your own AI server',
+    blurb: 'Ollama, LM Studio or any OpenAI-compatible server - nothing leaves your network.',
+    needsKey: false,
+    needsBaseUrl: true,
+    webSearch: false,
+    adminOnly: true,
+    keyUrl: null,
+  },
+];
+
+/** One provider this account has connected. The key itself is never sent back. */
+export interface AiConnectionDto {
+  provider: AiProvider;
+  /** Last four characters of the key, e.g. "…a1b2"; null when there is none. */
+  keyHint: string | null;
+  baseUrl: string | null;
+  model: string;
+  active: boolean;
+}
+
 export interface AiSettingsDto {
+  /** This account has a connection of its own in use. */
   configured: boolean;
-  /** Last four characters of the key, e.g. "…a1b2". Never the key. */
+  provider: AiProvider | null;
+  /** Of the connection in use. Never the key. */
   keyHint: string | null;
   model: string | null;
-  /** Chat models this key can use, newest-preferred first. */
+  /** Chat models the connection in use can choose from, best first. */
   models: string[];
-  /** Admin only: whether members without a key may plan with this one. */
+  connections: AiConnectionDto[];
+  /** Admin only: whether members without a key may use this one. */
   sharing?: boolean;
-  /** Set when this account has no key of its own but may use the owner's. */
+  /** Set when this account has no connection of its own but may use the owner's. */
   sharedBy?: string | null;
+  /** Anything AI can run for this account - its own connection or a shared one. */
+  canUse: boolean;
+}
+
+// --- Intentions: why someone practises, for everything the AI does ---
+
+export const INTENTION_REASONS = [
+  { id: 'calm', label: 'Calm and less stress' },
+  { id: 'sleep', label: 'Better sleep' },
+  { id: 'focus', label: 'Focus and clarity' },
+  { id: 'emotions', label: 'Working with emotions' },
+  { id: 'healing', label: 'Healing' },
+  { id: 'self', label: 'Knowing myself' },
+  { id: 'spirit', label: 'Spiritual growth' },
+  { id: 'health', label: 'Body and health' },
+  { id: 'kindness', label: 'Kindness and connection' },
+  { id: 'curious', label: 'Curiosity' },
+] as const;
+
+export const INTENTION_LIKES = [
+  { id: 'guided', label: 'Guided meditations' },
+  { id: 'silent', label: 'Silent sits' },
+  { id: 'breath', label: 'Breathwork' },
+  { id: 'body', label: 'Body scans' },
+  { id: 'courses', label: 'Courses and lessons' },
+  { id: 'talks', label: 'Talks and lectures' },
+  { id: 'sound', label: 'Sound and music' },
+  { id: 'visualise', label: 'Visualisation' },
+] as const;
+
+export type IntentionExperience = 'new' | 'some' | 'experienced' | 'deep';
+export type IntentionMinutes = '5' | '15' | '30' | '60';
+
+export interface IntentionsDto {
+  reasons: string[];
+  /** In their own words: what they would love to be true a year from now. */
+  hope: string;
+  experience: IntentionExperience;
+  /** Minutes on a usual day. */
+  minutes: IntentionMinutes;
+  daysPerWeek: number;
+  likes: string[];
+  /** What to avoid or keep in mind (health, dislikes, circumstances). */
+  notes: string;
+  updatedAt?: string;
 }
 
 export type PlanLevel = 'new' | 'some' | 'experienced';

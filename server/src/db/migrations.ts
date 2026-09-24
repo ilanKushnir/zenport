@@ -605,6 +605,41 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (user_id, key)
   );
   `,
+
+  // v14: more than one AI provider, and why someone practises.
+  //
+  // `ai_keys` holds one connection per account and provider (OpenAI,
+  // Anthropic, Gemini, OpenRouter, or an OpenAI-compatible server at
+  // `base_url`), each key sealed as before; `ai_active` says which one is in
+  // use, so switching never means pasting a key again. The one OpenAI key
+  // each account had moves across; `ai_settings` is left in place, unused.
+  //
+  // `user_intentions` is a few answers about why the person practises and
+  // what they hope for - context for everything the AI does for them.
+  `
+  CREATE TABLE ai_keys (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    api_key_enc TEXT,
+    key_hint TEXT,
+    base_url TEXT,
+    model TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    PRIMARY KEY (user_id, provider)
+  );
+  CREATE TABLE ai_active (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL
+  );
+  INSERT INTO ai_keys (user_id, provider, api_key_enc, key_hint, base_url, model, updated_at)
+    SELECT user_id, 'openai', api_key_enc, key_hint, NULL, model, updated_at FROM ai_settings;
+  INSERT INTO ai_active (user_id, provider) SELECT user_id, 'openai' FROM ai_settings;
+  CREATE TABLE user_intentions (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    data TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

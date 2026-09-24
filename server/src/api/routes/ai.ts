@@ -1,16 +1,37 @@
 /**
- * An account's own AI key, and planning with it.
+ * AI for an account: connecting a provider (OpenAI, Anthropic, Gemini,
+ * OpenRouter, or an OpenAI-compatible server), the person's intentions, and
+ * planning with them.
  *
- * The key is validated against OpenAI when saved, stored encrypted, and never
- * returned - the settings answer says only that one is set and how it ends.
- * Planning sends the library catalogue (titles, creators, lengths, lesson
- * names) to OpenAI with that key, only when the person asks for a plan.
+ * A key is validated with the provider when connected, stored sealed, and
+ * never returned - the settings answer says only which providers are
+ * connected and how each key ends. Nothing is sent to any provider except
+ * when the person asks for something.
  */
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { AiSettingsDto } from '@zenport/shared';
+import {
+  AI_PROVIDERS,
+  type AiProvider,
+  type AiSettingsDto,
+  type IntentionsDto,
+} from '@zenport/shared';
 import type { AppContext } from '../../context.js';
-import { AiError, chatModels } from '../../ai/openai.js';
+import { AiError, PROVIDER_NAME } from '../../ai/providers.js';
+import {
+  activeProvider,
+  activeRow,
+  connections,
+  sharedOwner,
+  targetFor,
+  toTarget,
+} from '../../ai/connection.js';
+import {
+  intentionsSchema,
+  intentionsSummary,
+  readIntentions,
+  saveIntentions,
+} from '../../ai/intentions.js';
 import {
   PLAN_SCHEMA,
   buildCatalog,
@@ -19,10 +40,11 @@ import {
   renderCatalog,
   resolveProposal,
 } from '../../ai/planner.js';
-import { openSecret, sealSecret } from '../../ai/secret.js';
+import { sealSecret } from '../../ai/secret.js';
 import { libraryDto } from '../../library/queries.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const PROVIDERS = AI_PROVIDERS.map((p) => p.id) as [AiProvider, ...AiProvider[]];
 
 const planRequest = z.object({
   goal: z.string().max(1200).default(''),
@@ -49,37 +71,14 @@ const planRequest = z.object({
   includePlanned: z.boolean().default(false),
 });
 
-interface Row {
-  api_key_enc: string;
-  key_hint: string;
-  model: string;
-}
-
 export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { db, config, deps } = ctx;
   const secret = config.sessionSecret || 'zenport-dev-secret';
-  // Models per key are cached briefly so the settings page is not a round trip.
-  const modelCache = new Map<number, { at: number; models: string[] }>();
+  // Models per connection, cached so the settings page is not a round trip.
+  const modelCache = new Map<string, string[]>();
+  const cacheKey = (userId: number, p: AiProvider) => `${userId}:${p}`;
 
-  const row = (userId: number) =>
-    db
-      .prepare('SELECT api_key_enc, key_hint, model FROM ai_settings WHERE user_id = ?')
-      .get(userId) as Row | undefined;
-
-  /** The owner's key, when they have chosen to share it with everyone here. */
-  const sharedKey = (): { userId: number; name: string } | null => {
-    const v = db.prepare("SELECT value FROM app_settings WHERE key = 'ai_shared_by'").get() as
-      { value: string } | undefined;
-    if (!v) return null;
-    const owner = db
-      .prepare(
-        `SELECT u.id, COALESCE(u.display_name, u.username) AS name FROM users u
-         JOIN ai_settings a ON a.user_id = u.id WHERE u.id = ? AND u.role = 'admin'`,
-      )
-      .get(Number(v.value)) as { id: number; name: string } | undefined;
-    return owner ? { userId: owner.id, name: owner.name } : null;
-  };
-
+  /** Send an AI failure as a readable answer; anything else is a real error. */
   const send = (
     err: unknown,
     reply: { code: (n: number) => { send: (b: unknown) => unknown } },
@@ -88,40 +87,225 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (err instanceof Error && err.name === 'TimeoutError') {
       return reply
         .code(504)
-        .send({ error: 'OpenAI took too long to answer. Try again, or pick a faster model.' });
+        .send({ error: 'The AI took too long to answer. Try again, or pick a faster model.' });
     }
     throw err;
   };
 
-  app.get('/api/ai/settings', async (req): Promise<AiSettingsDto> => {
-    const r = row(req.user!.id);
-    const shared = sharedKey();
-    if (!r) {
-      return {
-        configured: false,
-        keyHint: null,
-        model: null,
-        models: [],
-        sharedBy: shared && shared.userId !== req.user!.id ? shared.name : null,
-      };
-    }
+  const settingsFor = (userId: number, role: string): AiSettingsDto => {
+    const rows = connections(db, userId);
+    const active = activeProvider(db, userId);
+    const cur = rows.find((r) => r.provider === active) ?? null;
+    const shared = sharedOwner(db);
     return {
-      configured: true,
-      keyHint: r.key_hint,
-      model: r.model,
-      models: modelCache.get(req.user!.id)?.models ?? [r.model],
-      sharing: req.user!.role === 'admin' ? shared?.userId === req.user!.id : undefined,
+      configured: !!cur,
+      provider: cur?.provider ?? null,
+      keyHint: cur?.key_hint ?? null,
+      model: cur?.model ?? null,
+      models: cur ? (modelCache.get(cacheKey(userId, cur.provider)) ?? [cur.model]) : [],
+      connections: rows.map((r) => ({
+        provider: r.provider,
+        keyHint: r.key_hint,
+        baseUrl: r.base_url,
+        model: r.model,
+        active: r.provider === active,
+      })),
+      sharing: role === 'admin' ? shared?.userId === userId : undefined,
+      sharedBy: !cur && shared && shared.userId !== userId ? shared.name : null,
+      canUse: !!cur || (!!shared && shared.userId !== userId),
     };
+  };
+
+  app.get('/api/ai/settings', async (req): Promise<AiSettingsDto> =>
+    settingsFor(req.user!.id, req.user!.role),
+  );
+
+  /**
+   * Connect a provider: check the key with it, keep it sealed, make it the one
+   * in use. A provider already connected can be reconnected without pasting
+   * its key again (to pick up new models, or a new address).
+   */
+  const connect = async (
+    userId: number,
+    role: string,
+    input: { provider: AiProvider; apiKey?: string; baseUrl?: string; model?: string },
+  ): Promise<AiSettingsDto> => {
+    const info = AI_PROVIDERS.find((p) => p.id === input.provider)!;
+    if (info.adminOnly && role !== 'admin') {
+      throw new AiError('Only an admin can connect a server by its address.', 403);
+    }
+    const existing = connections(db, userId).find((c) => c.provider === input.provider);
+    const kept = existing ? toTarget(existing, secret)?.apiKey : undefined;
+    const apiKey = input.apiKey?.trim() || kept || '';
+    if (info.needsKey && !apiKey) throw new AiError('Add an API key first.', 400);
+    let baseUrl: string | null = null;
+    if (info.needsBaseUrl) {
+      const raw = (input.baseUrl ?? existing?.base_url ?? '').trim();
+      let u: URL;
+      try {
+        u = new URL(raw);
+      } catch {
+        throw new AiError(
+          'That address does not look right - e.g. http://ollama.lan:11434/v1',
+          400,
+        );
+      }
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        throw new AiError('The address must start with http:// or https://', 400);
+      }
+      baseUrl = raw.replace(/\/+$/, '');
+    }
+    const models = await deps.ai.listModels({ provider: input.provider, apiKey, baseUrl });
+    if (models.length === 0) {
+      throw new AiError(`${PROVIDER_NAME[input.provider]} offers no chat model to this key.`, 400);
+    }
+    // A free-form model name is fine where the list is open-ended.
+    const openList = input.provider === 'openrouter' || input.provider === 'compatible';
+    const model =
+      input.model && (models.includes(input.model) || openList)
+        ? input.model
+        : existing?.model && models.includes(existing.model)
+          ? existing.model
+          : models[0]!;
+    db.prepare(
+      `INSERT INTO ai_keys (user_id, provider, api_key_enc, key_hint, base_url, model, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, provider) DO UPDATE SET api_key_enc = excluded.api_key_enc,
+         key_hint = excluded.key_hint, base_url = excluded.base_url, model = excluded.model,
+         updated_at = excluded.updated_at`,
+    ).run(
+      userId,
+      input.provider,
+      apiKey ? sealSecret(apiKey, secret) : null,
+      apiKey ? `…${apiKey.slice(-4)}` : null,
+      baseUrl,
+      model,
+      new Date().toISOString(),
+    );
+    db.prepare(
+      `INSERT INTO ai_active (user_id, provider) VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET provider = excluded.provider`,
+    ).run(userId, input.provider);
+    modelCache.set(cacheKey(userId, input.provider), models);
+    return settingsFor(userId, role);
+  };
+
+  app.post('/api/ai/connect', async (req, reply) => {
+    const body = z
+      .object({
+        provider: z.enum(PROVIDERS),
+        apiKey: z.string().max(400).optional(),
+        baseUrl: z.string().max(400).optional(),
+        model: z.string().max(160).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Choose a provider.' });
+    try {
+      return await connect(req.user!.id, req.user!.role, body.data);
+    } catch (err) {
+      return send(err, reply);
+    }
   });
 
-  // The owner may let everyone on this ZenPort plan with their key. The key
-  // itself is never shown to anyone; members only learn that planning works.
+  // Choose the model, or switch to another connected provider. (Still takes
+  // an OpenAI key directly, as the first version did.)
+  app.put('/api/ai/settings', async (req, reply) => {
+    const body = z
+      .object({
+        apiKey: z.string().min(20).max(400).optional(),
+        model: z.string().max(160).optional(),
+        provider: z.enum(PROVIDERS).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success)
+      return reply.code(400).send({ error: 'That does not look like an API key.' });
+    const userId = req.user!.id;
+    try {
+      if (body.data.apiKey) {
+        return await connect(userId, req.user!.role, {
+          provider: body.data.provider ?? 'openai',
+          apiKey: body.data.apiKey,
+          model: body.data.model,
+        });
+      }
+      const provider = body.data.provider ?? activeProvider(db, userId);
+      const row = connections(db, userId).find((c) => c.provider === provider);
+      if (!provider || !row) return reply.code(400).send({ error: 'Connect a provider first.' });
+      if (body.data.model) {
+        const known = modelCache.get(cacheKey(userId, provider));
+        const openList = provider === 'openrouter' || provider === 'compatible';
+        if (known && !known.includes(body.data.model) && !openList) {
+          return reply.code(400).send({ error: 'That model is not offered to this key.' });
+        }
+        db.prepare('UPDATE ai_keys SET model = ? WHERE user_id = ? AND provider = ?').run(
+          body.data.model,
+          userId,
+          provider,
+        );
+      }
+      db.prepare(
+        `INSERT INTO ai_active (user_id, provider) VALUES (?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET provider = excluded.provider`,
+      ).run(userId, provider);
+      if (!modelCache.has(cacheKey(userId, provider))) {
+        const t = toTarget(row, secret);
+        if (t) {
+          modelCache.set(
+            cacheKey(userId, provider),
+            await deps.ai.listModels(t).catch(() => [row.model]),
+          );
+        }
+      }
+      return settingsFor(userId, req.user!.role);
+    } catch (err) {
+      return send(err, reply);
+    }
+  });
+
+  /** Forget one provider's key; if it was in use, the next connected one takes over. */
+  const disconnect = (userId: number, provider: AiProvider) => {
+    db.prepare('DELETE FROM ai_keys WHERE user_id = ? AND provider = ?').run(userId, provider);
+    modelCache.delete(cacheKey(userId, provider));
+    if (activeProvider(db, userId) === provider) {
+      const next = connections(db, userId)[0];
+      if (next) {
+        db.prepare('UPDATE ai_active SET provider = ? WHERE user_id = ?').run(
+          next.provider,
+          userId,
+        );
+      } else {
+        db.prepare('DELETE FROM ai_active WHERE user_id = ?').run(userId);
+        // An owner who shared their AI and has none left shares nothing.
+        db.prepare("DELETE FROM app_settings WHERE key = 'ai_shared_by' AND value = ?").run(
+          String(userId),
+        );
+      }
+    }
+  };
+
+  app.delete('/api/ai/connections/:provider', async (req, reply) => {
+    const p = z.enum(PROVIDERS).safeParse((req.params as { provider: string }).provider);
+    if (!p.success) return reply.code(400).send({ error: 'unknown provider' });
+    disconnect(req.user!.id, p.data);
+    return settingsFor(req.user!.id, req.user!.role);
+  });
+
+  app.delete('/api/ai/settings', async (req) => {
+    const p = activeProvider(db, req.user!.id);
+    if (p) disconnect(req.user!.id, p);
+    return { ok: true };
+  });
+
+  // The owner may let everyone on this ZenPort use their AI. The key itself
+  // is never shown to anyone; members only learn that AI features work.
   app.put('/api/ai/sharing', async (req, reply) => {
     if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     const body = z.object({ enabled: z.boolean() }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'enabled required' });
     if (body.data.enabled) {
-      if (!row(req.user!.id)) return reply.code(400).send({ error: 'Add your key first.' });
+      if (!activeRow(db, req.user!.id)) {
+        return reply.code(400).send({ error: 'Connect a provider first.' });
+      }
       db.prepare(
         `INSERT INTO app_settings (key, value) VALUES ('ai_shared_by', ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
@@ -132,57 +316,15 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     return { ok: true };
   });
 
-  app.put('/api/ai/settings', async (req, reply) => {
-    const body = z
-      .object({
-        apiKey: z.string().min(20).max(400).optional(),
-        model: z.string().max(80).optional(),
-      })
-      .safeParse(req.body);
-    if (!body.success)
-      return reply.code(400).send({ error: 'That does not look like an API key.' });
-    const existing = row(req.user!.id);
-    const key =
-      body.data.apiKey?.trim() ?? (existing ? openSecret(existing.api_key_enc, secret) : null);
-    if (!key) return reply.code(400).send({ error: 'Add an API key first.' });
-    let models: string[];
-    try {
-      models = chatModels(await deps.openai.listModels(key));
-    } catch (err) {
-      return send(err, reply);
-    }
-    if (models.length === 0)
-      return reply.code(400).send({ error: 'This key cannot use any chat model.' });
-    const model =
-      body.data.model && models.includes(body.data.model)
-        ? body.data.model
-        : existing?.model && models.includes(existing.model)
-          ? existing.model
-          : models[0]!;
-    db.prepare(
-      `INSERT INTO ai_settings (user_id, api_key_enc, key_hint, model, updated_at) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET api_key_enc = excluded.api_key_enc, key_hint = excluded.key_hint,
-         model = excluded.model, updated_at = excluded.updated_at`,
-    ).run(
-      req.user!.id,
-      sealSecret(key, secret),
-      `…${key.slice(-4)}`,
-      model,
-      new Date().toISOString(),
-    );
-    modelCache.set(req.user!.id, { at: Date.now(), models });
-    return {
-      configured: true,
-      keyHint: `…${key.slice(-4)}`,
-      model,
-      models,
-    } satisfies AiSettingsDto;
-  });
-
-  app.delete('/api/ai/settings', async (req) => {
-    db.prepare('DELETE FROM ai_settings WHERE user_id = ?').run(req.user!.id);
-    modelCache.delete(req.user!.id);
-    return { ok: true };
+  // ── Intentions ──
+  app.get('/api/me/intentions', async (req): Promise<IntentionsDto | null> =>
+    readIntentions(db, req.user!.id),
+  );
+  app.put('/api/me/intentions', async (req, reply) => {
+    const body = intentionsSchema.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Those answers are not complete.' });
+    saveIntentions(db, req.user!.id, body.data);
+    return readIntentions(db, req.user!.id);
   });
 
   app.post('/api/ai/plan', async (req, reply) => {
@@ -191,11 +333,8 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!body.data.practice && !body.data.learning) {
       return reply.code(400).send({ error: 'Choose practice, learning, or both.' });
     }
-    const shared = sharedKey();
-    const r = row(req.user!.id) ?? (shared ? row(shared.userId) : undefined);
-    const key = r ? openSecret(r.api_key_enc, secret) : null;
-    if (!r || !key)
-      return reply.code(400).send({ error: 'Add your OpenAI key in Settings first.' });
+    const target = targetFor(db, secret, req.user!.id);
+    if (!target) return reply.code(400).send({ error: 'Set up AI first.' });
 
     const lib = libraryDto(db, config, req.user!.id);
     const wanted = body.data.creators.length ? new Set(body.data.creators) : null;
@@ -224,17 +363,22 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       body.data,
       renderCatalog(entries, history, planned),
       history.summary,
+      intentionsSummary(readIntentions(db, req.user!.id)),
     );
     try {
-      const raw = await deps.openai.chatJson({
-        apiKey: key,
-        model: r.model,
+      const raw = await deps.ai.chatJson(target, {
         system,
         user,
         schemaName: 'zenport_plan',
         schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
       });
-      const proposal = resolveProposal(raw, entries, body.data, r.model, new Set(planned.keys()));
+      const proposal = resolveProposal(
+        raw,
+        entries,
+        body.data,
+        target.model,
+        new Set(planned.keys()),
+      );
       if (proposal.stages.length === 0) {
         return reply
           .code(502)

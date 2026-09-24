@@ -25,6 +25,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.22.0',
+    items: [
+      {
+        emoji: '✨',
+        text: 'A new AI section - bring your own AI: OpenAI, Anthropic, Gemini, OpenRouter or your own server.',
+      },
+      { emoji: '🧭', text: 'Tell ZenPort why you practise; every AI feature starts from it.' },
+      {
+        emoji: '🗓️',
+        text: 'Plan with AI without a key takes you to set one up - and straight back.',
+      },
+    ],
+  },
+  {
     version: '0.21.0',
     items: [
       {
