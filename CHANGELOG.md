@@ -5,6 +5,13 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-09-24
+
+### Changed
+
+- **A calmer recording page.** One primary action, full width on the phone: Begin practice, Resume, Continue, Watch. The other actions sit beneath it as borderless tiles in one even row, each an icon in a soft well with a short label. They are Save offline (with its size), Add to plan and With a friend, plus Begin again or Start over when they apply. The resume note sits with the button it explains. On a phone the type chip, facts and times-practised line are centred with the title.
+- **"Download" is now "Save offline".** It never put a file in the phone's downloads; it keeps the meditation inside ZenPort to play with no connection. While saving, a ring fills inside the tile's icon with the percentage beneath (tap to stop). Once saved, the tile turns a calm green, "Saved offline", and a tap asks before removing the copy. The page and menu entry are now *Offline* / *Saved offline*. Downloading a note (a PDF) still says Download, because it is one.
+
 ## [0.17.2] — 2026-09-24
 
 ### Changed

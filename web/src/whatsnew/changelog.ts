@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.18.0',
+    items: [
+      {
+        emoji: '✨',
+        text: 'A calmer recording page: one big button, then Save offline, Add to plan and With a friend.',
+      },
+      {
+        emoji: '📲',
+        text: '"Download" is now Save offline - it keeps a meditation inside ZenPort.',
+      },
+    ],
+  },
+  {
     version: '0.17.2',
     items: [
       { emoji: '🎬', text: 'Intros and framing videos now come first in a series, not last.' },

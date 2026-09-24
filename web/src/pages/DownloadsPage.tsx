@@ -35,7 +35,7 @@ export function DownloadsPage() {
   return (
     <>
       <div className="page-head">
-        <h1>Downloads</h1>
+        <h1>Saved offline</h1>
         <p className="lede">
           Meditations kept on this device. They play with no connection - on a flight, in the
           countryside - and your sits count once you are back online.
@@ -89,7 +89,7 @@ export function DownloadsPage() {
           {busy.length > 0 && (
             <section className="section" aria-labelledby="sec-dl-now">
               <div className="section-head">
-                <h2 id="sec-dl-now">Downloading</h2>
+                <h2 id="sec-dl-now">Saving</h2>
               </div>
               <div className="rowlist">
                 {busy.map(([id, p]) => (
@@ -125,8 +125,8 @@ export function DownloadsPage() {
                 </Link>
               }
             >
-              Open any meditation and tap <strong>Download</strong>. Courses and talks stay online -
-              they are too large to keep on a phone.
+              Open any meditation and tap <strong>Save offline</strong>. Courses and talks stay
+              online - they are too large to keep on a phone.
             </EmptyState>
           ) : (
             <div className="dl-list">

@@ -88,7 +88,7 @@ const NAV: NavItem[] = [
   { to: '/friends', label: 'Friends', icon: 'friends', badge: true },
   { to: '/journal', label: 'Journal', icon: 'journal' },
   { to: '/stats', label: 'Practice', icon: 'stats' },
-  { to: '/downloads', label: 'Downloads', icon: 'on-device' },
+  { to: '/downloads', label: 'Offline', icon: 'on-device' },
   { to: '/admin', label: 'Admin', icon: 'shield', admin: true },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ];

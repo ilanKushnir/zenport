@@ -11,7 +11,8 @@ import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
 import { TypeMenu } from '../components/TypeSheet.tsx';
-import { OfflineButton } from '../components/OfflineButton.tsx';
+import { ActionTile } from '../components/ActionTile.tsx';
+import { OfflineTile } from '../components/OfflineButton.tsx';
 import { SitTogetherSheet, ago } from '../social.tsx';
 import { TimesPractised } from '../components/TimesPractised.tsx';
 import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
@@ -185,37 +186,44 @@ export function ItemPage() {
             </p>
           ) : (
             <div className="detail-actions">
-              <button className="btn btn-primary btn-lg" onClick={begin}>
+              <button className="btn btn-primary btn-lg detail-go" onClick={begin}>
                 <Icon name="play" /> {beginLabel}
               </button>
               {!learning && resumeAt && (
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => player.start(item, { resumeSec: 0 })}
-                >
-                  <Icon name="restart" size={16} /> Begin again
-                </button>
+                <p className="resume-note">
+                  You stopped {ago(resumeAt.updatedAt)} - your place is kept for{' '}
+                  {PRACTICE_RESUME_MINUTES} minutes in case that was by accident.
+                </p>
               )}
-              {!learning && <OfflineButton item={item} />}
-              <button className="btn btn-ghost" onClick={() => setShowPlanSheet(true)}>
-                <Icon name="plans" size={16} /> Add to a plan
-              </button>
-              <button className="btn btn-ghost" onClick={() => setSitTogether(true)}>
-                <Icon name="friends" size={16} />{' '}
-                {learning ? 'Study with a friend' : 'Sit with a friend'}
-              </button>
-              {learning && hasProgress && (
-                <button className="btn btn-ghost" onClick={() => setConfirmReset(true)}>
-                  <Icon name="restart" size={16} /> Start over
-                </button>
-              )}
+              <div className="detail-more">
+                {!learning && resumeAt && (
+                  <ActionTile
+                    icon="restart"
+                    label="Begin again"
+                    onClick={() => player.start(item, { resumeSec: 0 })}
+                  />
+                )}
+                {!learning && <OfflineTile item={item} />}
+                <ActionTile
+                  icon="plans"
+                  label="Add to plan"
+                  onClick={() => setShowPlanSheet(true)}
+                />
+                <ActionTile
+                  icon="friends"
+                  label="With a friend"
+                  ariaLabel={learning ? 'Study with a friend' : 'Sit with a friend'}
+                  onClick={() => setSitTogether(true)}
+                />
+                {learning && hasProgress && (
+                  <ActionTile
+                    icon="restart"
+                    label="Start over"
+                    onClick={() => setConfirmReset(true)}
+                  />
+                )}
+              </div>
             </div>
-          )}
-          {!learning && resumeAt && (
-            <p className="resume-note">
-              You stopped {ago(resumeAt.updatedAt)} - your place is kept for{' '}
-              {PRACTICE_RESUME_MINUTES} minutes in case that was by accident.
-            </p>
           )}
 
           <section className="section" aria-labelledby="sec-tracks">

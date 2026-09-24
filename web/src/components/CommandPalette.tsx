@@ -82,7 +82,7 @@ export function CommandPalette() {
       { id: 'friends', label: 'Friends', icon: 'friends', group: 'Go', run: go('/friends') },
       {
         id: 'downloads',
-        label: 'Downloads - meditations on this device',
+        label: 'Offline - meditations saved on this device',
         icon: 'on-device',
         group: 'Go',
         run: go('/downloads'),

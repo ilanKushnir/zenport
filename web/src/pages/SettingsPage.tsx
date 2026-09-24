@@ -719,7 +719,7 @@ function OfflineSection() {
               : `${off.records.length} meditation${off.records.length === 1 ? '' : 's'} on this device · ${formatBytes(off.totalBytes)}`}
           </strong>
           <span className="sub">
-            Download meditations from their page to play them with no connection.
+            Save meditations offline from their page to play them with no connection.
           </span>
         </span>
         <Icon name="chevron-right" size={16} />

@@ -396,7 +396,7 @@ export function LibraryPage() {
               <div className="section-actions">
                 <Link className="btn btn-sm btn-quiet" to="/downloads">
                   <Icon name="on-device" size={15} />
-                  Downloads
+                  Offline
                   {offlineState.records.length > 0 ? ` · ${offlineState.records.length}` : ''}
                 </Link>
                 {isAdmin && (

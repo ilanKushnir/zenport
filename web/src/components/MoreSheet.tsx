@@ -21,7 +21,7 @@ export const MORE_LINKS: {
   { to: '/friends', label: 'Friends', icon: 'friends', hint: 'Practise together' },
   { to: '/journal', label: 'Journal', icon: 'journal', hint: 'After each sit' },
   { to: '/stats', label: 'Practice', icon: 'stats', hint: 'Streaks and minutes' },
-  { to: '/downloads', label: 'Downloads', icon: 'on-device', hint: 'On this device' },
+  { to: '/downloads', label: 'Offline', icon: 'on-device', hint: 'Saved on this device' },
 ];
 
 export function MoreSheet({ onClose }: { onClose: () => void }) {

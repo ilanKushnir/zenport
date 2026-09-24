@@ -2867,11 +2867,104 @@
   color: var(--faint);
 }
 
+/* An item's actions: the one thing you came to do, then what you might also
+   do - a row of borderless tiles beneath it (ActionTile.tsx). */
 .detail-actions {
-  display: flex;
-  gap: var(--s3);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: var(--s4);
   margin-block: var(--s6) var(--s8);
+}
+
+.detail-go {
+  min-inline-size: 240px;
+}
+
+.detail-actions .resume-note {
+  margin: calc(var(--s2) * -1) 0 0;
+}
+
+.detail-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin-inline-start: calc(var(--s2) * -1);
+}
+
+.action-tile {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  inline-size: 92px;
+  padding: var(--s2) 4px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.action-tile-ic {
+  display: grid;
+  place-items: center;
+  inline-size: 46px;
+  block-size: 46px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  transition: background var(--t-fast) var(--ease);
+}
+
+.action-tile-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.action-tile-hint {
+  margin-block-start: -3px;
+  font-size: 11.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.action-tile:active {
+  transform: scale(0.95);
+}
+
+.action-tile:active .action-tile-ic {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.action-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .action-tile:hover .action-tile-ic {
+    background: rgba(255, 255, 255, 0.11);
+  }
+}
+
+/* Saved offline (or saving): the well takes the calm green of "on this device". */
+.action-tile.on .action-tile-ic {
+  background: color-mix(in oklab, #8fd6a6 16%, transparent);
+  color: #a9e3bb;
+}
+
+.action-tile.error .action-tile-ic {
+  background: color-mix(in oklab, var(--danger) 16%, transparent);
+  color: var(--danger);
 }
 
 .about {
@@ -2918,8 +3011,36 @@
     text-align: center;
   }
   .detail-facts,
-  .detail-actions {
+  .detail-body > .type-line,
+  .detail-body > .times {
     justify-content: center;
+  }
+
+  /* Centred page on a phone: the primary action spans it, the tiles share
+     one even row beneath. */
+  .detail-actions {
+    justify-items: stretch;
+  }
+
+  .detail-go {
+    min-inline-size: 0;
+    inline-size: 100%;
+  }
+
+  .detail-actions .resume-note {
+    text-align: center;
+  }
+
+  .detail-more {
+    display: grid;
+    /* As many equal columns as there are tiles (three to five). */
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    margin-inline-start: 0;
+  }
+
+  .action-tile {
+    inline-size: auto;
   }
 
   .detail-grid .cover {
@@ -8404,30 +8525,6 @@ span.role-chip {
  * Offline: downloads
  * =================================================================== */
 
-.offline-btn .dl-size {
-  font-weight: 500;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.offline-btn.done {
-  border-color: color-mix(in oklab, #8fd6a6 45%, transparent);
-  color: #a9e3bb;
-}
-
-.offline-btn.done .nav-ic {
-  color: #8fd6a6;
-}
-
-.offline-btn.busy {
-  font-variant-numeric: tabular-nums;
-}
-
-.offline-btn.error {
-  border-color: color-mix(in oklab, var(--danger) 45%, transparent);
-  color: var(--danger);
-}
-
 .dl-track {
   fill: none;
   stroke: rgba(255, 255, 255, 0.14);
@@ -8440,21 +8537,6 @@ span.role-chip {
   stroke-width: 2.5;
   stroke-linecap: round;
   transition: stroke-dasharray 150ms linear;
-}
-
-.dl-cancel {
-  margin-inline-start: 4px;
-  font-size: 12.5px;
-  color: var(--faint);
-}
-
-.offline-confirm {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: 13.5px;
-  color: var(--muted);
 }
 
 .card-offline {
