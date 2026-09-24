@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { openDb, type Db } from '../db/index.js';
 import { AiError, type AiClient } from '../ai/providers.js';
+import { silenceMp3 } from '../ai/mp3.js';
 import { runScan } from '../scanner/scan.js';
 import type { Config } from '../config.js';
 
@@ -56,12 +57,17 @@ const auth = () => ({ cookie: `zp_session=${cookie}`, ...CSRF });
 let lastPrompt = '';
 let lastWebSearch = false;
 let featuredCalls = 0;
+const spoken: string[] = [];
 function fakeOpenAi(): AiClient {
   return {
     listModels: async ({ apiKey: key }) => {
       if (!key.startsWith('sk-good')) throw new AiError('OpenAI did not accept that key.', 400);
       // A real client ranks and filters (rankModels, unit-tested in ai.test.ts).
       return ['gpt-5.5', 'gpt-4o'];
+    },
+    speak: async (_key, { text }) => {
+      spoken.push(text);
+      return silenceMp3(Math.max(1, text.split(/\s+/).length / 2));
     },
     chatJson: async (_t, { user, schemaName, webSearch }) => {
       lastPrompt = user;
@@ -1403,7 +1409,49 @@ describe('people: invitations, roles and friends', () => {
     });
     const seen = await app.inject({ method: 'GET', url: '/api/ai/settings', headers: as(m) });
     expect(seen.json()).toMatchObject({ configured: false, sharedBy: 'astra' });
+    expect(seen.json().sharedFeatures).toContain('guide');
     expect(seen.body).not.toContain('abcd');
+
+    // The admin decides what the shared key is for; the server holds to it.
+    const guide = () =>
+      app.inject({
+        method: 'POST',
+        url: '/api/ai/guide',
+        headers: as(m),
+        payload: { days: 7, journal: false },
+      });
+    expect((await guide()).statusCode).toBe(200);
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/sharing',
+      headers: as(a),
+      payload: { enabled: true, features: ['plan', 'featured'] },
+    });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/ai/settings', headers: as(a) })).json()
+        .sharedFeatures,
+    ).toEqual(['plan', 'featured']);
+    expect((await guide()).statusCode).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/ai/guide/preview?days=7',
+          headers: as(m),
+        })
+      ).json().canUse,
+    ).toBe(false);
+    // A member cannot change it.
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: '/api/ai/sharing',
+          headers: as(m),
+          payload: { enabled: true, features: ['guide'] },
+        })
+      ).statusCode,
+    ).toBe(403);
   });
 });
 
@@ -2338,6 +2386,7 @@ describe('Discover', () => {
       'A Teacher',
     ]);
     expect(run.dropped).toBe(1);
+    expect(run.fromWeb).toBe(true);
     expect(run.items[0]).toMatchObject({ host: 'good.example.org', saved: false, cost: 'free' });
 
     await app.inject({

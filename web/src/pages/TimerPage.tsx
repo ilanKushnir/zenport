@@ -425,7 +425,7 @@ export function TimerPage() {
                 <div className="set-switch-h">
                   {haptics === 'vibrate'
                     ? 'Gentle vibration that gathers as you breathe in and eases as you breathe out.'
-                    : 'Light taps on iPhone (iOS 18 and later), gathering as you breathe in and easing out. Keep the screen on.'}{' '}
+                    : 'Light taps on iPhone (iOS 18 and later), gathering as you breathe in and easing out. Keep the screen on, and System Haptics on (Settings › Sounds & Haptics).'}{' '}
                   <button
                     type="button"
                     className="sit-try"

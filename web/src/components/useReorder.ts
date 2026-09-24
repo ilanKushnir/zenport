@@ -9,6 +9,7 @@
  * body is what scrolls, so that is what is measured and scrolled.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { pageScroller } from '../scrollRoot.ts';
 
 interface Drag {
   id: string;
@@ -36,7 +37,8 @@ export function useReorder<T extends { id: string }>(initial: T[], gap = 6) {
     });
 
   // What scrolls: the sheet the list sits in, or the page.
-  const scroller = () => listRef.current?.closest<HTMLElement>('.sheet-body') ?? null;
+  const sheet = () => listRef.current?.closest<HTMLElement>('.sheet-body') ?? null;
+  const scroller = () => sheet() ?? pageScroller();
   const scrollTop = () => scroller()?.scrollTop ?? window.scrollY;
 
   const follow = (clientY: number) => {
@@ -68,8 +70,9 @@ export function useReorder<T extends { id: string }>(initial: T[], gap = 6) {
     const tick = () => {
       const y = pointerY.current;
       const el = scroller();
-      const box = el?.getBoundingClientRect();
-      const edge = el ? 56 : 90;
+      const inSheet = !!sheet();
+      const box = inSheet ? el?.getBoundingClientRect() : undefined;
+      const edge = inSheet ? 56 : 90;
       const high = (box?.top ?? 0) + edge;
       // The page's tab bar covers its bottom; a sheet's body ends where it ends.
       const low = box ? box.bottom - edge : window.innerHeight - edge - 70;

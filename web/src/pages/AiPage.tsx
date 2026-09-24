@@ -9,7 +9,7 @@
  */
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AiSettingsDto, IntentionsDto } from '@zenport/shared';
-import { INTENTION_REASONS } from '@zenport/shared';
+import { AI_FEATURES, INTENTION_REASONS, type AiFeature } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import { useApi } from '../hooks.ts';
@@ -32,6 +32,9 @@ interface Feature {
   icon: string;
   title: string;
   hint: string;
+  /** A personal feature a shared key can be opened or closed for. */
+  id?: AiFeature;
+  /** Admin work (the library), for admins only. */
   admin?: boolean;
 }
 
@@ -41,18 +44,21 @@ const FEATURES: Feature[] = [
     icon: 'plans',
     title: 'Plan with AI',
     hint: 'A path of practice and study from your library, around your time.',
+    id: 'plan',
   },
   {
     to: '/ai/guide',
     icon: 'lotus',
     title: 'Your guide',
     hint: 'How your practice is really going, what to try next, and where to head.',
+    id: 'guide',
   },
   {
     to: '/ai/discover',
     icon: 'search',
     title: 'Discover',
     hint: 'Teachers, courses, books and retreats beyond your library, chosen for you.',
+    id: 'discover',
   },
   {
     to: '/ai/library',
@@ -72,10 +78,16 @@ export function AiPage() {
   const i = intentions.data;
   const features = FEATURES.filter((f) => !f.admin || user?.role === 'admin');
 
-  const share = async (enabled: boolean) => {
-    await api.put('/api/ai/sharing', { enabled }).catch(() => {});
+  const share = async (enabled: boolean, features?: AiFeature[]) => {
+    await api.put('/api/ai/sharing', { enabled, features }).catch(() => {});
     ai.reload();
   };
+  /** Someone on the shared key may use a feature only if the admin opened it. */
+  const open = (f: Feature) =>
+    !!s?.canUse && (s.configured || !f.id || !s.sharedFeatures || s.sharedFeatures.includes(f.id));
+  const shared = s?.sharedFeatures ?? [];
+  const toggleShared = (id: AiFeature) =>
+    void share(true, shared.includes(id) ? shared.filter((x) => x !== id) : [...shared, id]);
 
   return (
     <>
@@ -138,6 +150,27 @@ export function AiPage() {
               />
             </div>
           )}
+          {s?.sharing && (
+            <div className="ai-share-for">
+              <span className="sub">What they can use it for</span>
+              <div className="chip-row" role="group" aria-label="What the shared AI is for">
+                {AI_FEATURES.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className="chip"
+                    aria-pressed={shared.includes(f.id)}
+                    onClick={() => toggleShared(f.id)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <span className="sub">
+                Enhancing the library stays yours: only admins can change the library.
+              </span>
+            </div>
+          )}
           <Link className={`btn ${s?.canUse ? 'btn-quiet' : 'btn-primary'}`} to="/ai/setup">
             {s?.configured ? 'Change provider' : s?.sharedBy ? 'Use your own key' : 'Set up AI'}
           </Link>
@@ -178,14 +211,21 @@ export function AiPage() {
             <Link
               key={f.to}
               className="ai-feature"
-              to={s?.canUse ? f.to : `/ai/setup?return=${encodeURIComponent(f.to)}`}
+              to={open(f) ? f.to : `/ai/setup?return=${encodeURIComponent(f.to)}`}
             >
               <span className="ai-feature-ic">
                 <Icon name={f.icon} size={20} />
               </span>
               <span className="grow">
-                <span className="ai-feature-t">{f.title}</span>
-                <span className="sub">{f.hint}</span>
+                <span className="ai-feature-t">
+                  {f.title}
+                  {f.admin && <span className="ai-tag">Admin</span>}
+                </span>
+                <span className="sub">
+                  {s?.sharedBy && f.id && !open(f)
+                    ? 'Not shared here - connect your own key to use it.'
+                    : f.hint}
+                </span>
               </span>
               <Icon name="chevron-right" size={16} />
             </Link>
@@ -210,7 +250,10 @@ export function AiPage() {
               checked={prefs.aiFeatured}
               onChange={(v) => void save({ aiFeatured: v })}
               label="Featured on Today"
-              disabled={!s?.canUse && !prefs.aiFeatured}
+              disabled={
+                !prefs.aiFeatured &&
+                !open({ to: '/', icon: '', title: '', hint: '', id: 'featured' })
+              }
             />
           </div>
         </div>

@@ -36,11 +36,23 @@ export interface AiJsonRequest {
   maxTokens?: number;
 }
 
+export interface AiSpeechRequest {
+  text: string;
+  voice: string;
+  /** How to say it: pace, warmth, tone. */
+  instructions: string;
+}
+
 export interface AiClient {
   /** The chat models this key can use, best first. Throws AiError on a bad key. */
   listModels: (t: Omit<AiTarget, 'model'>) => Promise<string[]>;
   chatJson: (t: AiTarget, req: AiJsonRequest) => Promise<unknown>;
+  /** Spoken words as MP3, from OpenAI's speech model (an OpenAI key). */
+  speak: (apiKey: string, req: AiSpeechRequest) => Promise<Buffer>;
 }
+
+/** OpenAI's speech model, and the voices offered for guiding a sit. */
+export const TTS_MODEL = 'gpt-4o-mini-tts';
 
 export class AiError extends Error {
   constructor(
@@ -426,6 +438,29 @@ export const aiClient: AiClient = {
         );
       }
     }
+  },
+
+  async speak(apiKey, req) {
+    let res: Response;
+    try {
+      res = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: TTS_MODEL,
+          voice: req.voice,
+          input: req.text,
+          instructions: req.instructions,
+          response_format: 'mp3',
+        }),
+        signal: AbortSignal.timeout(90_000),
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'TimeoutError') throw err;
+      throw new AiError('Could not reach OpenAI.', 502);
+    }
+    if (!res.ok) throw await failure(res, 'openai');
+    return Buffer.from(await res.arrayBuffer());
   },
 
   async chatJson(t, req) {

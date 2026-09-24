@@ -733,6 +733,10 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_discover_items_user ON discover_items(user_id, saved);
   `,
+  // v19: whether a Discover search had the web, or only the AI's own knowledge.
+  `
+  ALTER TABLE discover_runs ADD COLUMN web INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

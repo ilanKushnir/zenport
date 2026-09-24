@@ -25,6 +25,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.27.1',
+    items: [
+      { emoji: '📱', text: 'On a phone the tab bar now stays put, however fast you scroll.' },
+      { emoji: '✨', text: 'For you today now sits at the top of Today, right under Begin.' },
+      { emoji: '🫁', text: 'Feel the breath taps again on iPhone (with System Haptics on).' },
+      {
+        emoji: '🧭',
+        text: 'Discover also works with your own AI server - from what it knows, clearly marked.',
+      },
+    ],
+  },
+  {
     version: '0.27.0',
     items: [
       {

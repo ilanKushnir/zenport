@@ -12,6 +12,7 @@ import {
 import type { SetupStatusDto, UserInfo } from '@zenport/shared';
 import { api, ApiError } from './api.ts';
 import { clearApiCache } from './hooks.ts';
+import { pageScrollTop } from './scrollRoot.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup } from './components/Brand.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
@@ -151,16 +152,17 @@ function AppBar({ isAdmin }: { isAdmin: boolean }) {
     let frame = 0;
     const paint = () => {
       frame = 0;
-      const t = Math.min(1, Math.max(0, window.scrollY / 36));
+      const t = Math.min(1, Math.max(0, pageScrollTop() / 36));
       barRef.current?.style.setProperty('--bar', t.toFixed(3));
     };
     const on = () => {
       if (!frame) frame = requestAnimationFrame(paint);
     };
     paint();
-    window.addEventListener('scroll', on, { passive: true });
+    // Captured: the page may scroll in #main (phones), whose scroll does not bubble.
+    document.addEventListener('scroll', on, { passive: true, capture: true });
     return () => {
-      window.removeEventListener('scroll', on);
+      document.removeEventListener('scroll', on, { capture: true });
       if (frame) cancelAnimationFrame(frame);
     };
   }, [location.pathname]);

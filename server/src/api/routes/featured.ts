@@ -31,7 +31,7 @@ export function registerFeaturedRoutes(app: FastifyInstance, ctx: AppContext): v
     user: { id: number; timezone: string },
     force: boolean,
   ): Promise<FeaturedDto> => {
-    const target = targetFor(db, secret, user.id);
+    const target = targetFor(db, secret, user.id, 'featured');
     const base = { enabled: enabled(user.id), canUse: !!target };
     if (!base.enabled) return { ...base, day: null, picks: [], generatedAt: null };
     let current = readFeatured(db, config, user);

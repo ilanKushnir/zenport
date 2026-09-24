@@ -11,7 +11,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  AI_FEATURES,
   AI_PROVIDERS,
+  type AiFeature,
   type AiProvider,
   type AiSettingsDto,
   type IntentionsDto,
@@ -22,6 +24,7 @@ import {
   activeProvider,
   activeRow,
   connections,
+  sharedFeatures,
   sharedOwner,
   targetFor,
   toTarget,
@@ -69,6 +72,7 @@ function tomorrow(day: string): string {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PROVIDERS = AI_PROVIDERS.map((p) => p.id) as [AiProvider, ...AiProvider[]];
+const AI_FEATURE_IDS = AI_FEATURES.map((f) => f.id) as [AiFeature, ...AiFeature[]];
 
 const planRequest = z.object({
   goal: z.string().max(1200).default(''),
@@ -138,6 +142,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
       sharing: role === 'admin' ? shared?.userId === userId : undefined,
       sharedBy: !cur && shared && shared.userId !== userId ? shared.name : null,
       canUse: !!cur || (!!shared && shared.userId !== userId),
+      sharedFeatures: shared && (shared.userId === userId || !cur) ? sharedFeatures(db) : undefined,
     };
   };
 
@@ -325,8 +330,19 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
   // is never shown to anyone; members only learn that AI features work.
   app.put('/api/ai/sharing', async (req, reply) => {
     if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
-    const body = z.object({ enabled: z.boolean() }).safeParse(req.body);
+    const body = z
+      .object({
+        enabled: z.boolean(),
+        features: z.array(z.enum(AI_FEATURE_IDS)).max(AI_FEATURE_IDS.length).optional(),
+      })
+      .safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'enabled required' });
+    if (body.data.features) {
+      db.prepare(
+        `INSERT INTO app_settings (key, value) VALUES ('ai_shared_features', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ).run(JSON.stringify([...new Set(body.data.features)]));
+    }
     if (body.data.enabled) {
       if (!activeRow(db, req.user!.id)) {
         return reply.code(400).send({ error: 'Connect a provider first.' });
@@ -358,7 +374,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!body.data.practice && !body.data.learning) {
       return reply.code(400).send({ error: 'Choose practice, learning, or both.' });
     }
-    const target = targetFor(db, secret, req.user!.id);
+    const target = targetFor(db, secret, req.user!.id, 'plan');
     if (!target) return reply.code(400).send({ error: 'Set up AI first.' });
 
     const lib = libraryDto(db, config, req.user!.id);
@@ -451,7 +467,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post('/api/ai/plan/adjust', async (req, reply) => {
     const body = adjustRequest.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'Choose the plans to adjust.' });
-    const target = targetFor(db, secret, req.user!.id);
+    const target = targetFor(db, secret, req.user!.id, 'plan');
     if (!target) return reply.code(400).send({ error: 'Set up AI first.' });
     const userId = req.user!.id;
     const rows = db

@@ -5,6 +5,21 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.27.1] — 2026-09-24
+
+### Fixed
+
+- **The tab bar stays put on a phone.** A fling up a long page could carry the tab bar along with the content and leave it stranded mid-screen (iOS moves fixed bars on its own while the page itself scrolls). On phones and small tablets the page no longer scrolls: the content does, inside a frame the size of the screen, so the tab bar, top bar and fade never move. Scrolling, the top bar's frosting, back-to-top on a new page, sheets holding the page still and drag-to-reorder all work as before.
+- **Feel the breath on iPhone.** The taps are made the way Safari plays them: a fresh switch, flipped through its own label. "Try it" taps at once, inside your touch. System Haptics has to be on in the iPhone's settings, which the hint now says.
+- **For you today** is spaced like every other section on Today, and its invitation is redesigned: a section of its own, a glimpse of three picks, and Turn on beside Not now.
+
+### Changed
+
+- **Admins decide what a shared AI is for.** When an admin shares their AI with everyone here, they choose what it may be used for: Plan with AI, Your guide, For you today, Discover or Made for you. The server holds to it, and features that aren't shared say so and point to connecting your own key. Enhancing the library stays admin-only, as does connecting an AI server by address.
+
+- **For you today** sits right under Begin, at the top of Today, as first planned.
+- **Discover without web search.** With your own AI server (which cannot search the web), Discover still works from what the model already knows. Such searches are marked "From the AI's own knowledge", and every link is still checked.
+
 ## [0.27.0] — 2026-09-24
 
 ### Added

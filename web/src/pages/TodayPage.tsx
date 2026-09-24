@@ -249,6 +249,8 @@ export function TodayPage() {
             </div>
           </section>
 
+          <FeaturedToday />
+
           <FriendsToday />
 
           {todayOcc.length > 0 && (
@@ -289,8 +291,6 @@ export function TodayPage() {
               </div>
             </section>
           )}
-
-          <FeaturedToday />
 
           {starred.length > 0 && (
             <section className="section" aria-labelledby="sec-fav">

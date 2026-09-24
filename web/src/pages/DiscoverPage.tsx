@@ -41,7 +41,7 @@ export function DiscoverPage() {
   const [error, setError] = useState<string | null>(null);
   const [dropped, setDropped] = useState<number | null>(null);
   const d = data.data;
-  const ready = !!d?.canUse && d.webSearch;
+  const ready = !!d?.canUse;
 
   const toggle = (k: DiscoverKind) =>
     setKinds((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
@@ -104,8 +104,8 @@ export function DiscoverPage() {
         <div className="enh-notice">
           <Icon name="search" size={18} />
           <span className="grow">
-            Discover searches the web, which your own server cannot. Switch to OpenAI, Anthropic,
-            Gemini or OpenRouter.
+            Your AI cannot search the web, so what it finds comes from what it already knows - every
+            link is still checked. OpenAI, Anthropic, Gemini and OpenRouter search the web.
           </span>
           <Link className="btn btn-quiet btn-sm" to="/ai/setup?return=/ai/discover">
             Change
@@ -195,6 +195,11 @@ export function DiscoverPage() {
                 {run.kinds.map((k) => KIND_ONE[k].toLowerCase() + 's').join(', ')}
                 {run.note ? ` · “${run.note}”` : ''}
               </span>
+              {!run.fromWeb && (
+                <span className="disc-known">
+                  From the AI&apos;s own knowledge, not a web search - check the details.
+                </span>
+              )}
             </div>
             <button
               className="icon-btn"

@@ -27,9 +27,13 @@ export function hapticKind(): HapticKind {
   return 'none';
 }
 
-let switchLabel: HTMLLabelElement | null = null;
-
-/** One light tap. On iPhone, via the switch control; elsewhere, a short buzz. */
+/**
+ * One light tap. On iPhone, a switch toggled through the label that wraps it
+ * - made fresh, clicked, and removed each time, as Safari only plays the
+ * haptic for a switch the click actually flips (a lasting off-screen one,
+ * reached through a detached label with pointer events off, stayed silent).
+ * Elsewhere, a short buzz.
+ */
 export function tap(ms = 12): void {
   const kind = hapticKind();
   if (kind === 'vibrate') {
@@ -37,24 +41,20 @@ export function tap(ms = 12): void {
     return;
   }
   if (kind === 'ios-switch') {
-    if (!switchLabel) {
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.setAttribute('switch', '');
-      input.id = 'zp-haptic-switch';
-      input.tabIndex = -1;
-      input.setAttribute('aria-hidden', 'true');
-      const label = document.createElement('label');
-      label.htmlFor = input.id;
-      label.setAttribute('aria-hidden', 'true');
-      const box = document.createElement('div');
-      box.style.cssText =
-        'position:fixed;inline-size:1px;block-size:1px;overflow:hidden;opacity:0;pointer-events:none;left:-9999px';
-      box.append(input, label);
-      document.body.appendChild(box);
-      switchLabel = label;
+    const label = document.createElement('label');
+    label.setAttribute('aria-hidden', 'true');
+    label.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    input.tabIndex = -1;
+    label.appendChild(input);
+    document.head.appendChild(label);
+    try {
+      label.click();
+    } finally {
+      label.remove();
     }
-    switchLabel.click();
   }
 }
 
@@ -95,6 +95,12 @@ export function playBreathPhase(phase: 'in' | 'hold' | 'out', seconds: number): 
     navigator.vibrate(pattern);
     return () => navigator.vibrate(0);
   }
-  const timers = steps.map((s) => window.setTimeout(() => tap(), s.at));
+  // The first tap now, not on a timer: inside a touch (Try it) it is
+  // certain to count as the person's own.
+  const [first, ...rest] = steps;
+  if (first && first.at <= 30) tap();
+  const timers = (first && first.at <= 30 ? rest : steps).map((s) =>
+    window.setTimeout(() => tap(), s.at),
+  );
   return () => timers.forEach((t) => window.clearTimeout(t));
 }

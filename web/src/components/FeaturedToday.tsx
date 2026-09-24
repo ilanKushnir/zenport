@@ -33,7 +33,10 @@ function Invite() {
   const { save } = usePrefs();
   const ai = useApi<AiSettingsDto>('/api/ai/settings');
   const [closed, setClosed] = useState(inviteClosed);
-  if (closed || !ai.data?.canUse) return null;
+  const a = ai.data;
+  const usable =
+    !!a?.canUse && (a.configured || !a.sharedFeatures || a.sharedFeatures.includes('featured'));
+  if (closed || !usable) return null;
   const close = () => {
     try {
       localStorage.setItem(INVITE_KEY, '1');
@@ -43,24 +46,36 @@ function Invite() {
     setClosed(true);
   };
   return (
-    <section className="feat-invite" aria-label="Featured on Today">
-      <span className="feat-invite-ic" aria-hidden="true">
-        <Icon name="sparkle" size={18} />
-      </span>
-      <div className="grow">
-        <strong>Three for today, picked for you</strong>
-        <span className="sub">
-          Your AI picks from your library each day - from what you practise and why - with a word on
-          why each fits now.
-        </span>
+    <section className="section" aria-labelledby="sec-feat">
+      <div className="section-head">
+        <h2 id="sec-feat">
+          <Icon name="sparkle" size={16} /> For you today
+        </h2>
       </div>
-      <div className="feat-invite-actions">
-        <button className="btn btn-sm btn-ghost" onClick={close}>
-          Not now
-        </button>
-        <button className="btn btn-sm btn-primary" onClick={() => void save({ aiFeatured: true })}>
-          Turn on
-        </button>
+      <div className="feat-invite">
+        <div className="feat-ghosts" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="feat-invite-text">
+          <strong>Three from your library, picked each day</strong>
+          <span className="sub">
+            Your AI chooses from what you practise and why you practise - never your plan - and says
+            why each fits today.
+          </span>
+        </div>
+        <div className="feat-invite-actions">
+          <button className="btn btn-sm btn-ghost" onClick={close}>
+            Not now
+          </button>
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={() => void save({ aiFeatured: true })}
+          >
+            <Icon name="sparkle" size={14} /> Turn on
+          </button>
+        </div>
       </div>
     </section>
   );

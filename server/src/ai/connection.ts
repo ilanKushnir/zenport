@@ -3,7 +3,7 @@
  * one the owner shares with everyone here (if they chose to). Keys are sealed
  * at rest (secret.ts) and opened only for the call.
  */
-import type { AiProvider } from '@zenport/shared';
+import { AI_FEATURES, type AiFeature, type AiProvider } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 import type { AiTarget } from './providers.js';
 import { openSecret } from './secret.js';
@@ -55,11 +55,35 @@ export function toTarget(row: KeyRow, secret: string): AiTarget | null {
   return { provider: row.provider, apiKey, baseUrl: row.base_url, model: row.model };
 }
 
-/** What this person's AI request runs on, or null when there is nothing. */
-export function targetFor(db: Db, secret: string, userId: number): AiTarget | null {
+/** What the sharing admin opened their AI for (everything, until they choose). */
+export function sharedFeatures(db: Db): AiFeature[] {
+  const v = db.prepare("SELECT value FROM app_settings WHERE key = 'ai_shared_features'").get() as
+    { value: string } | undefined;
+  const all = AI_FEATURES.map((f) => f.id) as AiFeature[];
+  if (!v) return all;
+  try {
+    const list = JSON.parse(v.value) as string[];
+    return all.filter((f) => list.includes(f));
+  } catch {
+    return all;
+  }
+}
+
+/**
+ * What this person's AI request runs on, or null when there is nothing.
+ * Their own connection first; else the admin's shared one - for a `feature`
+ * only when the admin opened sharing for it (admin-only work passes none).
+ */
+export function targetFor(
+  db: Db,
+  secret: string,
+  userId: number,
+  feature?: AiFeature,
+): AiTarget | null {
   const own = activeRow(db, userId);
   if (own) return toTarget(own, secret);
   const shared = sharedOwner(db);
+  if (shared && feature && !sharedFeatures(db).includes(feature)) return null;
   const theirs = shared ? activeRow(db, shared.userId) : null;
   return theirs ? toTarget(theirs, secret) : null;
 }

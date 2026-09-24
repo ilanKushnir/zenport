@@ -579,7 +579,22 @@ export interface AiSettingsDto {
   sharedBy?: string | null;
   /** Anything AI can run for this account - its own connection or a shared one. */
   canUse: boolean;
+  /**
+   * What a shared AI may be used for: to the sharing admin, what they allow;
+   * to someone using it, what they may use it for.
+   */
+  sharedFeatures?: AiFeature[];
 }
+
+/** Personal AI features a shared key can be opened or closed for. */
+export const AI_FEATURES = [
+  { id: 'plan', label: 'Plan with AI' },
+  { id: 'guide', label: 'Your guide' },
+  { id: 'featured', label: 'For you today' },
+  { id: 'discover', label: 'Discover' },
+  { id: 'sits', label: 'Made for you' },
+] as const;
+export type AiFeature = (typeof AI_FEATURES)[number]['id'];
 
 // --- Intentions: why someone practises, for everything the AI does ---
 
@@ -1087,6 +1102,8 @@ export interface DiscoverRunDto {
   kinds: DiscoverKind[];
   note: string | null;
   model: string | null;
+  /** Found by searching the web; false = from the AI's own knowledge. */
+  fromWeb: boolean;
   items: DiscoverItemDto[];
   /** Suggestions dropped because their link did not answer. */
   dropped?: number;

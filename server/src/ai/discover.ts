@@ -60,8 +60,8 @@ export const DISCOVER_SCHEMA = {
 
 export const DISCOVER_SYSTEM = [
   'You recommend meditation teachers, courses and programmes, books, and retreats or workshops',
-  'that suit one person, beyond what is already in their personal library. Search the web and',
-  'recommend only things that exist now, each with its official page.',
+  'that suit one person, beyond what is already in their personal library. Search the web (when',
+  'you can) and recommend only things that exist now, each with its official page.',
   '',
   '- Suit them: their intentions, experience, time, what they practise and enjoy. Say why in',
   '  their terms, specifically - not generic praise.',
@@ -83,8 +83,15 @@ export function discoverContext(
   userId: number,
   kinds: DiscoverKind[],
   note: string | null,
+  web = true,
 ): string {
   const lines: string[] = [];
+  if (!web) {
+    lines.push(
+      'You cannot search the web this time: recommend only long-established things you know well, with official pages you are sure of.',
+    );
+    lines.push('');
+  }
   const intentions = readIntentions(db, userId);
   lines.push(
     intentions ? intentionsSummary(intentions) : 'They have not written down their intentions.',
@@ -256,14 +263,15 @@ export function saveRun(
   note: string | null,
   model: string,
   items: Omit<DiscoverItemDto, 'id' | 'saved' | 'host'>[],
+  web = true,
 ): number {
   const now = new Date().toISOString();
   const runId = Number(
     db
       .prepare(
-        'INSERT INTO discover_runs (user_id, created_at, kinds, note, model) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO discover_runs (user_id, created_at, kinds, note, model, web) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run(userId, now, JSON.stringify(kinds), note, model).lastInsertRowid,
+      .run(userId, now, JSON.stringify(kinds), note, model, web ? 1 : 0).lastInsertRowid,
   );
   const ins = db.prepare(
     `INSERT INTO discover_items (user_id, run_id, kind, title, by, why, url, format, cost, created_at)
@@ -287,6 +295,7 @@ export function listDiscover(
     kinds: string;
     note: string | null;
     model: string | null;
+    web: number;
   }[];
   const items = db
     .prepare('SELECT * FROM discover_items WHERE user_id = ? ORDER BY id')
@@ -302,6 +311,7 @@ export function listDiscover(
       kinds: JSON.parse(r.kinds) as DiscoverKind[],
       note: r.note,
       model: r.model,
+      fromWeb: r.web !== 0,
       items: items.filter((i) => i.run_id === r.id).map(itemDto),
     })),
   };

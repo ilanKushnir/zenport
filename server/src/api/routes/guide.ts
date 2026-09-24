@@ -32,7 +32,7 @@ export function registerGuideRoutes(app: FastifyInstance, ctx: AppContext): void
       .object({ days: period.default(30), journal: z.enum(['0', '1']).default('0') })
       .safeParse(req.query);
     if (!q.success) return reply.code(400).send({ error: 'Choose a week, a month or three.' });
-    const target = targetFor(db, secret, req.user!.id);
+    const target = targetFor(db, secret, req.user!.id, 'guide');
     const c = guideContext(db, config, req.user!, q.data.days, q.data.journal === '1');
     return {
       canUse: !!target,
@@ -51,7 +51,7 @@ export function registerGuideRoutes(app: FastifyInstance, ctx: AppContext): void
       })
       .safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'Choose a week, a month or three.' });
-    const target = targetFor(db, secret, req.user!.id);
+    const target = targetFor(db, secret, req.user!.id, 'guide');
     if (!target) return reply.code(400).send({ error: 'Set up AI first.' });
     const question = body.data.question?.trim() || null;
     const c = guideContext(db, config, req.user!, body.data.days, body.data.journal);

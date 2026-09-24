@@ -1,5 +1,5 @@
 /**
- * Discover (any signed-in person with an AI that can search the web):
+ * Discover (any signed-in person with an AI; web search where the provider has it):
  * search, list what was found, save or unsave, forget a search.
  */
 import type { FastifyInstance } from 'fastify';
@@ -28,7 +28,7 @@ export function registerDiscoverRoutes(app: FastifyInstance, ctx: AppContext): v
   const check = deps.checkLinks ?? checkLinks;
 
   const state = (userId: number): DiscoverDto => {
-    const target = targetFor(db, secret, userId);
+    const target = targetFor(db, secret, userId, 'discover');
     return {
       canUse: !!target,
       webSearch: target ? WEB_SEARCH[target.provider] : false,
@@ -47,23 +47,21 @@ export function registerDiscoverRoutes(app: FastifyInstance, ctx: AppContext): v
       .safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'Choose what to look for.' });
     const userId = req.user!.id;
-    const target = targetFor(db, secret, userId);
+    const target = targetFor(db, secret, userId, 'discover');
     if (!target) return reply.code(400).send({ error: 'Set up AI first.' });
-    if (!WEB_SEARCH[target.provider]) {
-      return reply.code(400).send({
-        error: 'Discover needs a provider that can search the web - not your own server.',
-      });
-    }
+    // Without web search (your own server) it still works, from what the model knows -
+    // marked as such, and every link is checked all the same.
+    const web = WEB_SEARCH[target.provider];
     const kinds = [...new Set(body.data.kinds)];
     const note = body.data.note?.trim() || null;
     const items = libraryDto(db, config, userId).items.filter((i) => !i.missing);
     try {
       const raw = await deps.ai.chatJson(target, {
         system: DISCOVER_SYSTEM,
-        user: discoverContext(db, items, userId, kinds, note),
+        user: discoverContext(db, items, userId, kinds, note, web),
         schemaName: 'zenport_discover',
         schema: DISCOVER_SCHEMA as unknown as Record<string, unknown>,
-        webSearch: true,
+        webSearch: web,
       });
       const found = resolveDiscover(raw, kinds);
       const live = await check(found.map((f) => f.url));
@@ -75,7 +73,7 @@ export function registerDiscoverRoutes(app: FastifyInstance, ctx: AppContext): v
             : 'The AI found nothing this time. Try again, or ask for something broader.',
         });
       }
-      const runId = saveRun(db, userId, kinds, note, target.model, kept);
+      const runId = saveRun(db, userId, kinds, note, target.model, kept, web);
       const run = listDiscover(db, userId).runs.find((r) => r.id === runId)!;
       return { ...run, dropped: found.length - kept.length };
     } catch (err) {
