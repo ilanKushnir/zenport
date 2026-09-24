@@ -9189,10 +9189,21 @@ html.scroll-locked .main {
   }
   .shell {
     position: fixed;
-    inset: 0;
+    inset-block-start: 0;
+    inset-inline: 0;
+    /* The visible height (viewport.ts), not iOS's idea of the viewport. */
+    block-size: var(--app-h, 100dvh);
     display: block;
     min-height: 0;
     overflow: hidden;
+  }
+  /* What sits at the bottom sits at the frame's bottom - never floated
+     above it by a stale viewport. */
+  .shell > .mobile-tabs,
+  .shell > .tab-fade,
+  .shell > .mini,
+  .shell > .scan-notice {
+    position: absolute;
   }
   .main {
     block-size: 100%;

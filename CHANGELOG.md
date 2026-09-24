@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.31.1] — 2026-09-24
+
+### Fixed
+
+- **The tab bar always meets the bottom of the phone.** Sometimes (with Safari's toolbar hidden, or after the keyboard had come and gone) it floated above the bottom with a band of page beneath it. iOS pins fixed bars to a viewport it does not always keep current. Now the app's frame is sized to the visible screen, and the tab bar, its fade, the mini player and notices sit at that frame's bottom. Any leftover pan from the keyboard is set back as the field lets go.
+
 ## [0.31.0] — 2026-09-24
 
 ### Added

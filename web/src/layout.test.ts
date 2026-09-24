@@ -55,13 +55,17 @@ describe('layout invariants', () => {
     }
   });
 
-  it('nothing overrides the phone tab bar being fixed', () => {
+  it('the phone tab bar never scrolls: fixed, or at the bottom of the fixed frame', () => {
     for (const r of rules()) {
       const hits = r.selectors.filter((s) => /(^|[\s>])\.mobile-tabs$/.test(s));
       const pos = positionOf(r.body);
-      if (hits.length && pos)
-        expect({ selectors: hits, pos }).toEqual({ selectors: hits, pos: 'fixed' });
+      if (!hits.length || !pos) continue;
+      // Absolute only as the frame's own child - the frame itself is fixed.
+      const want = hits.every((s) => /^\.shell > \.mobile-tabs$/.test(s)) ? 'absolute' : 'fixed';
+      expect({ selectors: hits, pos }).toEqual({ selectors: hits, pos: want });
     }
+    const frame = rules().filter((r) => r.selectors.includes('.shell') && positionOf(r.body));
+    expect(frame.map((r) => positionOf(r.body))).toContain('fixed');
   });
 
   it('the full player takes its height from the screen edges, never a viewport unit', () => {

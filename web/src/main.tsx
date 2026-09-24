@@ -6,6 +6,7 @@ import App from './App.tsx';
 import '@fontsource-variable/newsreader/wght.css';
 import './theme.css';
 import './app.css';
+import { trackViewport } from './viewport.ts';
 
 // Safari's pinch gestures, cancelled: the installed app stays at the phone's
 // own size instead of zooming and then panning sideways.
@@ -16,6 +17,9 @@ for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
 // iOS only applies :active on touch when some touch listener exists - this
 // empty one lets buttons and cards show their press.
 document.addEventListener('touchstart', () => {}, { passive: true });
+
+// The frame follows the visible screen, so the tab bar always meets the bottom.
+trackViewport();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
