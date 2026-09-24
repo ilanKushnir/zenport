@@ -13050,3 +13050,198 @@ html.scroll-locked .main {
   color: var(--amber);
   background: color-mix(in oklab, var(--amber) 14%, transparent);
 }
+
+/* ===== Creators (admin, in Review the library) ===== */
+
+.cr-admin {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+}
+
+.cr-dupes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in oklab, var(--amber) 35%, var(--hairline));
+  background: color-mix(in oklab, var(--amber) 6%, var(--surface));
+}
+
+.cr-dupes h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+}
+
+.cr-dupes ul {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cr-dupes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.cr-dupes .grow {
+  flex: 1 1 220px;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.cr-dupes del {
+  color: var(--faint);
+}
+
+.cr-dupes p {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.cr-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 380px) {
+  .cr-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  inline-size: 100%;
+  padding: var(--s3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease);
+}
+
+@media (hover: hover) {
+  .cr-row:hover {
+    border-color: var(--border);
+  }
+}
+
+.cr-row .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.cr-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cr-row .sub {
+  font-size: 12.5px;
+  color: var(--faint);
+  overflow-wrap: anywhere;
+}
+
+.cr-row > .nav-ic {
+  flex: none;
+  color: var(--faint);
+}
+
+.cr-sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s2);
+}
+
+.cr-pic {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: var(--s3);
+  margin-block-end: var(--s4);
+  text-align: center;
+}
+
+.cr-pic .faint {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.cr-pic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s2);
+}
+
+.cr-pic-actions label {
+  cursor: pointer;
+}
+
+.cr-url,
+.cr-inline {
+  display: flex;
+  gap: var(--s2);
+  inline-size: 100%;
+}
+
+.cr-url input,
+.cr-inline input,
+.cr-inline select {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.cr-aliases {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cr-aliases li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: color-mix(in oklab, var(--text) 5%, transparent);
+}
+
+.cr-aliases .grow {
+  flex: 1;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.cr-hint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--faint);
+}

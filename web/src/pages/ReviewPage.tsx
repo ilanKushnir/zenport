@@ -25,6 +25,7 @@ import { Cover, EmptyState, ErrorNote, Icon, Sheet, Switch } from '../components
 import { useReorder } from '../components/useReorder.ts';
 import { TYPE_META } from '../content.ts';
 import { AdminCrumb, AdminOnly } from './AdminPage.tsx';
+import { CreatorsAdmin } from '../components/CreatorsAdmin.tsx';
 
 type Show = 'new' | 'look' | 'edited' | 'hidden' | 'all';
 const TYPES: ContentType[] = ['meditation', 'course', 'talk', 'soundscape'];
@@ -43,9 +44,38 @@ const FLAG_HINT: Record<string, string> = {
 const worthALook = (i: ReviewItemDto) => !i.hidden && !i.reviewedAt && i.flags.length > 0;
 
 export function ReviewPage() {
+  const [params, setParams] = useSearchParams();
+  const view = params.get('view') === 'creators' ? 'creators' : 'recordings';
   return (
     <AdminOnly>
-      <Review />
+      <AdminCrumb here="Review library" />
+      <div className="page-head">
+        <h1>Review the library</h1>
+        <p className="lede">
+          How ZenPort read each recording. Correct anything - titles, creators, series, types, the
+          parts&apos; names and order - or hide what does not belong. Nothing here is required, and
+          your corrections survive rescans and moved folders.
+        </p>
+      </div>
+      <div className="enh-tabs" role="tablist" aria-label="What to review">
+        <button
+          role="tab"
+          aria-selected={view === 'recordings'}
+          className={`enh-tab${view === 'recordings' ? ' on' : ''}`}
+          onClick={() => setParams({}, { replace: true })}
+        >
+          <Icon name="library" size={16} /> Recordings
+        </button>
+        <button
+          role="tab"
+          aria-selected={view === 'creators'}
+          className={`enh-tab${view === 'creators' ? ' on' : ''}`}
+          onClick={() => setParams({ view: 'creators' }, { replace: true })}
+        >
+          <Icon name="friends" size={16} /> Creators
+        </button>
+      </div>
+      {view === 'creators' ? <CreatorsAdmin /> : <Review />}
     </AdminOnly>
   );
 }
@@ -120,16 +150,6 @@ function Review() {
 
   return (
     <>
-      <AdminCrumb here="Review library" />
-      <div className="page-head">
-        <h1>Review the library</h1>
-        <p className="lede">
-          How ZenPort read each recording. Correct anything - titles, creators, series, types, the
-          parts&apos; names and order - or hide what does not belong. Nothing here is required, and
-          your corrections survive rescans and moved folders.
-        </p>
-      </div>
-
       <div className="review-filters" role="tablist" aria-label="Show">
         {FILTERS.map((f) => (
           <button

@@ -737,6 +737,15 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE discover_runs ADD COLUMN web INTEGER NOT NULL DEFAULT 1;
   `,
+  // v20: creators renamed or merged by an admin - applied after every scan,
+  // so a name spelled the old way in a new folder lands under the new one.
+  `
+  CREATE TABLE creator_aliases (
+    from_name TEXT PRIMARY KEY,
+    to_name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

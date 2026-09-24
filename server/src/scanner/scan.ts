@@ -622,6 +622,11 @@ export function applyEdits(db: Db, itemId?: string): void {
     `UPDATE tracks SET title = e.title FROM track_edits e
      WHERE e.track_id = tracks.id${itemId ? ' AND tracks.item_id = ?' : ''}`,
   ).run(...args);
+  // Creators renamed or merged by hand: whatever the name read, the one chosen.
+  db.prepare(
+    `UPDATE items SET creator = a.to_name FROM creator_aliases a
+     WHERE a.from_name = items.creator${one}`,
+  ).run(...args);
 }
 
 export function readScanState(db: Db): ScanStateDto {

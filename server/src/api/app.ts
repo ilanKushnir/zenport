@@ -9,6 +9,7 @@ import { registerEnhanceRoutes } from './routes/enhance.js';
 import { registerGuideRoutes } from './routes/guide.js';
 import { registerFeaturedRoutes } from './routes/featured.js';
 import { registerDiscoverRoutes } from './routes/discover.js';
+import { registerCreatorRoutes } from './routes/creators.js';
 import { registerMediaRoutes } from './routes/media.js';
 import { registerPracticeRoutes } from './routes/practice.js';
 import { registerPlanRoutes } from './routes/plans.js';
@@ -65,6 +66,14 @@ export function buildApp(ctx: AppContext): FastifyInstance {
     (_req, body, done) => done(null, body),
   );
 
+  // Raw images (a creator's picture, uploaded by an admin); decoded and
+  // re-encoded before anything is kept.
+  app.addContentTypeParser(
+    ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'],
+    { parseAs: 'buffer', bodyLimit: 15 * 1024 * 1024 },
+    (_req, body, done) => done(null, body),
+  );
+
   app.addHook('onRequest', async (req: FastifyRequest, reply: FastifyReply) => {
     // Security headers on everything.
     reply.header('X-Content-Type-Options', 'nosniff');
@@ -114,6 +123,7 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   registerGuideRoutes(app, ctx);
   registerFeaturedRoutes(app, ctx);
   registerDiscoverRoutes(app, ctx);
+  registerCreatorRoutes(app, ctx);
   registerJournalRoutes(app, ctx);
   registerYouTubeRoutes(app, ctx);
   registerPrefsRoutes(app, ctx);

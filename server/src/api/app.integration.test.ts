@@ -1246,6 +1246,9 @@ describe('people: invitations, roles and friends', () => {
       ['PUT', `/api/items/${itemId}/order`, { trackIds: ['x'] }],
       ['GET', '/api/library/removed', undefined],
       ['GET', '/api/ai/library/status', undefined],
+      ['GET', '/api/admin/creators', undefined],
+      ['POST', '/api/admin/creators/rename', { from: 'A', to: 'B' }],
+      ['DELETE', '/api/admin/creators/aliases/A', undefined],
       ['POST', '/api/ai/library/fixes', { batch: 1 }],
       ['GET', '/api/ai/library/suggestions', undefined],
       ['POST', '/api/ai/library/suggestions/1/apply', {}],
@@ -2424,6 +2427,99 @@ describe('Discover', () => {
           url: '/api/ai/discover',
           headers: auth(),
           payload: { kinds: [] },
+        })
+      ).statusCode,
+    ).toBe(400);
+  });
+});
+
+describe('Managing creators', () => {
+  it('merges two spellings, keeps it through a rescan, moves the picture, and undoes it', async () => {
+    const put = (rel: string) => {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'m'.repeat(300)}`);
+    };
+    put('Quiet Harbor/Evening.mp3');
+    put('Quiet Harbour/Morning.mp3');
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const creators = async () =>
+      (await app.inject({ method: 'GET', url: '/api/admin/creators', headers: auth() })).json() as {
+        name: string;
+        itemCount: number;
+        aliases: string[];
+        imageUrl?: string | null;
+      }[];
+    expect((await creators()).map((c) => c.name)).toEqual(
+      expect.arrayContaining(['Quiet Harbor', 'Quiet Harbour']),
+    );
+
+    // A picture on the misspelt one, uploaded as it is.
+    const sharp = (await import('sharp')).default;
+    const png = await sharp({
+      create: { width: 300, height: 200, channels: 3, background: '#336699' },
+    })
+      .png()
+      .toBuffer();
+    const up = await app.inject({
+      method: 'PUT',
+      url: `/api/creators/${encodeURIComponent('Quiet Harbour')}/image/upload`,
+      headers: { ...auth(), 'content-type': 'image/png' },
+      payload: png,
+    });
+    expect(up.statusCode).toBe(200);
+    const bad = await app.inject({
+      method: 'PUT',
+      url: `/api/creators/${encodeURIComponent('Quiet Harbour')}/image/upload`,
+      headers: { ...auth(), 'content-type': 'image/png' },
+      payload: Buffer.from('not a picture'),
+    });
+    expect(bad.statusCode).toBe(400);
+
+    const merge = await app.inject({
+      method: 'POST',
+      url: '/api/admin/creators/rename',
+      headers: auth(),
+      payload: { from: 'Quiet Harbour', to: 'Quiet Harbor' },
+    });
+    expect(merge.json()).toEqual({ merged: true });
+    const after = await creators();
+    const one = after.find((c) => c.name === 'Quiet Harbor')!;
+    expect(after.some((c) => c.name === 'Quiet Harbour')).toBe(false);
+    expect(one).toMatchObject({ itemCount: 2, aliases: ['Quiet Harbour'] });
+    expect(one.imageUrl).toBe(up.json().imageUrl);
+
+    // A rescan reads the old spelling again - and it still lands under the new one.
+    put('Quiet Harbour/Noon.mp3');
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    expect((await creators()).find((c) => c.name === 'Quiet Harbor')!.itemCount).toBe(3);
+
+    // A plain rename, then undoing the merge.
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/creators/rename',
+      headers: auth(),
+      payload: { from: 'Quiet Harbor', to: 'Harbor Sounds' },
+    });
+    const renamed = (await creators()).find((c) => c.name === 'Harbor Sounds')!;
+    expect(renamed.aliases.sort()).toEqual(['Quiet Harbor', 'Quiet Harbour']);
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/creators/aliases/${encodeURIComponent('Quiet Harbour')}`,
+      headers: auth(),
+    });
+    const split = await creators();
+    expect(split.find((c) => c.name === 'Quiet Harbour')!.itemCount).toBe(2);
+    expect(split.find((c) => c.name === 'Harbor Sounds')!.itemCount).toBe(1);
+
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/admin/creators/rename',
+          headers: auth(),
+          payload: { from: 'Nobody', to: 'Someone' },
         })
       ).statusCode,
     ).toBe(400);

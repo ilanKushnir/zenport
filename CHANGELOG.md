@@ -5,6 +5,17 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-09-24
+
+### Added
+
+- **Creators, managed in one place** (Admin → Review the library → Creators). Every creator with their picture, recordings and series. Open one to:
+  - **Rename** it. Every recording, series and picture follows, and so do recordings found later under the old spelling.
+  - **Merge** it into another, from a list or just by renaming it to an existing name. Undo any merge from the creator it went into ("Also known as").
+  - **Set the picture.** Upload one (JPEG, PNG, WebP, GIF, AVIF), paste a link, remove it, or find one with AI.
+- **Looks like the same creator.** Names that differ only in spelling, spaces, punctuation or a leading "The" are paired, with a one-tap Merge (into the one with more recordings), The other way, or Different (hides the pair).
+- The same creator editor opens from Enhance the library → Creator pictures.
+
 ## [0.27.1] — 2026-09-24
 
 ### Fixed

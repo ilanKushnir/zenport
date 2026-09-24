@@ -1120,3 +1120,10 @@ export interface DiscoverRequest {
   kinds: DiscoverKind[];
   note?: string;
 }
+
+/** A creator as the admin manages it. */
+export interface AdminCreatorDto extends CreatorDto {
+  seriesCount: number;
+  /** Other spellings merged into this one (undoable). */
+  aliases: string[];
+}

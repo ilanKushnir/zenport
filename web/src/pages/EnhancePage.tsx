@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type {
-  CreatorDto,
+  AdminCreatorDto,
   EnhanceRunDto,
   EnhanceStatusDto,
   LibraryDto,
@@ -23,8 +23,9 @@ import type {
 } from '@zenport/shared';
 import { api } from '../api.ts';
 import { clearApiCache, useApi } from '../hooks.ts';
-import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
+import { Cover, EmptyState, ErrorNote, Icon } from '../components/ui.tsx';
 import { CreatorFace } from '../components/Shelves.tsx';
+import { CreatorEditSheet } from '../components/CreatorsAdmin.tsx';
 import { LEVEL_LABEL, TYPE_META } from '../content.ts';
 import { AdminOnly } from './AdminPage.tsx';
 
@@ -81,6 +82,7 @@ function Enhance() {
   const status = useApi<EnhanceStatusDto>('/api/ai/library/status');
   const sugg = useApi<SuggestionDto[]>('/api/ai/library/suggestions');
   const lib = useApi<LibraryDto>('/api/library');
+  const people = useApi<AdminCreatorDto[]>('/api/admin/creators');
   const [params, setParams] = useSearchParams();
   const tab = (['fixes', 'about', 'pictures'] as Tab[]).includes(params.get('tab') as Tab)
     ? (params.get('tab') as Tab)
@@ -100,6 +102,7 @@ function Enhance() {
     sugg.reload();
     status.reload();
     lib.reload();
+    people.reload();
   };
 
   /** Apply or dismiss: gone from the list at once, the server catches up. */
@@ -199,7 +202,7 @@ function Enhance() {
         <PicturesTab
           status={s}
           list={byKind.pictures}
-          creators={lib.data?.creators ?? []}
+          creators={people.data ?? []}
           onDecide={decide}
           onFound={refresh}
           onChanged={refresh}
@@ -732,12 +735,12 @@ function PicturesTab({
   onDecide,
   onFound,
   onChanged,
-}: TabProps & { creators: CreatorDto[]; onChanged: () => void }) {
+}: TabProps & { creators: AdminCreatorDto[]; onChanged: () => void }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [run, setRun] = useState<EnhanceRunDto | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [manage, setManage] = useState<CreatorDto | null>(null);
+  const [manage, setManage] = useState<string | null>(null);
   const waiting = useMemo(() => new Set(list.map((x) => x.target)), [list]);
   const byName = useMemo(() => new Map(creators.map((c) => [c.name, c])), [creators]);
   const missing = creators.filter((c) => !c.imageUrl && !waiting.has(c.name));
@@ -814,7 +817,8 @@ function PicturesTab({
           <p>
             Choose up to {PICTURES_MAX} creators and the AI finds each a portrait - or, for an
             organisation, its logo or a cover. The picture is fetched and stored here, so it shows
-            everywhere the creator does. Tap ⋯ on a creator to set one yourself.
+            everywhere the creator does. Tap ⋯ on a creator to upload one, paste a link, rename or
+            merge.
           </p>
         </div>
         {noSearch && (
@@ -885,7 +889,7 @@ function PicturesTab({
                   <button
                     className="icon-btn pic-more"
                     aria-label={`Picture for ${c.name}`}
-                    onClick={() => setManage(c)}
+                    onClick={() => setManage(c.name)}
                   >
                     <Icon name="more" size={16} />
                   </button>
@@ -896,100 +900,17 @@ function PicturesTab({
         )}
       </div>
 
-      {manage && (
-        <CreatorPictureSheet
-          creator={manage}
+      {manage && creators.some((c) => c.name === manage) && (
+        <CreatorEditSheet
+          creator={creators.find((c) => c.name === manage)!}
+          others={creators.filter((c) => c.name !== manage)}
           onClose={() => setManage(null)}
-          onChanged={() => {
-            setManage(null);
+          onChanged={(name) => {
+            setManage(name);
             onChanged();
           }}
         />
       )}
     </section>
-  );
-}
-
-function CreatorPictureSheet({
-  creator,
-  onClose,
-  onChanged,
-}: {
-  creator: CreatorDto;
-  onClose: () => void;
-  onChanged: () => void;
-}) {
-  const [url, setUrl] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const path = `/api/creators/${encodeURIComponent(creator.name)}/image`;
-
-  const save = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api.put(path, { url: url.trim() });
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'That picture could not be used.');
-    } finally {
-      setBusy(false);
-    }
-  };
-  const remove = async () => {
-    setBusy(true);
-    try {
-      await api.del(path);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Sheet title={creator.name} onClose={onClose}>
-      <div className="pic-sheet">
-        <CreatorFace creator={creator} />
-        <form
-          className="pic-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (url.trim()) void save();
-          }}
-        >
-          <div className="field">
-            <label htmlFor="pic-url">Picture address</label>
-            <input
-              id="pic-url"
-              type="url"
-              inputMode="url"
-              placeholder="https://…/portrait.jpg"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-          </div>
-          <p className="hint">
-            A link to an image (https). ZenPort fetches it once, crops it square and keeps its own
-            copy.
-          </p>
-          {error && <p className="enh-err">{error}</p>}
-          <div className="pic-form-actions">
-            {creator.imageUrl && (
-              <button
-                type="button"
-                className="btn btn-quiet"
-                disabled={busy}
-                onClick={() => void remove()}
-              >
-                <Icon name="trash" size={15} /> Remove picture
-              </button>
-            )}
-            <button className="btn btn-primary" disabled={busy || !url.trim()}>
-              {busy ? 'Fetching…' : 'Use this picture'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </Sheet>
   );
 }

@@ -1,6 +1,6 @@
 {
   "name": "zenport",
-  "version": "0.27.1",
+  "version": "0.28.0",
   "private": true,
   "license": "MIT",
   "description": "Self-hosted meditation library and practice companion: a calm home for meditation media you already own, plans, practice history, and private reflection.",

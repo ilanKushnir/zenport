@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.28.0',
+    items: [
+      {
+        emoji: '🧑‍🏫',
+        text: 'For admins: rename and merge creators, and upload their pictures - under Review the library.',
+      },
+    ],
+  },
+  {
     version: '0.27.1',
     items: [
       { emoji: '📱', text: 'On a phone the tab bar now stays put, however fast you scroll.' },
