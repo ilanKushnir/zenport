@@ -244,7 +244,20 @@ export interface PlanDto {
   path: { name: string; step: number } | null;
   /** Pushes: from each date on (in turn), sessions slide by that many days. */
   shifts: PlanShift[];
+  /** The AI planner's own account of the plan (read-only); null for plans made by hand. */
+  guide: PlanGuide | null;
   createdAt: string;
+}
+
+/** Why a planned path is shaped as it is, in the planner's words. */
+export interface PlanGuide {
+  /** The shape of the plan in two or three sentences. */
+  summary: string;
+  /** The reasoning: why this order and these foundations, what usually comes first. */
+  why: string;
+  /** A few practical tips for following it. */
+  tips: string[];
+  model: string;
 }
 
 export interface PlanShift {
@@ -467,6 +480,8 @@ export interface AiPlanRequest {
   creators: string[];
   /** Include meditations/courses/talks/soundscapes the account already finished. */
   includeFinished: boolean;
+  /** Courses and talks already in another of this account's plans may be used again. */
+  includePlanned?: boolean;
 }
 
 export interface AiPlanItemDto {
@@ -496,6 +511,9 @@ export interface AiPlanProposalDto {
   intention: string;
   summary: string;
   approach: PlanApproach;
+  /** Why this order and these foundations - shown before accepting, kept with the plans. */
+  why: string;
+  tips: string[];
   /** In start order. */
   stages: AiPlanStageDto[];
   outline: { week: number; focus: string }[];

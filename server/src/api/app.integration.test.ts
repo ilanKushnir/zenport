@@ -74,6 +74,8 @@ function fakeOpenAi(): OpenAiClient {
         summary: 'Practice most mornings, learn twice a week.',
         weeks: 4,
         approach: 'together',
+        why: 'The Long Road lays the foundations the talk builds on, so it comes first.',
+        tips: ['Keep the same seat each morning.', 'Note one line after each lesson.'],
         stages: [
           {
             title: 'Mornings',
@@ -890,11 +892,28 @@ describe('content types, lessons and AI planning', () => {
         focus: 'learning',
         meditationIds: learning.items.map((i: { id: string }) => i.id),
         path: { name: p.name, step: 2 },
+        guide: { summary: p.summary, why: p.why, tips: p.tips, model: p.model },
       },
     });
     expect(created.statusCode).toBe(200);
     const plans = (await app.inject({ method: 'GET', url: '/api/plans', headers: auth() })).json();
-    expect(plans[0]).toMatchObject({ focus: 'learning', path: { name: p.name, step: 2 } });
+    expect(p.why).toContain('foundations');
+    expect(p.tips).toHaveLength(2);
+    expect(plans[0]).toMatchObject({
+      focus: 'learning',
+      path: { name: p.name, step: 2 },
+      guide: { why: p.why, tips: p.tips },
+      notes: null,
+    });
+    // The planner's account is read-only: an edit cannot change it.
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/plans/${plans[0].id}`,
+      headers: auth(),
+      payload: { name: 'Renamed', guide: { why: 'tampered' } },
+    });
+    const after = (await app.inject({ method: 'GET', url: '/api/plans', headers: auth() })).json();
+    expect(after[0]).toMatchObject({ name: 'Renamed', guide: { why: p.why } });
   });
 });
 

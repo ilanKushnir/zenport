@@ -126,7 +126,11 @@ export function practiceHistory(db: Db, userId: number, timezone: string): Pract
 }
 
 /** One line per item, lessons indented beneath - dense but readable. */
-export function renderCatalog(entries: CatalogEntry[], history?: PracticeHistory): string {
+export function renderCatalog(
+  entries: CatalogEntry[],
+  history?: PracticeHistory,
+  planned?: Map<string, string[]>,
+): string {
   const lines: string[] = [];
   for (const e of entries) {
     const i = e.item;
@@ -136,7 +140,13 @@ export function renderCatalog(entries: CatalogEntry[], history?: PracticeHistory
     const h = history?.byItem.get(i.id);
     const progress =
       (i.completedCount > 0 ? `, ${i.completedCount}/${i.trackCount} done` : '') +
-      (h ? `, played ${h.sessions}x (${h.minutes} min, last ${h.last})` : '');
+      (h ? `, played ${h.sessions}x (${h.minutes} min, last ${h.last})` : '') +
+      (planned?.get(i.id)?.length
+        ? `, [in another plan: ${planned
+            .get(i.id)!
+            .map((n) => `"${clip(n, 40)}"`)
+            .join(', ')}]`
+        : '');
     lines.push(
       `${e.handle} | ${i.type}${i.hasVideo ? ' (video)' : ''} | ${clip(i.creator, 60)}${
         i.collection ? ` > ${clip(i.collection, 80)}` : ''
@@ -200,7 +210,17 @@ const stageSchema = {
 export const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['name', 'intention', 'summary', 'weeks', 'approach', 'stages', 'outline'],
+  required: [
+    'name',
+    'intention',
+    'summary',
+    'why',
+    'tips',
+    'weeks',
+    'approach',
+    'stages',
+    'outline',
+  ],
   properties: {
     weeks: {
       type: 'integer',
@@ -214,6 +234,16 @@ export const PLAN_SCHEMA = {
       description: 'One warm line in second person, at most 120 characters.',
     },
     summary: { type: 'string', description: 'Two or three sentences on the shape of the path.' },
+    why: {
+      type: 'string',
+      description:
+        "The reasoning, in 3-6 plain sentences to the person: why these items come first and in this order, what each stage prepares for the next, and - where you know it from the teacher's published work - the path students of this teacher usually follow. Name items by their titles.",
+    },
+    tips: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '2-4 short, practical tips for following this path well.',
+    },
     approach: { type: 'string', enum: ['together', 'learn-first', 'alternate'] },
     stages: { type: 'array', items: stageSchema },
     outline: {
@@ -267,7 +297,12 @@ export function planPrompt(
     '- Use the history: build on what the person already practises, continue courses where they left off,',
     '  and do not repeat what is finished unless asked. Items played often are favourites - use them wisely.',
     '- Spread the days of the week evenly (0 = Sunday). Stages must end by the last week of the path.',
-    '- Write "why" as one short, specific sentence. Keep the tone warm, plain and unhyped.',
+    '- Write each item\'s "why" as one short, specific sentence. Keep the tone warm, plain and unhyped.',
+    '- Write dates in words (Monday 28 September), never as YYYY-MM-DD.',
+    '- Explain the whole path in "why": the reasoning behind the order and the foundations, so the person',
+    '  can trust it. Draw on what you genuinely know about the teachers and courses in the catalogue (for',
+    '  example which course is usually taken first); never invent facts, and say "usually" rather than',
+    '  claiming certainty. Then give 2-4 practical "tips" for following it.',
   ].join('\n');
   const length = req.weeks
     ? `Length: ${req.weeks} week${req.weeks === 1 ? '' : 's'}, starting ${req.startDate}. Return weeks = ${req.weeks}.`
@@ -292,6 +327,9 @@ export function planPrompt(
     req.includeFinished
       ? 'Finished items may be repeated.'
       : 'Avoid items marked done unless nothing else fits.',
+    req.includePlanned
+      ? 'Items marked [in another plan] may be used again.'
+      : 'Leave out courses and talks marked [in another plan] - they are already scheduled.',
     history,
     '',
     'Catalogue (handle | type | creator > series > title | tracks, length, progress, history; lessons listed beneath):',
@@ -319,6 +357,8 @@ interface RawPlan {
   intention: string;
   summary: string;
   approach: string;
+  why: string;
+  tips: string[];
   stages: RawStage[];
   outline: { week: number; focus: string }[];
 }
@@ -338,6 +378,7 @@ export function resolveProposal(
   entries: CatalogEntry[],
   req: AiPlanRequest,
   model: string,
+  planned: ReadonlySet<string> = new Set(),
 ): AiPlanProposalDto {
   const plan = raw as RawPlan;
   const byHandle = new Map(entries.map((e) => [e.handle, e.item]));
@@ -357,6 +398,8 @@ export function resolveProposal(
     for (const { handle, why } of st.items ?? []) {
       const item = byHandle.get(handle);
       if (!item || seen.has(item.id) || !want(item.type)) continue;
+      // A course already scheduled elsewhere is not planned twice unless asked.
+      if (focus === 'learning' && !req.includePlanned && planned.has(item.id)) continue;
       seen.add(item.id);
       items.push({ id: item.id, why: clip(String(why ?? ''), 240), item });
     }
@@ -397,6 +440,11 @@ export function resolveProposal(
     intention: clip(String(plan.intention ?? ''), 160),
     summary: clip(String(plan.summary ?? ''), 600),
     approach,
+    why: clip(String(plan.why ?? ''), 1500),
+    tips: (Array.isArray(plan.tips) ? plan.tips : [])
+      .map((t) => clip(String(t ?? '').trim(), 240))
+      .filter(Boolean)
+      .slice(0, 5),
     stages: stages.filter((st) => st.startWeek <= total),
     outline: (plan.outline ?? [])
       .filter((o) => Number.isInteger(o.week) && o.week >= 1 && o.week <= total)

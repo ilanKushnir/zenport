@@ -94,6 +94,8 @@ describe('planner', () => {
         intention: 'Begin gently.',
         summary: 'A plan.',
         approach: 'together',
+        why: 'Foundations first.',
+        tips: ['Sit at the same time.', '', 'Keep notes short.'],
         stages: [
           {
             title: 'Steady mornings',
@@ -142,6 +144,8 @@ describe('planner', () => {
     expect(learning?.items.map((i) => i.id)).toEqual(['bbb', 'ccc']);
     expect(learning?.weeks).toBe(4); // a chosen length is fixed; stages are cut to fit it
     expect(p.outline).toEqual([{ week: 1, focus: 'Arrive' }]);
+    expect(p.why).toBe('Foundations first.');
+    expect(p.tips).toEqual(['Sit at the same time.', 'Keep notes short.']);
   });
 
   it('lays stages out one after another, and a planner-chosen length grows to fit them', () => {
@@ -204,6 +208,47 @@ describe('planner', () => {
       'gpt-test',
     );
     expect(p.stages).toEqual([]);
+  });
+
+  it('a course already in another plan is left out unless the person allows repeats', () => {
+    const raw = {
+      name: 'x',
+      weeks: 4,
+      intention: '',
+      summary: '',
+      why: '',
+      tips: [],
+      approach: 'together',
+      stages: [
+        {
+          title: 'Study',
+          focus: 'learning',
+          startWeek: 1,
+          weeks: 4,
+          daysOfWeek: [1],
+          minutesPerSession: 30,
+          preferredTime: null,
+          items: [
+            { handle: 'm2', why: '' },
+            { handle: 'm3', why: '' },
+          ],
+        },
+      ],
+      outline: [],
+    };
+    const planned = new Set(['bbb']);
+    const dropped = resolveProposal(raw, entries, req, 'gpt-test', planned);
+    expect(dropped.stages[0]!.items.map((i) => i.id)).toEqual(['ccc']);
+    const allowed = resolveProposal(
+      raw,
+      entries,
+      { ...req, includePlanned: true },
+      'gpt-test',
+      planned,
+    );
+    expect(allowed.stages[0]!.items.map((i) => i.id)).toEqual(['bbb', 'ccc']);
+    const text = renderCatalog(entries, undefined, new Map([['bbb', ['Morning path']]]));
+    expect(text).toContain('[in another plan: "Morning path"]');
   });
 
   it('asks for the chosen approach, and for the whole path when length is open', () => {

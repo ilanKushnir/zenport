@@ -4,7 +4,7 @@ import type { DatabaseSync } from 'node:sqlite';
  * Sequential migrations. Each entry runs once, tracked in schema_version.
  * v0.1 ships one migration; future releases append, never edit.
  */
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `
   CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -495,6 +495,23 @@ const MIGRATIONS: string[] = [
   // dates the cadence produces, so history before each push never moves.
   `
   ALTER TABLE plans ADD COLUMN shifts TEXT NOT NULL DEFAULT '[]';
+  `,
+
+  // v10: the AI planner's own account of a plan - why this order, what to
+  // expect, a few tips - kept apart from the person's notes and read-only.
+  // Plans the planner made before this kept its summary in notes
+  // ("Planned with <model>. <summary>"); that moves across, notes go empty.
+  `
+  ALTER TABLE plans ADD COLUMN guide TEXT;
+  UPDATE plans
+     SET guide = json_object(
+           'model', substr(notes, 14, instr(notes, '. ') - 14),
+           'summary', substr(notes, instr(notes, '. ') + 2),
+           'why', '',
+           'tips', json('[]')
+         ),
+         notes = NULL
+   WHERE notes LIKE 'Planned with %' AND instr(notes, '. ') > 14;
   `,
 ];
 

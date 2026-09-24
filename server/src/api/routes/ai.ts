@@ -46,6 +46,7 @@ const planRequest = z.object({
   level: z.enum(['new', 'some', 'experienced']).default('some'),
   creators: z.array(z.string().max(200)).max(50).default([]),
   includeFinished: z.boolean().default(false),
+  includePlanned: z.boolean().default(false),
 });
 
 interface Row {
@@ -206,9 +207,22 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
     const history = practiceHistory(db, req.user!.id, req.user!.timezone);
     if (entries.length === 0)
       return reply.code(400).send({ error: 'There is nothing in the library to plan with.' });
+    // What this person already has scheduled: current and upcoming plans.
+    const planned = new Map<string, string[]>();
+    const today = new Date().toISOString().slice(0, 10);
+    for (const p of db
+      .prepare(
+        `SELECT name, meditation_ids FROM plans
+         WHERE user_id = ? AND status != 'ended' AND (end_date IS NULL OR end_date >= ?)`,
+      )
+      .all(req.user!.id, today) as { name: string; meditation_ids: string }[]) {
+      for (const id of JSON.parse(p.meditation_ids) as string[]) {
+        planned.set(id, [...(planned.get(id) ?? []), p.name]);
+      }
+    }
     const { system, user } = planPrompt(
       body.data,
-      renderCatalog(entries, history),
+      renderCatalog(entries, history, planned),
       history.summary,
     );
     try {
@@ -220,7 +234,7 @@ export function registerAiRoutes(app: FastifyInstance, ctx: AppContext): void {
         schemaName: 'zenport_plan',
         schema: PLAN_SCHEMA as unknown as Record<string, unknown>,
       });
-      const proposal = resolveProposal(raw, entries, body.data, r.model);
+      const proposal = resolveProposal(raw, entries, body.data, r.model, new Set(planned.keys()));
       if (proposal.stages.length === 0) {
         return reply
           .code(502)

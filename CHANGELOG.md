@@ -5,6 +5,24 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-09-24
+
+### Added
+
+- **Why this plan.** Plan with AI now explains itself: the reasoning behind the order and the foundations it chose (and, where it knows the teacher's work, the path students usually take), plus a few practical tips. It is shown before you accept, kept with the plans as a read-only *Why this plan* card in the plan editor (summary first, reasoning and tips a tap away), and on the Plans page as *Why this path*. Your own notes stay yours and editable; plans the planner made before now had its summary in their notes - it moves into the new card.
+- **Done and already-planned courses are marked.** In the plan editor's picker every course or talk says *Done*, *3/9 done* or *In <plan>*; what is new to you sorts first, and for a new study plan the done and already-planned ones are hidden until you ask - one tap shows them for a deliberate repeat.
+- **Plan with AI does not plan a course twice.** It is told what your current plans already hold and leaves those courses out, unless you switch on *Include courses already in my plans*; the server enforces it too.
+
+### Changed
+
+- **A new primary button, everywhere.** The deep sweep of the mark - flame into rose into orchid - with white semibold text that reads clearly, corners that match the cards around it, a faint top highlight and a soft coloured glow. Every filled accent surface follows (badges, the play button, selected segments, step numbers). Amber keeps a light fill with dark text; rose and violet get deeper fills with white.
+- A plan card shows the week as its day circles alone - the repeated day names are gone.
+
+### Fixed
+
+- Plan cards inside an AI path ran past the edge of the narrowest phones (320pt); on a phone they now take the width they have.
+- **Hairlines of the opposite colour along gradient edges.** The gradient was painted from the padding edge and tiled into the 1px border, leaving a pink line on the yellow end and a yellow line on the pink one. Every gradient fill now paints from the border edge.
+
 ## [0.12.1] — 2026-09-24
 
 ### Fixed

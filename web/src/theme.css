@@ -22,7 +22,8 @@
   --copper-soft: rgba(212, 154, 106, 0.14);
   --lavender: #b7a8d9;
   --lavender-soft: rgba(183, 168, 217, 0.13);
-  --ink-on-accent: #241409;
+  /* Text on a filled accent surface; per accent below. */
+  --ink-on-accent: #ffffff;
   --danger: #e08e8e;
   --danger-soft: rgba(224, 142, 142, 0.12);
   --ok: #c9b458;
@@ -286,31 +287,40 @@ hr {
   /* The light half only — safe under --ink-on-accent. */
   --sweep-lit: linear-gradient(100deg, #ffc04a 0%, #f7746b 52%, #f04c8a 100%);
 
-  /* Default accent = spectrum. Overridden by [data-accent] below. */
+  /* Default accent = spectrum. Overridden by [data-accent] below.
+     Filled surfaces (buttons, badges, the play button) take the deep half of
+     the mark - flame into rose into orchid - with white text that clears
+     4.5:1 across the middle, where labels sit. */
   --accent: var(--rose-lit);
-  --accent-fill: var(--rose);
-  --accent-fill-grad: var(--sweep-lit);
+  --accent-fill: #cf3677;
+  --accent-fill-grad: linear-gradient(120deg, #d4473d 0%, #cf3677 48%, #8f3fd6 100%);
+  --accent-glow: rgba(160, 60, 200, 0.7);
   --accent-soft: rgba(240, 76, 138, 0.14);
 }
 
 :root[data-accent='amber'] {
   --accent: var(--amber);
   --accent-fill: var(--amber);
-  --accent-fill-grad: none;
+  --accent-fill-grad: linear-gradient(120deg, #ffd47a 0%, #ffc04a 50%, #f7a53c 100%);
+  --accent-glow: rgba(247, 165, 60, 0.6);
   --accent-soft: rgba(255, 192, 74, 0.14);
+  /* White on amber would fail; amber keeps its dark ink. */
+  --ink-on-accent: #241409;
 }
 
 :root[data-accent='rose'] {
   --accent: var(--rose-lit);
-  --accent-fill: var(--rose);
-  --accent-fill-grad: none;
+  --accent-fill: #d23a7a;
+  --accent-fill-grad: linear-gradient(120deg, #e0487f 0%, #c9337a 100%);
+  --accent-glow: rgba(210, 58, 122, 0.65);
   --accent-soft: rgba(240, 76, 138, 0.14);
 }
 
 :root[data-accent='violet'] {
   --accent: var(--violet-lit);
-  --accent-fill: #a78bfa;
-  --accent-fill-grad: none;
+  --accent-fill: #7c3aed;
+  --accent-fill-grad: linear-gradient(120deg, #9061f5 0%, #7c3aed 100%);
+  --accent-glow: rgba(124, 58, 237, 0.65);
   --accent-soft: rgba(167, 139, 250, 0.15);
 }
 

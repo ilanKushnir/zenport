@@ -29,6 +29,7 @@ import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
 import { AiPlanSheet } from '../components/AiPlanSheet.tsx';
+import { PlanGuideView } from '../components/PlanGuide.tsx';
 import { itemLabel, TYPE_META } from '../content.ts';
 import { isPracticeType } from '@zenport/shared';
 
@@ -358,6 +359,9 @@ export function PlansPage() {
         <PlanSheet
           plan={editing === 'new' ? null : editing}
           items={items}
+          otherPlans={(plans.data ?? []).filter(
+            (p) => p.status !== 'ended' && (editing === 'new' || p.id !== editing.id),
+          )}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -386,7 +390,11 @@ function CadencePips({ days, today }: { days: number[]; today: string }) {
   const all = days.length === 0;
   const todayDow = new Date(`${today}T00:00:00`).getDay();
   return (
-    <span className="pips" aria-label={all ? 'Every day' : days.map((d) => DOW[d]).join(', ')}>
+    <span
+      className="pips"
+      role="img"
+      aria-label={all ? 'Every day' : days.map((d) => DOW[d]).join(', ')}
+    >
       {DOW_LETTER.map((l, i) => (
         <span
           key={i}
@@ -423,6 +431,7 @@ function PathBlock({
       : p.startDate > today
         ? 'ahead'
         : 'now';
+  const [why, setWhy] = useState(false);
   const current = stages.filter((p) => state(p) === 'now');
   const ahead = stages.filter((p) => state(p) === 'ahead');
   const fmt = (d: string) =>
@@ -434,7 +443,17 @@ function PathBlock({
           <Icon name="sparkle" size={13} /> Path
         </span>
         <h3>{name}</h3>
+        {stages[0]?.guide && (
+          <button type="button" className="guide-more" onClick={() => setWhy(true)}>
+            <Icon name="sparkle" size={13} /> Why this path
+          </button>
+        )}
       </div>
+      {why && stages[0]?.guide && (
+        <Sheet title={name} onClose={() => setWhy(false)} labelId="path-why">
+          <PlanGuideView guide={stages[0].guide} title="Why this path" />
+        </Sheet>
+      )}
       <ol className="path-steps" aria-label={`${name}: stages`}>
         {stages.map((p) => (
           <li key={p.id} className={`path-step ${state(p)}`}>
@@ -538,7 +557,6 @@ function PlanCard({
 
       <div className="plan-card__meta">
         <CadencePips days={plan.daysOfWeek} today={today} />
-        <span className="plan-card__cadence">{cadenceLabel(plan)}</span>
         {plan.targetMinutes && <span className="plan-card__pill">{plan.targetMinutes} min</span>}
         {plan.preferredTime && <span className="plan-card__pill">{plan.preferredTime}</span>}
         {plan.endDate && (
@@ -739,11 +757,14 @@ function addDays(iso: string, n: number): string {
 function PlanSheet({
   plan,
   items,
+  otherPlans,
   onClose,
   onSaved,
 }: {
   plan: PlanDto | null;
   items: MeditationSummaryDto[];
+  /** Other current plans - what they hold is marked, and can be hidden. */
+  otherPlans: PlanDto[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -792,20 +813,64 @@ function PlanSheet({
     return `${cadence} for ${weeks >= 1 ? `${weeks} week${weeks === 1 ? '' : 's'}` : `${span} days`} · ${count} sit${count === 1 ? '' : 's'}`;
   }, [days, startDate, endDate]);
 
+  // What else is already true of each item: which other plans hold it, and
+  // how far this person got. Marked in the picker; for a study plan the done
+  // and already-planned ones can be hidden, so nothing is studied twice by
+  // accident - but they stay one tap away for a deliberate repeat.
+  const elsewhere = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const p of otherPlans) {
+      const label = p.path ? p.path.name : p.name;
+      for (const id of p.meditationIds) {
+        const list = map.get(id) ?? [];
+        if (!list.includes(label)) list.push(label);
+        map.set(id, list);
+      }
+    }
+    return map;
+  }, [otherPlans]);
+  const standing = (i: MeditationSummaryDto): 'done' | 'started' | 'planned' | 'fresh' => {
+    if (i.trackCount > 0 && i.completedCount >= i.trackCount && !isPracticeType(i.type))
+      return 'done';
+    if (elsewhere.has(i.id)) return 'planned';
+    if (i.completedCount > 0 && !isPracticeType(i.type)) return 'started';
+    return 'fresh';
+  };
+  // Until the person chooses, a new study plan hides what is done or planned.
+  const [hideChoice, setHideUsed] = useState<boolean | null>(null);
+  const hideUsed = hideChoice ?? (!plan && learning);
+
   const filteredItems = useMemo(() => {
     const q = medQuery.trim().toLowerCase();
     const ofFocus = items.filter((i) => isPracticeType(i.type) !== learning);
-    const list = q
-      ? ofFocus.filter(
-          (i) =>
-            i.title.toLowerCase().includes(q) ||
-            i.creator.toLowerCase().includes(q) ||
-            (i.collection ?? '').toLowerCase().includes(q),
-        )
-      : ofFocus;
-    // Chosen ones first, so the selection is always visible above the fold.
-    return [...list].sort((a, b) => Number(meds.includes(b.id)) - Number(meds.includes(a.id)));
-  }, [items, medQuery, meds, learning]);
+    const list = (
+      q
+        ? ofFocus.filter(
+            (i) =>
+              i.title.toLowerCase().includes(q) ||
+              i.creator.toLowerCase().includes(q) ||
+              (i.collection ?? '').toLowerCase().includes(q),
+          )
+        : ofFocus
+    ).filter((i) => {
+      if (!hideUsed || meds.includes(i.id)) return true;
+      const st = standing(i);
+      return st !== 'done' && st !== 'planned';
+    });
+    const rank = { fresh: 0, started: 1, planned: 2, done: 3 } as const;
+    // Chosen first, so the selection is always in view; then what is new to you.
+    return [...list].sort(
+      (a, b) =>
+        Number(meds.includes(b.id)) - Number(meds.includes(a.id)) ||
+        rank[standing(a)] - rank[standing(b)],
+    );
+  }, [items, medQuery, meds, learning, hideUsed, elsewhere]);
+  const usedCount = items.filter(
+    (i) =>
+      isPracticeType(i.type) !== learning &&
+      !meds.includes(i.id) &&
+      ['done', 'planned'].includes(standing(i)),
+  ).length;
 
   const save = async () => {
     if (!name.trim()) {
@@ -941,6 +1006,8 @@ function PlanSheet({
       <p className="plan-preview" aria-live="polite">
         <Icon name="plans" size={15} /> {preview}
       </p>
+
+      {plan?.guide && <PlanGuideView guide={plan.guide} collapsible />}
 
       <div className="prows">
         <PlanRow k="days" icon="sun" label="Days" value={daysValue} open={open} onToggle={toggle}>
@@ -1154,6 +1221,18 @@ function PlanSheet({
               ? 'Followed in the order you pick them.'
               : 'Optional - a plan can simply hold the habit.'}
           </p>
+          {usedCount > 0 && (
+            <button
+              type="button"
+              className="chip used-toggle"
+              aria-pressed={hideUsed}
+              onClick={() => setHideUsed(!hideUsed)}
+            >
+              {hideUsed
+                ? `Hiding ${usedCount} done or already planned · show`
+                : `Hide done or already planned (${usedCount})`}
+            </button>
+          )}
           {items.length > 6 && (
             <input
               id="pl-meds-q"
@@ -1178,6 +1257,7 @@ function PlanSheet({
                   <Cover coverId={i.coverId} title={i.title} creator={i.creator} />
                   <span className="med-pick__t">{i.title}</span>
                   <span className="med-pick__c">
+                    <PickTag item={i} standing={standing(i)} plans={elsewhere.get(i.id)} />
                     {TYPE_META[i.type].label} · {i.creator}
                     {i.totalDurationSec ? ` · ${formatDuration(i.totalDurationSec)}` : ''}
                   </span>
@@ -1317,6 +1397,33 @@ function AutoText({
       onChange={(e) => onChange(e.target.value.replace(/\n/g, ' '))}
     />
   );
+}
+
+/** Why an item may not belong in this plan: done, part-way, or already planned. */
+function PickTag({
+  item,
+  standing,
+  plans,
+}: {
+  item: MeditationSummaryDto;
+  standing: 'done' | 'started' | 'planned' | 'fresh';
+  plans: string[] | undefined;
+}) {
+  if (standing === 'done') return <span className="pick-tag done">Done</span>;
+  if (standing === 'planned')
+    return (
+      <span className="pick-tag planned" title={plans?.join(', ')}>
+        In {plans?.[0]}
+        {plans && plans.length > 1 ? ` +${plans.length - 1}` : ''}
+      </span>
+    );
+  if (standing === 'started')
+    return (
+      <span className="pick-tag started">
+        {item.completedCount}/{item.trackCount} done
+      </span>
+    );
+  return null;
 }
 
 type RowKey = 'days' | 'start' | 'length' | 'target' | 'time' | 'items' | 'notes';

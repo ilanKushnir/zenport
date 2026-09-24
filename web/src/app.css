@@ -157,6 +157,7 @@
 .nav a[aria-current='page'] .nav-tile {
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   box-shadow: 0 6px 16px color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
@@ -173,6 +174,7 @@
   border-radius: 0 3px 3px 0;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 /* An icon takes the colour of the control it sits in - dark ink on an accent
@@ -392,10 +394,10 @@
   justify-content: center;
   gap: var(--s2);
   padding: 9px var(--s4);
-  min-height: 40px;
-  border-radius: var(--r-sm);
+  min-height: 42px;
+  border-radius: 13px;
   font-size: 14.5px;
-  font-weight: 500;
+  font-weight: 550;
   border: 1px solid transparent;
   transition:
     scale var(--t-fast) var(--ease),
@@ -408,22 +410,31 @@
   scale: 0.96;
 }
 
+/*
+ * The primary action: the deep sweep of the mark, white text, soft corners
+ * like the cards around it. The gradient is painted from the border edge
+ * (background-origin: border-box) - painted from the padding edge it tiled
+ * into the 1px transparent border and left a hairline of its far colour on
+ * each side. A faint inner highlight along the top, a coloured glow below.
+ */
 .btn-primary {
   background: var(--accent-fill);
-  /* Spectrum mode paints a gradient here; the other accents resolve to none
-     and fall through to the solid fill above. */
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   color: var(--ink-on-accent);
-}
-
-.btn-primary {
-  box-shadow: 0 6px 20px -6px rgba(240, 76, 138, 0.55);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 26px -12px var(--accent-glow);
 }
 
 @media (hover: hover) {
   .btn-primary:hover {
-    filter: brightness(1.08);
-    box-shadow: 0 8px 26px -6px rgba(240, 76, 138, 0.7);
+    filter: brightness(1.07);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      0 12px 30px -10px var(--accent-glow);
   }
 }
 
@@ -462,6 +473,7 @@
   min-height: 34px;
   padding: 5px var(--s3);
   font-size: 13.5px;
+  border-radius: 11px;
 }
 
 .icon-btn {
@@ -1225,6 +1237,7 @@
   block-size: 2px;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   transition: inline-size 1s linear;
 }
 
@@ -1310,6 +1323,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   transition: transform var(--t-fast) var(--ease);
 }
 
@@ -1922,6 +1936,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   font-weight: 600;
 }
 
@@ -2009,6 +2024,14 @@
   gap: var(--s4);
 }
 
+/* A phone has room for one card; never let the 300px minimum push it wider
+   than its container (a path block adds its own padding around them). */
+@media (max-width: 700px) {
+  .plan-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .plan-card {
   display: flex;
   flex-direction: column;
@@ -2087,6 +2110,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .pip.now {
@@ -2275,6 +2299,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .pill-completed {
@@ -2478,6 +2503,7 @@
   place-items: center;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   color: var(--ink-on-accent);
 }
 
@@ -2544,6 +2570,7 @@
   border-radius: 5px 5px 2px 2px;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   opacity: 0.85;
   min-height: 2px;
 }
@@ -2585,6 +2612,7 @@
   height: 100%;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   border-radius: 4px;
 }
 
@@ -3661,6 +3689,7 @@
   flex: none;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   color: var(--ink-on-accent);
 }
 
@@ -3938,6 +3967,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   box-shadow: 0 14px 34px color-mix(in oklab, var(--accent) 32%, transparent);
   font: inherit;
   font-size: 16.5px;
@@ -4063,6 +4093,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .sit-len.on .u {
@@ -4136,6 +4167,7 @@
   min-height: 52px;
   padding-inline: var(--s6);
   font-size: 16px;
+  border-radius: 16px;
 }
 
 /* A live sit hides the surrounding furniture, and quiets the aurora. */
@@ -4501,6 +4533,7 @@
 .switch.on {
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
   border-color: transparent;
 }
 
@@ -5245,6 +5278,7 @@
   border-radius: inherit;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 /* A series card reads as a small stack of covers. */
@@ -5512,6 +5546,7 @@
   border-radius: inherit;
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .series-list {
@@ -5767,6 +5802,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .ai-step textarea {
@@ -6014,6 +6050,7 @@
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .ai-track .plan-focus {
@@ -6288,6 +6325,7 @@
 .fp-course-bar span.done {
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .fp-course-bar span.now {
@@ -6471,6 +6509,7 @@ span.role-chip {
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .path-step.done .path-dot {
@@ -7086,6 +7125,7 @@ span.role-chip {
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
+  background-origin: border-box;
 }
 
 .tab-more,
@@ -7713,7 +7753,8 @@ span.role-chip {
 
 .plan-save {
   inline-size: 100%;
-  min-block-size: 50px;
+  min-block-size: 52px;
+  border-radius: 16px;
   margin-block-start: var(--s2);
   font-size: 16px;
 }
@@ -8028,4 +8069,157 @@ span.role-chip {
   .more-hint {
     display: none;
   }
+}
+
+/* ===================================================================
+ * The planner's own account of a plan
+ * =================================================================== */
+
+.guide {
+  margin-block: var(--s3) var(--s4);
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--hairline));
+  background:
+    radial-gradient(
+      120% 90% at 0% 0%,
+      color-mix(in oklab, var(--accent) 9%, transparent),
+      transparent 70%
+    ),
+    rgba(0, 0, 0, 0.14);
+}
+
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 8px;
+}
+
+.guide-ic {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.guide-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.guide-model {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.guide-summary,
+.guide-why {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.guide-why {
+  color: var(--muted);
+}
+
+.guide-tips {
+  margin: 4px 0 6px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.guide-tips li {
+  position: relative;
+  padding-inline-start: 18px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.guide-tips li::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 2px;
+  inset-block-start: 0.6em;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.guide-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guide-more[aria-expanded='true'] .nav-ic {
+  transform: rotate(180deg);
+}
+
+.path-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--s3);
+}
+
+.path-head .path-kicker {
+  flex-basis: 100%;
+}
+
+/* Why an item may not belong in a new plan. */
+.pick-tag {
+  display: inline-block;
+  max-inline-size: 60%;
+  margin-inline-end: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 17px;
+  vertical-align: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pick-tag.done {
+  color: #8fd6a6;
+  background: rgba(120, 200, 150, 0.14);
+}
+
+.pick-tag.planned {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pick-tag.started {
+  color: var(--amber);
+  background: rgba(255, 192, 74, 0.13);
+}
+
+.used-toggle {
+  justify-self: start;
 }

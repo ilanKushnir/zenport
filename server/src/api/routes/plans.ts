@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { PlanDto, PlanFocus, PlanOccurrenceDto, PlanShift } from '@zenport/shared';
+import type { PlanDto, PlanFocus, PlanGuide, PlanOccurrenceDto, PlanShift } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { dayKey } from '../../stats/compute.js';
 import {
@@ -27,6 +27,15 @@ const planSchema = z.object({
   path: z
     .object({ name: z.string().min(1).max(120), step: z.number().int().min(1).max(200) })
     .nullish(),
+  // Only on creation, from the AI planner; never editable afterwards.
+  guide: z
+    .object({
+      summary: z.string().max(800).default(''),
+      why: z.string().max(2000).default(''),
+      tips: z.array(z.string().max(300)).max(6).default([]),
+      model: z.string().max(80).default(''),
+    })
+    .nullish(),
 });
 
 interface PlanRow {
@@ -46,6 +55,7 @@ interface PlanRow {
   path_name: string | null;
   path_step: number | null;
   shifts: string;
+  guide: string | null;
 }
 
 function parseShifts(raw: string | null | undefined): PlanShift[] {
@@ -54,6 +64,21 @@ function parseShifts(raw: string | null | undefined): PlanShift[] {
     return Array.isArray(v) ? v.filter((s) => DATE.test(s.from) && Number.isInteger(s.days)) : [];
   } catch {
     return [];
+  }
+}
+
+function parseGuide(raw: string | null): PlanGuide | null {
+  if (!raw) return null;
+  try {
+    const g = JSON.parse(raw) as Partial<PlanGuide>;
+    return {
+      summary: String(g.summary ?? ''),
+      why: String(g.why ?? ''),
+      tips: Array.isArray(g.tips) ? g.tips.map(String) : [],
+      model: String(g.model ?? ''),
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -73,6 +98,7 @@ function toDto(row: PlanRow): PlanDto {
     meditationIds: JSON.parse(row.meditation_ids),
     path: row.path_name ? { name: row.path_name, step: row.path_step ?? 1 } : null,
     shifts: parseShifts(row.shifts),
+    guide: parseGuide(row.guide),
     createdAt: row.created_at,
   };
 }
@@ -103,8 +129,8 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
       .prepare(
         `INSERT INTO plans (user_id, name, intention, start_date, end_date, days_of_week,
            preferred_time, target_minutes, notes, status, meditation_ids, created_at, focus,
-           path_name, path_step)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
+           path_name, path_step, guide)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         req.user!.id,
@@ -121,6 +147,7 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
         p.focus,
         p.path?.name ?? null,
         p.path?.step ?? null,
+        p.guide ? JSON.stringify(p.guide) : null,
       );
     return { id: Number(res.lastInsertRowid) };
   });

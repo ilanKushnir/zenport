@@ -25,6 +25,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.13.0',
+    items: [
+      {
+        emoji: '✨',
+        text: 'Plan with AI explains its thinking - why this order, and a few tips - kept with your plan.',
+      },
+      {
+        emoji: '📚',
+        text: 'Courses you finished or already planned are marked, so nothing gets studied twice by accident.',
+      },
+      { emoji: '🎨', text: 'A clearer, more beautiful main button across the app.' },
+    ],
+  },
+  {
     version: '0.12.1',
     items: [
       { emoji: '📐', text: 'The plan editor fits the phone again, whatever the plan holds.' },

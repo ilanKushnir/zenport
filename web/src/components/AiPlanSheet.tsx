@@ -22,6 +22,7 @@ import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { TYPE_META } from '../content.ts';
 import { Cover, Icon, Sheet, Switch } from './ui.tsx';
+import { PlanGuideView } from './PlanGuide.tsx';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const IDEAS = [
@@ -206,6 +207,7 @@ export function AiPlanSheet({
   const [startDate, setStartDate] = useState(iso(new Date()));
   const [creators, setCreators] = useState<string[]>([]);
   const [includeFinished, setIncludeFinished] = useState(false);
+  const [includePlanned, setIncludePlanned] = useState(false);
 
   const [proposal, setProposal] = useState<AiPlanProposalDto | null>(null);
   const [name, setName] = useState('');
@@ -237,6 +239,7 @@ export function AiPlanSheet({
     level,
     creators,
     includeFinished,
+    includePlanned,
   };
 
   const generate = async () => {
@@ -272,7 +275,12 @@ export function AiPlanSheet({
           daysOfWeek: st.daysOfWeek,
           preferredTime: st.preferredTime,
           targetMinutes: st.minutesPerSession,
-          notes: `Planned with ${proposal.model}. ${proposal.summary}`.slice(0, 2000),
+          guide: {
+            summary: proposal.summary.slice(0, 800),
+            why: proposal.why.slice(0, 2000),
+            tips: proposal.tips.slice(0, 6),
+            model: proposal.model,
+          },
           meditationIds: st.items.map((i) => i.id),
           focus: st.focus,
           path: multi ? { name: title, step: n + 1 } : null,
@@ -527,6 +535,19 @@ export function AiPlanSheet({
               label="Include finished items"
             />
           </div>
+          <div className="set-switch sit-switch">
+            <div>
+              <div className="set-switch-t">Include courses already in my plans</div>
+              <div className="set-switch-h">
+                Otherwise a course another plan already covers is not planned twice.
+              </div>
+            </div>
+            <Switch
+              checked={includePlanned}
+              onChange={setIncludePlanned}
+              label="Include courses already in my plans"
+            />
+          </div>
           <p className="ai-privacy">
             <Icon name="sparkle" size={14} />
             Titles, creators, lengths and lesson names from your library go to OpenAI with your key
@@ -573,7 +594,10 @@ export function AiPlanSheet({
               : ''}
           </p>
           {proposal.intention && <p className="ai-intention">“{proposal.intention}”</p>}
-          <p className="ai-summary">{proposal.summary}</p>
+          <PlanGuideView
+            guide={{ summary: proposal.summary, why: proposal.why, tips: proposal.tips }}
+            title="Why this path"
+          />
 
           {proposal.stages.length > 1 && <PathTimeline proposal={proposal} />}
 
