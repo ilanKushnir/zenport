@@ -401,7 +401,7 @@ export function LibraryPage() {
                 </Link>
                 {isAdmin && (
                   <>
-                    <Link className="btn btn-sm btn-quiet" to="/library/folders">
+                    <Link className="btn btn-sm btn-quiet" to="/admin/folders">
                       <Icon name="folder" size={15} />
                       Folders
                     </Link>

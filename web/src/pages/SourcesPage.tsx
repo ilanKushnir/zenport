@@ -8,6 +8,7 @@ import { privacyEmbedUrl } from '@zenport/shared';
 import { api, ApiError } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { EmptyState, ErrorNote, Icon, PageSkeleton, Sheet } from '../components/ui.tsx';
+import { AdminCrumb } from './AdminPage.tsx';
 
 interface ResolveResult {
   classification: YouTubeClassification;
@@ -41,6 +42,7 @@ export function SourcesPage() {
 
   return (
     <>
+      <AdminCrumb here="YouTube sources" />
       <div
         className="page-head"
         style={{

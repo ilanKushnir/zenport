@@ -21,17 +21,7 @@ export const MORE_LINKS: {
   { to: '/friends', label: 'Friends', icon: 'friends', hint: 'Practise together' },
   { to: '/journal', label: 'Journal', icon: 'journal', hint: 'After each sit' },
   { to: '/stats', label: 'Practice', icon: 'stats', hint: 'Streaks and minutes' },
-  { to: '/settings', label: 'Settings', icon: 'settings', hint: 'You, look, sound' },
-  { to: '/integrations', label: 'Integrations', icon: 'plug', hint: 'Calendars, exports' },
-  { to: '/people', label: 'People', icon: 'user-plus', hint: 'Invite and manage', admin: true },
-  {
-    to: '/library/folders',
-    label: 'Folders',
-    icon: 'folder',
-    hint: 'What gets scanned',
-    admin: true,
-  },
-  { to: '/sources', label: 'Sources', icon: 'sources', hint: 'YouTube talks', admin: true },
+  { to: '/downloads', label: 'Downloads', icon: 'on-device', hint: 'On this device' },
 ];
 
 export function MoreSheet({ onClose }: { onClose: () => void }) {

@@ -94,14 +94,21 @@ export function CommandPalette() {
               label: 'Sources',
               icon: 'sources',
               group: 'Go' as const,
-              run: go('/sources'),
+              run: go('/admin/sources'),
+            },
+            {
+              id: 'admin',
+              label: 'Admin',
+              icon: 'shield',
+              group: 'Go' as const,
+              run: go('/admin'),
             },
             {
               id: 'people',
               label: 'People',
               icon: 'user-plus',
               group: 'Go' as const,
-              run: go('/people'),
+              run: go('/admin/people'),
             },
           ]
         : []),

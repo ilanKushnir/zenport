@@ -7,12 +7,12 @@
  * library as it now is. Only the admin can change it; everyone can look.
  */
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import type { FolderNodeDto, LibraryFoldersDto, ScanStateDto } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import { useApi } from '../hooks.ts';
 import { ErrorNote, Icon, Switch } from '../components/ui.tsx';
+import { AdminCrumb } from './AdminPage.tsx';
 
 function matches(node: FolderNodeDto, q: string): boolean {
   return node.name.toLowerCase().includes(q) || node.children.some((c) => matches(c, q));
@@ -69,11 +69,9 @@ export function FoldersPage() {
 
   return (
     <>
+      <AdminCrumb here="Library folders" />
       <div className="page-head">
-        <p className="eyebrow">
-          <Link to="/library">Library</Link>
-        </p>
-        <h1>Folders</h1>
+        <h1>Library folders</h1>
         <p className="lede">
           Everything the last scan found. Switch a folder off to leave it out of your library - its
           files are never touched, and switching it back on returns it with its history.

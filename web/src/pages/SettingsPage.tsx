@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AiSettingsDto, ScanStateDto, ShareLevel } from '@zenport/shared';
+import type { AiSettingsDto, ShareLevel } from '@zenport/shared';
 import { Link } from 'react-router-dom';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
@@ -8,7 +8,7 @@ import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { REPO_URL, VersionRow, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
-import { Avatar, ErrorNote, Icon, Slider, Switch } from '../components/ui.tsx';
+import { Avatar, Icon, Slider, Switch } from '../components/ui.tsx';
 import { AiKeyForm } from '../components/AiPlanSheet.tsx';
 import { formatBytes, offlineSupported, useOffline } from '../offline.ts';
 
@@ -30,7 +30,6 @@ const COMMON_TIMEZONES = [
 
 export function SettingsPage() {
   const { user, refresh, signOut } = useAuth();
-  const scan = useApi<ScanStateDto>('/api/library/scan-state');
   const [tzSaved, setTzSaved] = useState(false);
 
   const setTimezone = async (tz: string) => {
@@ -70,80 +69,6 @@ export function SettingsPage() {
       <PreferencesSection />
       <AiSection />
       <OfflineSection />
-
-      {user?.role === 'admin' && (
-        <section className="section" aria-labelledby="s-scan">
-          <div className="section-head">
-            <h2 id="s-scan">Library scan</h2>
-          </div>
-          {scan.error && <ErrorNote message={scan.error} onRetry={scan.reload} />}
-          {scan.data && (
-            <div className="card" style={{ maxWidth: 640 }}>
-              <dl className="kv">
-                <dt>Status</dt>
-                <dd>{scan.data.status}</dd>
-                <dt>Last finished</dt>
-                <dd>
-                  {scan.data.finishedAt ? new Date(scan.data.finishedAt).toLocaleString() : 'never'}
-                </dd>
-                <dt>Indexed</dt>
-                <dd>
-                  {scan.data.counts.items} meditations · {scan.data.counts.tracks} tracks ·{' '}
-                  {scan.data.counts.covers} covers · {scan.data.counts.documents} documents
-                </dd>
-                <dt>Skipped files</dt>
-                <dd>{scan.data.counts.ignored} (hidden, junk, or unsupported)</dd>
-                {scan.data.counts.missing > 0 && (
-                  <>
-                    <dt>Missing</dt>
-                    <dd>{scan.data.counts.missing} items awaiting their files</dd>
-                  </>
-                )}
-              </dl>
-              <div style={{ marginTop: 16 }}>
-                {scan.data.roots.map((r) => (
-                  <p key={r.id} style={{ fontSize: 13.5 }}>
-                    <span className={`badge ${r.ok ? 'badge-accent' : ''}`}>{r.label}</span>{' '}
-                    {r.ok ? 'readable' : (r.note ?? 'not readable')}
-                  </p>
-                ))}
-              </div>
-              {scan.data.warnings.length > 0 && (
-                <details style={{ marginTop: 12 }}>
-                  <summary style={{ cursor: 'pointer', color: 'var(--muted)' }}>
-                    {scan.data.warnings.length} scan note{scan.data.warnings.length > 1 ? 's' : ''}
-                  </summary>
-                  <ul style={{ color: 'var(--muted)', fontSize: 13.5 }}>
-                    {scan.data.warnings.map((w, i) => (
-                      <li key={i}>{w}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {user?.role === 'admin' && (
-        <section className="section" aria-labelledby="s-users">
-          <div className="section-head">
-            <h2 id="s-users">People</h2>
-          </div>
-          <Link className="people-link card" to="/people">
-            <span className="set-group-ic">
-              <Icon name="user-plus" size={19} />
-            </span>
-            <span className="grow">
-              <strong>Invite and manage people</strong>
-              <span className="sub">
-                Invitation links, roles and password resets. Journals stay private to their writer.
-              </span>
-            </span>
-            <Icon name="chevron-right" size={16} />
-          </Link>
-        </section>
-      )}
 
       <section className="section" aria-labelledby="s-about">
         <div className="section-head">

@@ -13,6 +13,7 @@ import { useApi } from '../hooks.ts';
 import { useAuth } from '../App.tsx';
 import { Avatar, ErrorNote, Icon, Sheet, Switch } from '../components/ui.tsx';
 import { ago } from '../social.tsx';
+import { AdminCrumb } from './AdminPage.tsx';
 
 const linkFor = (token: string) => `${window.location.origin}/join/${token}`;
 
@@ -42,6 +43,7 @@ export function PeoplePage() {
 
   return (
     <>
+      <AdminCrumb here="People" />
       <div className="page-head plans-head">
         <div>
           <h1>People</h1>

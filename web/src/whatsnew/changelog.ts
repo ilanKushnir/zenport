@@ -25,6 +25,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.15.0',
+    items: [
+      { emoji: '🧭', text: 'A top bar keeps ZenPort in place, with Settings a tap away.' },
+      {
+        emoji: '🛡️',
+        text: 'Admins get one Admin area for people, folders, sources, integrations and scans.',
+      },
+    ],
+  },
+  {
     version: '0.14.2',
     items: [
       {

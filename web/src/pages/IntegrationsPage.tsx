@@ -1,6 +1,7 @@
 import type { ServerCapabilitiesDto } from '@zenport/shared';
 import { useApi } from '../hooks.ts';
 import { Icon } from '../components/ui.tsx';
+import { AdminCrumb } from './AdminPage.tsx';
 
 /**
  * Integrations surface. UBAL and MeTube are deliberately visible but
@@ -13,6 +14,7 @@ export function IntegrationsPage() {
 
   return (
     <>
+      <AdminCrumb here="Integrations" />
       <div className="page-head">
         <h1>Integrations</h1>
         <p className="lede">

@@ -102,7 +102,7 @@ export function FriendsPage() {
                 <Icon name="user-plus" size={16} /> Find people here
               </button>
               {user?.role === 'admin' && (
-                <Link className="btn btn-ghost" to="/people">
+                <Link className="btn btn-ghost" to="/admin/people">
                   <Icon name="link" size={16} /> Invite someone new
                 </Link>
               )}
@@ -416,7 +416,7 @@ function FindPeopleSheet({ onClose }: { onClose: () => void }) {
         </div>
       )}
       {user?.role === 'admin' && (
-        <Link className="ps-try" to="/people" onClick={onClose}>
+        <Link className="ps-try" to="/admin/people" onClick={onClose}>
           <Icon name="link" size={14} /> Someone new? Send them an invitation
         </Link>
       )}

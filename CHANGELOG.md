@@ -5,6 +5,19 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-09-24
+
+### Added
+
+- **A top bar on the phone.** The ZenPort name stays in place instead of scrolling away with long pages: the bar sits see-through over the top of a page and turns frosted, with a hairline, once content moves beneath it (so nothing hides behind the clock). On the right, Settings - and, for admins only, Admin.
+- **Admin.** Everything that shapes ZenPort for everyone now lives in one place, seen only by admins: an overview (people, open invitations, recordings), then People (invitations, roles, password resets), Library folders, YouTube sources, Integrations, and the library scan with its roots, notes and a Rescan button. Each page carries an *Admin /* trail back. The old addresses (/people, /sources, /library/folders, /integrations) lead to their new homes; anyone else opening Admin is told politely that it is for admins.
+
+### Changed
+
+- **More is for practice.** Friends, Journal, Practice and Downloads - Settings moved to the top bar, and the admin pages into Admin. Folders and Integrations are admin-only now: everyone else simply uses the app and its library.
+- Settings no longer carries the People link or the library scan - both are in Admin.
+- On a desktop the sidebar reads Practice · Reflect · You, with Downloads, Admin (admins) and Settings under You.
+
 ## [0.14.2] — 2026-09-24
 
 ### Changed

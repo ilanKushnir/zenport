@@ -29,6 +29,7 @@ import { JoinPage, LoginPage, SetupPage } from './pages/AuthPages.tsx';
 import { FriendsPage } from './pages/FriendsPage.tsx';
 import { FriendPage } from './pages/FriendPage.tsx';
 import { PeoplePage } from './pages/PeoplePage.tsx';
+import { AdminOnly, AdminPage } from './pages/AdminPage.tsx';
 import { DownloadsPage } from './pages/DownloadsPage.tsx';
 import { flushOfflineSessions, useOffline, verifyDownloads } from './offline.ts';
 import { InboxProvider, useInbox } from './social.tsx';
@@ -87,18 +88,16 @@ const NAV: NavItem[] = [
   { to: '/friends', label: 'Friends', icon: 'friends', badge: true },
   { to: '/journal', label: 'Journal', icon: 'journal' },
   { to: '/stats', label: 'Practice', icon: 'stats' },
-  { to: '/library/folders', label: 'Folders', icon: 'folder', admin: true },
-  { to: '/sources', label: 'Sources', icon: 'sources', admin: true },
-  { to: '/people', label: 'People', icon: 'user-plus', admin: true },
-  { to: '/integrations', label: 'Integrations', icon: 'plug' },
+  { to: '/downloads', label: 'Downloads', icon: 'on-device' },
+  { to: '/admin', label: 'Admin', icon: 'shield', admin: true },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
 /** The sidebar, in three quiet groups rather than one long list. */
 const NAV_GROUPS = [
   { label: 'Practice', items: NAV.slice(0, 4) },
-  { label: 'Together', items: NAV.slice(4, 7) },
-  { label: 'Manage', items: NAV.slice(7) },
+  { label: 'Reflect', items: NAV.slice(4, 7) },
+  { label: 'You', items: NAV.slice(7) },
 ];
 
 /**
@@ -127,6 +126,51 @@ function StartPageRedirect() {
   }, [ready, prefs.startPage, location.pathname, navigate]);
 
   return null;
+}
+
+/**
+ * The phone's top bar: fixed, so the name never scrolls away. See-through
+ * over the top of a page, it turns frosted with a hairline once the page
+ * moves beneath it. Settings on the right - and, for admins only, Admin.
+ */
+function AppBar({ isAdmin }: { isAdmin: boolean }) {
+  const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > 4);
+    on();
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, [location.pathname]);
+  const here = (p: string) => location.pathname === p || location.pathname.startsWith(`${p}/`);
+  return (
+    <header className={`app-bar${scrolled ? ' scrolled' : ''}`}>
+      <Link className="app-bar-brand" to="/" aria-label="ZenPort - Today">
+        <Logo size={26} bloom={false} />
+        <Wordmark size={18} />
+      </Link>
+      <nav className="app-bar-actions" aria-label="Account">
+        {isAdmin && (
+          <Link
+            className={`app-bar-btn${here('/admin') ? ' on' : ''}`}
+            to="/admin"
+            aria-label="Admin"
+            aria-current={here('/admin') ? 'page' : undefined}
+          >
+            <Icon name="shield" size={20} />
+          </Link>
+        )}
+        <Link
+          className={`app-bar-btn${here('/settings') ? ' on' : ''}`}
+          to="/settings"
+          aria-label="Settings"
+          aria-current={here('/settings') ? 'page' : undefined}
+        >
+          <Icon name="settings" size={20} />
+        </Link>
+      </nav>
+    </header>
+  );
 }
 
 /** No connection: say so once, and point at what still works. */
@@ -217,18 +261,14 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      <AppBar isAdmin={isAdmin} />
       <main className="main" id="main">
-        <div className="mobile-top">
-          <Logo size={24} bloom={false} />
-          <Wordmark size={17} />
-        </div>
         <OfflineBanner />
         {children}
       </main>
       {/* Content dissolves as it nears the tab bar instead of showing through
           the gap between the bar and the bottom of the screen. */}
       <div className="tab-fade" aria-hidden="true" />
-      <div className="top-fade" aria-hidden="true" />
       <nav className="mobile-tabs" aria-label="Main">
         {MOBILE_NAV.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end}>
@@ -282,7 +322,7 @@ function SignedInApp() {
             <Routes>
               <Route path="/" element={<TodayPage />} />
               <Route path="/library" element={<LibraryPage />} />
-              <Route path="/library/folders" element={<FoldersPage />} />
+              <Route path="/library/folders" element={<Navigate to="/admin/folders" replace />} />
               <Route path="/series/:creator/:name" element={<SeriesPage />} />
               <Route path="/breathe" element={<TimerPage />} />
               <Route path="/timer" element={<Navigate to="/breathe" replace />} />
@@ -291,12 +331,45 @@ function SignedInApp() {
               <Route path="/plans" element={<PlansPage />} />
               <Route path="/stats" element={<StatsPage />} />
               <Route path="/journal" element={<JournalPage />} />
-              <Route path="/sources" element={<SourcesPage />} />
-              <Route path="/integrations" element={<IntegrationsPage />} />
+              <Route path="/sources" element={<Navigate to="/admin/sources" replace />} />
+              <Route path="/integrations" element={<Navigate to="/admin/integrations" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/friends/:id" element={<FriendPage />} />
-              <Route path="/people" element={<PeoplePage />} />
+              <Route path="/people" element={<Navigate to="/admin/people" replace />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route
+                path="/admin/people"
+                element={
+                  <AdminOnly>
+                    <PeoplePage />
+                  </AdminOnly>
+                }
+              />
+              <Route
+                path="/admin/folders"
+                element={
+                  <AdminOnly>
+                    <FoldersPage />
+                  </AdminOnly>
+                }
+              />
+              <Route
+                path="/admin/sources"
+                element={
+                  <AdminOnly>
+                    <SourcesPage />
+                  </AdminOnly>
+                }
+              />
+              <Route
+                path="/admin/integrations"
+                element={
+                  <AdminOnly>
+                    <IntegrationsPage />
+                  </AdminOnly>
+                }
+              />
               <Route path="/downloads" element={<DownloadsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
