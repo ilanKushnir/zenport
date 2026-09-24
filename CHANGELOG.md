@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.34.2] — 2026-09-24
+
+### Fixed
+
+- **Opened from the Home Screen, the app no longer runs off the bottom of the phone or freezes.** 0.32.4 sized the app's frame to the whole screen when opened from the Home Screen. But iOS 26 can show that app shorter than the screen, by about the status bar's height (after a sheet such as What's new closes, or on launch). The frame then ran past the bottom: the tab bar was cut, and the page, taller than its view, panned instead of scrolling and felt stuck. The frame is again exactly as tall as iOS shows, never taller.
+
 ## [0.34.1] — 2026-09-24
 
 The 0.34.0 release, published. Its build stopped on a formatting check, so 0.34.0 was never released.

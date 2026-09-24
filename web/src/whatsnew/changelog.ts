@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.34.2',
+    items: [
+      {
+        emoji: '📱',
+        text: 'Opened from the Home Screen, the app fits the screen and scrolls again.',
+      },
+    ],
+  },
+  {
     version: '0.34.1',
     items: [
       {
