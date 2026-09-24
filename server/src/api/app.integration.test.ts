@@ -417,6 +417,72 @@ describe('library and media', () => {
 });
 
 describe('practice, plans, journal, stats', () => {
+  it("keeps a meditation's place only for a few minutes, and counts the times it was done", async () => {
+    await setupAndLogin();
+    const lib = (await app.inject({ url: '/api/library', headers: auth() })).json();
+    const med = lib.items.find((i: { title: string }) => i.title === 'Morning Ritual');
+    const url = `/api/items/${med.id}`;
+    const detail = (await app.inject({ url, headers: auth() })).json();
+    for (const t of detail.tracks as { id: string }[]) {
+      db.prepare('UPDATE tracks SET duration_sec = 600 WHERE id = ?').run(t.id);
+    }
+    const track = detail.tracks[1].id as string;
+    await app.inject({
+      method: 'PUT',
+      url: `/api/progress/${track}`,
+      headers: auth(),
+      payload: { positionSec: 200 },
+    });
+    expect((await app.inject({ url, headers: auth() })).json().resume).toMatchObject({
+      positionSec: 200,
+    });
+    // Eleven minutes later it is no longer offered - and the next save clears it away.
+    db.prepare('UPDATE playback_positions SET updated_at = ?').run(
+      new Date(Date.now() - 11 * 60_000).toISOString(),
+    );
+    const later = (await app.inject({ url, headers: auth() })).json();
+    expect(later.resume).toBeNull();
+    expect(later.tracks[1].positionSec).toBeNull();
+    await app.inject({
+      method: 'PUT',
+      url: `/api/progress/${detail.tracks[0].id}`,
+      headers: auth(),
+      payload: { positionSec: 1 },
+    });
+    const left = db
+      .prepare('SELECT COUNT(*) AS n FROM playback_positions WHERE track_id = ?')
+      .get(track) as { n: number };
+    expect(left.n).toBe(0);
+
+    // Times done: at least half of its 20 minutes; a two-minute sit is not a time.
+    const sit = async (minutes: number) => {
+      const s = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/practice/start',
+          headers: auth(),
+          payload: { meditationId: med.id },
+        })
+      ).json();
+      await app.inject({
+        method: 'POST',
+        url: `/api/practice/${s.id}/finish`,
+        headers: auth(),
+        payload: { status: 'completed', reason: 'finished' },
+      });
+      db.prepare('UPDATE practice_sessions SET listened_sec = ? WHERE id = ?').run(
+        minutes * 60,
+        s.id,
+      );
+    };
+    await sit(19);
+    await sit(11);
+    await sit(2);
+    const counted = (await app.inject({ url, headers: auth() })).json();
+    expect(counted.practiceCount).toBe(2);
+    expect(counted.lastPracticedAt).toBeTruthy();
+  });
+
   it('runs a full practice session lifecycle into history and stats', async () => {
     await setupAndLogin();
     const lib = (await app.inject({ url: '/api/library', headers: auth() })).json();

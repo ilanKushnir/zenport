@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../context.js';
-import { itemDetail, libraryDto } from '../../library/queries.js';
+import { freshSince, itemDetail, libraryDto } from '../../library/queries.js';
 import { CONTENT_TYPES, type LibraryFoldersDto } from '@zenport/shared';
 import { lastFolderTree, readScanState, runScan } from '../../scanner/scan.js';
 
@@ -233,6 +233,13 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
        ON CONFLICT(user_id, track_id) DO UPDATE SET position_sec = excluded.position_sec,
          updated_at = excluded.updated_at`,
     ).run(req.user!.id, trackId, track.item_id, body.data.positionSec, new Date().toISOString());
+    // A meditation's place only covers an accidental exit; older ones go.
+    db.prepare(
+      `DELETE FROM playback_positions
+       WHERE user_id = ? AND updated_at < ? AND item_id IN (
+         SELECT i.id FROM items i LEFT JOIN item_types t ON t.item_id = i.id
+         WHERE COALESCE(t.type, i.inferred_type) IN ('meditation', 'soundscape'))`,
+    ).run(req.user!.id, freshSince());
     return { ok: true };
   });
 }

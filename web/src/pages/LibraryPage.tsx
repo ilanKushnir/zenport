@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ContentType, LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
+import { isPracticeType } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
@@ -26,6 +27,17 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
         <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
         <CardBadges type={item.type} video={item.hasVideo} />
         <CardProgress done={item.completedCount} total={item.trackCount} />
+        {isPracticeType(item.type) && item.practiceCount > 0 && (
+          <span
+            className="card-times"
+            title={
+              item.practiceCount === 1 ? 'Practised once' : `Practised ${item.practiceCount} times`
+            }
+          >
+            <Icon name="lotus" size={12} />
+            {item.practiceCount}
+          </span>
+        )}
       </div>
       <button
         className="fav-btn"

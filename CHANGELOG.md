@@ -5,6 +5,17 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-09-24
+
+### Added
+
+- **How many times you have done each meditation.** A time is a session that covered at least half of its length (or, with the length unknown, one completed after a minute). The item page shows the count inside a thin ring that fills toward the next milestone - 7, 21, 40, 108, then every further 108 - with when you last practised it; cards carry a small count on the cover; and the reflection after a sit says which time that was, with one warm line at a milestone.
+
+### Changed
+
+- **A meditation's place is kept for ten minutes, for an accidental exit.** Within that window the item page offers *Resume at 12:34* first and *Begin again* beside it; after it the place is ignored and cleared, and the meditation begins at the top. Course and talk progress is kept indefinitely, as before - on the server, so every device picks up in the same place.
+- *Start over* now appears on courses and talks only; a meditation's place clears itself.
+
 ## [0.9.1] — 2026-09-23
 
 ### Fixed

@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.0',
+    items: [
+      {
+        emoji: '🪷',
+        text: 'Each meditation shows how many times you have done it, with gentle milestones at 7, 21, 40 and 108.',
+      },
+      {
+        emoji: '⏯️',
+        text: 'Left a meditation by accident? For ten minutes you can resume right where you were.',
+      },
+    ],
+  },
+  {
     version: '0.9.1',
     items: [
       {

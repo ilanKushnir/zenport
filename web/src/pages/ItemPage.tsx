@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { DocumentDto, MeditationDetailDto, PlanDto } from '@zenport/shared';
-import { formatClock, formatDuration } from '@zenport/shared';
+import { PRACTICE_RESUME_MINUTES, formatClock, formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
@@ -9,7 +9,8 @@ import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
 import { TypeMenu } from '../components/TypeSheet.tsx';
-import { SitTogetherSheet } from '../social.tsx';
+import { SitTogetherSheet, ago } from '../social.tsx';
+import { TimesPractised } from '../components/TimesPractised.tsx';
 import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
 
 export function ItemPage() {
@@ -69,7 +70,7 @@ export function ItemPage() {
   // Lessons pick up where they stopped, then at the first unfinished one; a
   // practice begins at the top (with Resume offered beside it).
   const begin = () => {
-    if (learning && resumeAt) {
+    if (resumeAt) {
       player.start(item, { trackId: resumeAt.trackId, resumeSec: resumeAt.positionSec });
     } else if (learning && nextTrack && doneCount > 0) {
       player.start(item, { trackId: nextTrack.id });
@@ -88,23 +89,25 @@ export function ItemPage() {
     detail.reload();
   };
   const beginLabel =
-    learning && resumeAt
-      ? item.trackCount > 1 && resumeTrack
-        ? `Continue · ${Part} ${resumeTrack.ord} at ${formatClock(resumeAt.positionSec)}`
-        : `Continue at ${formatClock(resumeAt.positionSec)}`
-      : item.type === 'course'
-        ? doneCount === 0
-          ? 'Start the course'
-          : nextTrack
-            ? `Continue · ${Part} ${nextTrack.ord}`
-            : 'Watch again'
-        : item.type === 'talk'
-          ? item.hasVideo
-            ? 'Watch'
-            : 'Listen'
-          : item.type === 'soundscape'
-            ? 'Play'
-            : 'Begin practice';
+    !learning && resumeAt
+      ? `Resume at ${formatClock(resumeAt.positionSec)}`
+      : learning && resumeAt
+        ? item.trackCount > 1 && resumeTrack
+          ? `Continue · ${Part} ${resumeTrack.ord} at ${formatClock(resumeAt.positionSec)}`
+          : `Continue at ${formatClock(resumeAt.positionSec)}`
+        : item.type === 'course'
+          ? doneCount === 0
+            ? 'Start the course'
+            : nextTrack
+              ? `Continue · ${Part} ${nextTrack.ord}`
+              : 'Watch again'
+          : item.type === 'talk'
+            ? item.hasVideo
+              ? 'Watch'
+              : 'Listen'
+            : item.type === 'soundscape'
+              ? 'Play'
+              : 'Begin practice';
 
   return (
     <>
@@ -166,6 +169,10 @@ export function ItemPage() {
             ) : null}
           </p>
 
+          {!learning && item.practiceCount > 0 && (
+            <TimesPractised count={item.practiceCount} last={item.lastPracticedAt} />
+          )}
+
           {item.missing ? (
             <p className="notice" style={{ marginTop: 16 }}>
               These files are currently missing from the mounted library. Your history and journal
@@ -176,19 +183,12 @@ export function ItemPage() {
               <button className="btn btn-primary btn-lg" onClick={begin}>
                 <Icon name="play" /> {beginLabel}
               </button>
-              {!learning && resumeAt && resumeTrack && (
+              {!learning && resumeAt && (
                 <button
                   className="btn btn-ghost"
-                  onClick={() =>
-                    player.start(item, {
-                      trackId: resumeAt.trackId,
-                      resumeSec: resumeAt.positionSec,
-                    })
-                  }
+                  onClick={() => player.start(item, { resumeSec: 0 })}
                 >
-                  <Icon name="history" size={16} /> Resume{' '}
-                  {item.trackCount > 1 ? `${resumeTrack.title} ` : ''}at{' '}
-                  {formatClock(resumeAt.positionSec)}
+                  <Icon name="restart" size={16} /> Begin again
                 </button>
               )}
               <button className="btn btn-ghost" onClick={() => setShowPlanSheet(true)}>
@@ -198,12 +198,18 @@ export function ItemPage() {
                 <Icon name="friends" size={16} />{' '}
                 {learning ? 'Study with a friend' : 'Sit with a friend'}
               </button>
-              {hasProgress && (
+              {learning && hasProgress && (
                 <button className="btn btn-ghost" onClick={() => setConfirmReset(true)}>
                   <Icon name="restart" size={16} /> Start over
                 </button>
               )}
             </div>
+          )}
+          {!learning && resumeAt && (
+            <p className="resume-note">
+              You stopped {ago(resumeAt.updatedAt)} - your place is kept for{' '}
+              {PRACTICE_RESUME_MINUTES} minutes in case that was by accident.
+            </p>
           )}
 
           <section className="section" aria-labelledby="sec-tracks">

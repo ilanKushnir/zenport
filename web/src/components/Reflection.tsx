@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { JournalEntryDto } from '@zenport/shared';
+import type { JournalEntryDto, MeditationDetailDto } from '@zenport/shared';
+import { useApi } from '../hooks.ts';
+import { milestoneLine, ordinal } from './TimesPractised.tsx';
 import { api, uploadBinary } from '../api.ts';
 import { Icon, Sheet } from './ui.tsx';
 import { usePlayer } from '../player/PlayerProvider.tsx';
@@ -41,6 +43,27 @@ export function ReflectionSheet() {
   const p = usePlayer();
   const prompt = p.reflect;
   if (!prompt) return null;
+  return <ReflectionSheetInner key={prompt.sessionId} />;
+}
+
+/** Which time this was - only when the sit just finished counted as one. */
+function TimesLine({ meditationId }: { meditationId: string }) {
+  const item = useApi<MeditationDetailDto>(`/api/items/${meditationId}`);
+  const d = item.data;
+  if (!d || d.practiceCount < 1 || !d.lastPracticedAt) return null;
+  if (Date.now() - new Date(d.lastPracticedAt).getTime() > 3 * 60_000) return null;
+  const special = milestoneLine(d.practiceCount);
+  return (
+    <p className={`rf-times${special ? ' milestone' : ''}`}>
+      <Icon name={special ? 'sparkle' : 'lotus'} size={14} />
+      {special ?? `Your ${ordinal(d.practiceCount)} time with this meditation.`}
+    </p>
+  );
+}
+
+function ReflectionSheetInner() {
+  const p = usePlayer();
+  const prompt = p.reflect!;
   return (
     <Sheet title="A moment of reflection" onClose={p.clearReflect} labelId="reflect-title">
       <div className="rf-hero">
@@ -57,6 +80,7 @@ export function ReflectionSheet() {
             : 'A line now is worth pages later - or skip it, the sit already counts.'}
         </p>
       </div>
+      {!prompt.learning && prompt.meditationId && <TimesLine meditationId={prompt.meditationId} />}
       <ReflectionForm
         sessionId={prompt.sessionId}
         meditationId={prompt.meditationId}

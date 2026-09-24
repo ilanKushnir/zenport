@@ -5,7 +5,14 @@ import type {
   MeditationSummaryDto,
   ResumeStateDto,
 } from '@zenport/shared';
-import { CONTENT_TYPES, isVideoExt, naturalCompare, type ContentType } from '@zenport/shared';
+import {
+  CONTENT_TYPES,
+  PRACTICE_RESUME_MINUTES,
+  isPracticeType,
+  isVideoExt,
+  naturalCompare,
+  type ContentType,
+} from '@zenport/shared';
 import type { Db } from '../db/index.js';
 import type { Config } from '../config.js';
 import { documentKind } from '../scanner/classify.js';
@@ -36,6 +43,10 @@ function rootLabel(config: Config, rootId: number): string {
  * not ticked done and the place is past the opening seconds and short of the
  * end. A lesson played to its last seconds is finished, not "in progress".
  */
+/** The oldest save a meditation's place may have and still be offered. */
+export const freshSince = () =>
+  new Date(Date.now() - PRACTICE_RESUME_MINUTES * 60_000).toISOString();
+
 /** A saved place is worth returning to: past the opening seconds, short of the end. */
 export function worthResuming(positionSec: number, durationSec: number | null): boolean {
   if (positionSec < 10) return false;
@@ -51,17 +62,20 @@ export function resumePoint(
   db: Db,
   userId: number,
   itemId: string,
+  practice = false,
 ): { trackId: string; positionSec: number; updatedAt: string } | null {
+  // A meditation's place is only for an accidental exit: kept a few minutes.
+  const since = practice ? freshSince() : '';
   const rows = db
     .prepare(
       `SELECT p.track_id, p.position_sec, p.updated_at, t.duration_sec
        FROM playback_positions p JOIN tracks t ON t.id = p.track_id
-       WHERE p.user_id = ? AND p.item_id = ? AND t.missing = 0
+       WHERE p.user_id = ? AND p.item_id = ? AND t.missing = 0 AND p.updated_at >= ?
          AND NOT EXISTS (SELECT 1 FROM track_completions c
                          WHERE c.user_id = p.user_id AND c.track_id = p.track_id)
        ORDER BY p.updated_at DESC`,
     )
-    .all(userId, itemId) as {
+    .all(userId, itemId, since) as {
     track_id: string;
     position_sec: number;
     updated_at: string;
@@ -125,8 +139,37 @@ function summarize(db: Db, config: Config, row: ItemRow, userId: number): Medita
     typeSource: manual ? 'manual' : 'auto',
     hasVideo: formats.some(isVideoExt),
     completedCount,
-    resumeSec: resumePoint(db, userId, row.id)?.positionSec ?? null,
+    resumeSec: resumePoint(db, userId, row.id, isPracticeType(type))?.positionSec ?? null,
+    ...practiceCount(
+      db,
+      userId,
+      row.id,
+      tracks.n > 0 && tracks.unknown === 0 ? tracks.total : null,
+    ),
   };
+}
+
+/**
+ * Times this account has done an item: sessions that covered at least half of
+ * its length - or, when the length is unknown, completed after a minute. A
+ * sit abandoned in the first minutes is not a time.
+ */
+function practiceCount(
+  db: Db,
+  userId: number,
+  itemId: string,
+  totalSec: number | null,
+): { practiceCount: number; lastPracticedAt: string | null } {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS n, MAX(COALESCE(ended_at, last_beat_at, started_at)) AS last
+       FROM practice_sessions
+       WHERE user_id = ? AND item_id = ? AND status != 'active'
+         AND (CASE WHEN ? IS NOT NULL THEN listened_sec >= ? * 0.5
+                   ELSE status = 'completed' AND listened_sec >= 60 END)`,
+    )
+    .get(userId, itemId, totalSec, totalSec ?? 0) as { n: number; last: string | null };
+  return { practiceCount: row.n, lastPracticedAt: row.last };
 }
 
 function asType(t: string): ContentType {
@@ -186,9 +229,12 @@ export function itemDetail(
     (
       db
         .prepare(
-          'SELECT track_id, position_sec FROM playback_positions WHERE user_id = ? AND item_id = ?',
+          'SELECT track_id, position_sec FROM playback_positions WHERE user_id = ? AND item_id = ? AND updated_at >= ?',
         )
-        .all(userId, itemId) as { track_id: string; position_sec: number }[]
+        .all(userId, itemId, isPracticeType(summary.type) ? freshSince() : '') as {
+        track_id: string;
+        position_sec: number;
+      }[]
     ).map((r) => [r.track_id, r.position_sec]),
   );
   const tracks = (
@@ -261,7 +307,12 @@ export function itemDetail(
     )
     .all(row.creator, itemId) as unknown as ItemRow[];
 
-  const resume: ResumeStateDto | null = resumePoint(db, userId, itemId);
+  const resume: ResumeStateDto | null = resumePoint(
+    db,
+    userId,
+    itemId,
+    isPracticeType(summary.type),
+  );
 
   return {
     ...summary,

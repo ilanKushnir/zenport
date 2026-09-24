@@ -153,7 +153,16 @@ export interface MeditationSummaryDto {
   completedCount: number;
   /** Seconds into the item's last-played, unfinished track; null when there is nothing to resume. */
   resumeSec: number | null;
+  /**
+   * How many times this account has done it: sessions that covered at least
+   * half of its length (or, with the length unknown, completed after a minute).
+   */
+  practiceCount: number;
+  lastPracticedAt: string | null;
 }
+
+/** Minutes a meditation's place is kept for an accidental exit; courses keep theirs. */
+export const PRACTICE_RESUME_MINUTES = 10;
 
 export interface MeditationDetailDto extends MeditationSummaryDto {
   /** Source-relative breadcrumb segments (never absolute host paths). */
