@@ -1062,11 +1062,12 @@ export interface FeaturedPickDto {
 export interface FeaturedDto {
   enabled: boolean;
   canUse: boolean;
-  /** The local day these picks are for; null when there are none. */
+  /** The local day the pick was made; null when there is none. */
   day: string | null;
+  /** One meditation (kept until it is begun, refreshed, or left unopened a few days). */
   picks: FeaturedPickDto[];
   generatedAt: string | null;
-  /** When today's picks could not be made. */
+  /** When a new pick could not be made. */
   error?: string;
 }
 

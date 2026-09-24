@@ -17,6 +17,7 @@ import {
   ReviewError,
   saveReview,
 } from '../../library/review.js';
+import { markFeaturedOpened } from '../../ai/featured.js';
 
 export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { db, config } = ctx;
@@ -44,6 +45,10 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     if (!body.success) return reply.code(400).send({ error: 'keys required' });
     const del = db.prepare('DELETE FROM continue_hidden WHERE user_id = ? AND key = ?');
     for (const k of body.data.keys) del.run(req.user!.id, k);
+    // An item's page was opened: if it is today's pick, it was seen.
+    for (const k of body.data.keys) {
+      if (k.startsWith('item:')) markFeaturedOpened(db, req.user!.id, k.slice(5));
+    }
     return { ok: true };
   });
 

@@ -1,13 +1,13 @@
 /**
  * Featured on Today (opt-in, any signed-in person with an AI to use).
- * GET makes the day's picks the first time they are asked for, then serves
- * them all day; refresh makes new ones on request.
+ * GET serves the current pick, making a new one when it is due (begun,
+ * left unopened STALE_DAYS, or none yet); refresh makes a new one on request.
  */
 import type { FastifyInstance } from 'fastify';
 import type { FeaturedDto } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { targetFor } from '../../ai/connection.js';
-import { generateFeatured, readFeatured } from '../../ai/featured.js';
+import { generateFeatured, pickIsDue, readFeatured } from '../../ai/featured.js';
 import { AiError } from '../../ai/providers.js';
 
 export function registerFeaturedRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -36,7 +36,9 @@ export function registerFeaturedRoutes(app: FastifyInstance, ctx: AppContext): v
     if (!base.enabled) return { ...base, day: null, picks: [], generatedAt: null };
     let current = readFeatured(db, config, user);
     let error: string | undefined;
-    if ((force || !current.fresh || current.picks.length === 0) && target) {
+    // A new pick only when asked, when this one was begun, when it sat
+    // unopened too long - or when there is none to show.
+    if ((force || current.picks.length === 0 || pickIsDue(db, user.id)) && target) {
       try {
         await generateFeatured(db, config, deps.ai, target, user);
         current = readFeatured(db, config, user);
@@ -44,11 +46,10 @@ export function registerFeaturedRoutes(app: FastifyInstance, ctx: AppContext): v
         error = why(err);
       }
     }
-    // Yesterday's picks are not today's: shown only while new ones cannot be made.
     return {
       ...base,
       day: current.day,
-      picks: current.fresh || error ? current.picks : [],
+      picks: current.picks,
       generatedAt: current.generatedAt,
       ...(error ? { error } : {}),
     };

@@ -766,6 +766,11 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_ai_sits_user ON ai_sits(user_id, created_at);
   `,
+  // v22: For you today keeps its pick until it is begun, refreshed, or left
+  // unopened a few days - so when it was opened matters.
+  `
+  ALTER TABLE featured_picks ADD COLUMN opened_at TEXT;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

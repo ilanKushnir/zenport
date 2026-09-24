@@ -1,16 +1,18 @@
 /**
- * Featured on Today (opt-in): three recordings your AI picked for today from
- * your history and intentions - not your plan - each with why it fits now.
+ * For you today (opt-in): one meditation your AI picked from your history and
+ * intentions - not your plan - with why it fits now. It stays until you begin
+ * it, ask for something else, or leave it unopened a few days.
  * Turned off, it offers itself once (only to someone with an AI to use) and
  * then stays out of the way.
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AiSettingsDto, FeaturedDto } from '@zenport/shared';
+import type { AiSettingsDto, FeaturedDto, MeditationDetailDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
+import { usePlayer } from '../player/PlayerProvider.tsx';
 import { itemLabel, TYPE_META } from '../content.ts';
 import { Cover, Icon } from './ui.tsx';
 
@@ -55,11 +57,9 @@ function Invite() {
       <div className="feat-invite">
         <div className="feat-ghosts" aria-hidden="true">
           <span />
-          <span />
-          <span />
         </div>
         <div className="feat-invite-text">
-          <strong>Three from your library, picked each day</strong>
+          <strong>One meditation, picked for you</strong>
           <span className="sub">
             Your AI chooses from what you practise and why you practise - never your plan - and says
             why each fits today.
@@ -83,8 +83,11 @@ function Invite() {
 
 function Featured() {
   const featured = useApi<FeaturedDto>('/api/ai/featured');
+  const player = usePlayer();
   const [again, setAgain] = useState(false);
+  const [starting, setStarting] = useState(false);
   const f = featured.data;
+  const pick = f?.picks[0] ?? null;
 
   const pickAgain = async () => {
     setAgain(true);
@@ -96,15 +99,27 @@ function Featured() {
     }
   };
 
-  if (f && !f.canUse && f.picks.length === 0) {
+  const begin = async () => {
+    if (!pick) return;
+    setStarting(true);
+    try {
+      player.start(await api.get<MeditationDetailDto>(`/api/items/${pick.item.id}`));
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  if (f && !f.canUse && !pick) {
     return (
       <section className="section" aria-labelledby="sec-feat">
         <div className="section-head">
-          <h2 id="sec-feat">For you today</h2>
+          <h2 id="sec-feat">
+            <Icon name="sparkle" size={16} /> For you today
+          </h2>
         </div>
         <p className="feat-quiet">
-          Your AI is not connected any more. <Link to="/ai/setup?return=/">Set it up</Link> to get
-          today&apos;s picks.
+          Your AI is not connected any more. <Link to="/ai/setup?return=/">Set it up</Link> to get a
+          pick for today.
         </p>
       </section>
     );
@@ -117,39 +132,49 @@ function Featured() {
         <h2 id="sec-feat">
           <Icon name="sparkle" size={16} /> For you today
         </h2>
-        <button
-          className="icon-btn"
-          onClick={() => void pickAgain()}
-          disabled={loading}
-          aria-label="Pick again"
-          title="Pick again"
-        >
-          <Icon name="restart" size={16} />
-        </button>
+        {pick && (
+          <button
+            className="btn btn-sm btn-ghost feat-again"
+            onClick={() => void pickAgain()}
+            disabled={loading}
+            title="Pick something else"
+          >
+            <Icon name="restart" size={14} /> Something else
+          </button>
+        )}
       </div>
       {loading ? (
-        <div className="feat-list" aria-label="Your AI is choosing">
-          {[0, 1, 2].map((n) => (
-            <div key={n} className="feat-card skeleton" />
-          ))}
-        </div>
-      ) : f && f.picks.length > 0 ? (
-        <div className="feat-list">
-          {f.picks.map((p) => (
-            <Link key={p.item.id} className="feat-card" to={`/m/${p.item.id}`}>
-              <Cover coverId={p.item.coverId} title={p.item.title} className="feat-cover" />
-              <span className="feat-text">
-                <span className="feat-title">{itemLabel(p.item)}</span>
-                <span className="feat-meta">
-                  {TYPE_META[p.item.type].label}
-                  {p.item.totalDurationSec ? ` · ${formatDuration(p.item.totalDurationSec)}` : ''}
-                  {` · ${p.item.creator}`}
-                </span>
-                <span className="feat-why">{p.why}</span>
-              </span>
-            </Link>
-          ))}
-        </div>
+        <div className="feat-one skeleton" aria-label="Your AI is choosing" />
+      ) : pick ? (
+        <article className="feat-one">
+          <Link
+            className="feat-one-cover"
+            to={`/m/${pick.item.id}`}
+            tabIndex={-1}
+            aria-hidden="true"
+          >
+            <Cover coverId={pick.item.coverId} title={pick.item.title} size={640} />
+          </Link>
+          <div className="feat-one-body">
+            <span className="feat-one-meta">
+              {TYPE_META[pick.item.type].label}
+              {pick.item.totalDurationSec ? ` · ${formatDuration(pick.item.totalDurationSec)}` : ''}
+              {` · ${pick.item.creator}`}
+            </span>
+            <h3 className="feat-one-title">
+              <Link to={`/m/${pick.item.id}`}>{itemLabel(pick.item)}</Link>
+            </h3>
+            {pick.why && <p className="feat-one-why">{pick.why}</p>}
+            <div className="feat-one-actions">
+              <button className="btn btn-primary" onClick={() => void begin()} disabled={starting}>
+                <Icon name="play" size={16} /> Begin
+              </button>
+              <Link className="btn btn-ghost" to={`/m/${pick.item.id}`}>
+                Details
+              </Link>
+            </div>
+          </div>
+        </article>
       ) : (
         <p className="feat-quiet">
           {f?.error ?? featured.error ?? 'Nothing picked yet.'}{' '}

@@ -5,6 +5,13 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-09-24
+
+### Changed
+
+- **For you today is one meditation.** A single guided meditation from your library (a soundscape only if there are no meditations), in a larger card: its artwork, what it is, why it fits now, **Begin** to play it straight away, and Details.
+- **It stays until you have sat with it.** A new pick comes only when you begin the current one, tap **Something else**, or leave it unopened for three days (opening its page counts). It no longer changes every day. A new pick is never the one it replaces, one of the recent picks, or the last thing you played.
+
 ## [0.29.0] — 2026-09-24
 
 ### Added

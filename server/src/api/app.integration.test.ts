@@ -143,14 +143,12 @@ function fakeOpenAi(): AiClient {
       }
       if (schemaName === 'zenport_featured') {
         featuredCalls++;
-        return {
-          picks: [
-            { handle: 'm2', why: 'You have not tried this one.' },
-            { handle: 'm2', why: 'Twice.' },
-            { handle: 'm404', why: 'Made up.' },
-            { handle: 'm1', why: 'Mornings suit you - m1 is short.' },
-          ],
-        };
+        // The first meditation not marked "not to pick".
+        const not = /Not to pick[^:]*: ([^\n]*)\./.exec(user)?.[1]?.split(', ') ?? [];
+        const handle = [...user.matchAll(/^(m\d+) \|/gm)]
+          .map((m) => m[1]!)
+          .find((h) => !not.includes(h));
+        return { handle, why: `Mornings suit you - ${handle} is short.` };
       }
       if (schemaName === 'zenport_guide') {
         const h = /^(m\d+) \|/m.exec(user)?.[1] ?? 'm1';
@@ -2325,8 +2323,12 @@ describe('The guide', () => {
 });
 
 describe('Featured on Today', () => {
-  it('is opt-in, picks once a day from the library, and refreshes on request', async () => {
-    for (const rel of ['Mira Solen/Slow Tide.mp3', 'Mira Solen/Night Rain.mp3']) {
+  it('is opt-in, keeps one meditation until begun, refreshed or left unopened', async () => {
+    for (const rel of [
+      'Mira Solen/Slow Tide.mp3',
+      'Mira Solen/Night Rain.mp3',
+      'Mira Solen/Still Water.mp3',
+    ]) {
       const abs = path.join(libRoot, rel);
       mkdirSync(path.dirname(abs), { recursive: true });
       writeFileSync(abs, `${rel}:${'f'.repeat(300)}`);
@@ -2344,9 +2346,6 @@ describe('Featured on Today', () => {
       headers: auth(),
       payload: { aiFeatured: true },
     });
-    expect(
-      (await app.inject({ method: 'GET', url: '/api/prefs', headers: auth() })).json().aiFeatured,
-    ).toBe(true);
     expect(await get()).toMatchObject({ enabled: true, canUse: false, picks: [] });
     expect(featuredCalls).toBe(calls0);
 
@@ -2358,16 +2357,56 @@ describe('Featured on Today', () => {
     });
     const first = await get();
     expect(featuredCalls).toBe(calls0 + 1);
-    expect(first.picks).toHaveLength(2);
-    expect(first.picks[1].why).toBe('Mornings suit you - it is short.');
-    expect(first.picks[0].item.id).not.toBe(first.picks[1].item.id);
-    expect(lastPrompt).toContain('Library (handle');
-    expect(lastPrompt).not.toMatch(/plan/i);
+    expect(first.picks).toHaveLength(1);
+    expect(first.picks[0].item.type).toBe('meditation');
+    expect(first.picks[0].why).toBe('Mornings suit you - it is short.');
+    expect(lastPrompt).not.toMatch(/plan \"/i);
 
+    // It holds: another visit, another day even, makes nothing new.
     await get();
+    db.prepare("UPDATE featured_picks SET day = '2000-01-01'").run();
+    expect((await get()).picks[0].item.id).toBe(first.picks[0].item.id);
     expect(featuredCalls).toBe(calls0 + 1);
-    await app.inject({ method: 'POST', url: '/api/ai/featured/refresh', headers: auth() });
+
+    // Asked for another: a different one.
+    const second = (
+      await app.inject({ method: 'POST', url: '/api/ai/featured/refresh', headers: auth() })
+    ).json();
     expect(featuredCalls).toBe(calls0 + 2);
+    expect(second.picks[0].item.id).not.toBe(first.picks[0].item.id);
+
+    // Begun: the next visit brings a new one.
+    await app.inject({
+      method: 'POST',
+      url: '/api/practice/start',
+      headers: auth(),
+      payload: { meditationId: second.picks[0].item.id },
+    });
+    const third = await get();
+    expect(featuredCalls).toBe(calls0 + 3);
+    expect(third.picks[0].item.id).not.toBe(second.picks[0].item.id);
+
+    // Opened, then days pass: it stays.
+    const old = new Date(Date.now() - 4 * 86_400_000).toISOString();
+    await app.inject({
+      method: 'POST',
+      url: '/api/continue/shown',
+      headers: auth(),
+      payload: { keys: [`item:${third.picks[0].item.id}`] },
+    });
+    db.prepare('UPDATE featured_picks SET created_at = ?').run(old);
+    await get();
+    expect(featuredCalls).toBe(calls0 + 3);
+    // Never opened, and days pass: a new one.
+    db.prepare('UPDATE featured_picks SET created_at = ?, opened_at = NULL').run(old);
+    await get();
+    expect(featuredCalls).toBe(calls0 + 4);
+    // Three picks stored by the earlier version: replaced at the next look.
+    db.prepare('UPDATE featured_picks SET body = ?').run(
+      JSON.stringify([{ id: third.picks[0].item.id, why: 'old' }]),
+    );
+    await get();
+    expect(featuredCalls).toBe(calls0 + 5);
   });
 });
 
