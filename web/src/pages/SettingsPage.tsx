@@ -6,7 +6,7 @@ import { useApi } from '../hooks.ts';
 import { useAuth } from '../App.tsx';
 import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
-import { REPO_URL, VersionRow, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
+import { REPO_URL, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
 import { Avatar, Icon, Slider, Switch } from '../components/ui.tsx';
 import { AiKeyForm } from '../components/AiPlanSheet.tsx';
@@ -74,7 +74,7 @@ export function SettingsPage() {
         <div className="section-head">
           <h2 id="s-about">About</h2>
         </div>
-        <div className="card" style={{ maxWidth: 520 }}>
+        <div className="card settings-card">
           <dl className="kv">
             <dt>Version</dt>
             <dd>
@@ -93,9 +93,6 @@ export function SettingsPage() {
               </a>
             </dd>
           </dl>
-          <div style={{ marginTop: 12 }}>
-            <VersionRow />
-          </div>
         </div>
       </section>
     </>
@@ -711,7 +708,7 @@ function OfflineSection() {
       <div className="section-head">
         <h2 id="s-offline">Offline</h2>
       </div>
-      <Link className="people-link card" to="/downloads">
+      <Link className="people-link card settings-card" to="/downloads">
         <span className="set-group-ic">
           <Icon name="on-device" size={19} />
         </span>

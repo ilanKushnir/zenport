@@ -272,7 +272,8 @@
      home indicator, clearly its own surface rather than more background. */
   .mobile-tabs {
     position: fixed;
-    inset-inline: 10px;
+    /* Edge to edge on a phone; a comfortable bar, centred, on a tablet. */
+    inset-inline: max(10px, calc(50% - 300px));
     inset-block-end: var(--tabbar-gap);
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1355,7 +1356,7 @@
 
 @media (max-width: 900px) {
   .mini {
-    inset-inline: var(--s2);
+    inset-inline: max(var(--s2), calc(50% - 300px));
     inset-block-end: calc(var(--tabbar-h) + var(--s2));
   }
   .mini-desk,
@@ -7317,7 +7318,13 @@ span.role-chip {
   text-decoration: none;
 }
 
+/* Settings cards outside a group line up with the groups above them. */
+.settings-card {
+  max-inline-size: 680px;
+}
+
 .people-link .grow {
+  flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 2px;
@@ -8741,6 +8748,7 @@ span.role-chip {
 }
 
 .admin-scan-top .grow {
+  flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 2px;
@@ -8796,4 +8804,12 @@ span.role-chip {
   padding-inline-start: 18px;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* While a sheet or the player covers the page: the page stays exactly where
+   it is (no re-layout, so nothing fixed moves) and simply does not scroll. */
+html.scroll-locked,
+html.scroll-locked body {
+  overflow: hidden;
+  overscroll-behavior: none;
 }

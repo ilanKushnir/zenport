@@ -90,25 +90,39 @@ export function CommandPalette() {
       ...(isAdmin
         ? [
             {
-              id: 'sources',
-              label: 'Sources',
-              icon: 'sources',
-              group: 'Go' as const,
-              run: go('/admin/sources'),
-            },
-            {
               id: 'admin',
-              label: 'Admin',
+              label: 'Admin - this ZenPort at a glance',
               icon: 'shield',
               group: 'Go' as const,
               run: go('/admin'),
             },
             {
               id: 'people',
-              label: 'People',
+              label: 'People - invitations and roles',
               icon: 'user-plus',
               group: 'Go' as const,
               run: go('/admin/people'),
+            },
+            {
+              id: 'folders',
+              label: 'Library folders',
+              icon: 'folder',
+              group: 'Go' as const,
+              run: go('/admin/folders'),
+            },
+            {
+              id: 'sources',
+              label: 'YouTube sources',
+              icon: 'sources',
+              group: 'Go' as const,
+              run: go('/admin/sources'),
+            },
+            {
+              id: 'integrations',
+              label: 'Integrations',
+              icon: 'plug',
+              group: 'Go' as const,
+              run: go('/admin/integrations'),
             },
           ]
         : []),
