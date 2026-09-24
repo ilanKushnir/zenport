@@ -100,6 +100,20 @@ function fakeOpenAi(): AiClient {
           ],
         };
       }
+      if (schemaName === 'zenport_guide') {
+        const h = /^(m\d+) \|/m.exec(user)?.[1] ?? 'm1';
+        return {
+          summary: 'You sat three times this week, mostly in the morning.',
+          goingWell: ['Mornings are becoming a habit.', ''],
+          patterns: [{ title: 'Mornings', detail: 'Every sit was before noon.' }],
+          tips: [
+            { title: 'Try this one', detail: 'Ten minutes after waking.', handle: h },
+            { title: 'Invented', detail: 'Not in the library.', handle: 'm999' },
+          ],
+          next: { title: 'Steadier', detail: 'Five days a week.', action: 'sideways' },
+          reflection: 'What helps you sit down?',
+        };
+      }
       if (schemaName === 'zenport_about') {
         return {
           items: [
@@ -2083,5 +2097,131 @@ describe('AI library enhancements', () => {
         })
       ).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('The guide', () => {
+  it('discloses what it sends, leaves the journal out unless included, and keeps its notes', async () => {
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const med = lib.items[0];
+    const s = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/practice/start',
+        headers: auth(),
+        payload: { meditationId: med.id },
+      })
+    ).json();
+    await app.inject({
+      method: 'POST',
+      url: `/api/practice/${s.id}/finish`,
+      headers: auth(),
+      payload: { status: 'completed', reason: 'finished' },
+    });
+    db.prepare('UPDATE practice_sessions SET listened_sec = 600 WHERE id = ?').run(s.id);
+    await app.inject({
+      method: 'POST',
+      url: '/api/journal',
+      headers: auth(),
+      payload: { body: 'A private line about my week.', mood: 4, tags: [] },
+    });
+
+    const off = (
+      await app.inject({
+        method: 'GET',
+        url: '/api/ai/guide/preview?days=7&journal=0',
+        headers: auth(),
+      })
+    ).json();
+    expect(off).toMatchObject({
+      canUse: false,
+      days: 7,
+      sessions: 1,
+      practiceDays: 1,
+      minutes: 10,
+      journalEntries: 1,
+      journalIncluded: false,
+    });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/ai/guide',
+          headers: auth(),
+          payload: { days: 7, journal: false },
+        })
+      ).statusCode,
+    ).toBe(400);
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/ai/guide',
+          headers: auth(),
+          payload: { days: 14, journal: false },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const note = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/ai/guide',
+        headers: auth(),
+        payload: { days: 7, journal: false, question: 'Evenings are hard.' },
+      })
+    ).json();
+    expect(lastPrompt).toContain('1 sessions on 1 of 7 days, 10 minutes');
+    expect(lastPrompt).toContain('Evenings are hard.');
+    expect(lastPrompt).not.toContain('A private line');
+    expect(note).toMatchObject({
+      days: 7,
+      usedJournal: false,
+      question: 'Evenings are hard.',
+      goingWell: ['Mornings are becoming a habit.'],
+      next: { action: 'none' },
+    });
+    expect(note.tips).toHaveLength(2);
+    expect(note.tips[0].item).toMatchObject({ id: expect.any(String) });
+    expect(note.tips[1].item).toBeNull();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/ai/guide',
+      headers: auth(),
+      payload: { days: 30, journal: true },
+    });
+    expect(lastPrompt).toContain('felt settled');
+    expect(lastPrompt).toContain('A private line about my week.');
+    const notes = (
+      await app.inject({ method: 'GET', url: '/api/ai/guide/notes', headers: auth() })
+    ).json();
+    expect(notes.map((n: { usedJournal: boolean }) => n.usedJournal)).toEqual([true, false]);
+
+    // Only one's own notes can be deleted (the query is scoped to the owner).
+    expect(
+      (await app.inject({ method: 'DELETE', url: '/api/ai/guide/notes/99999', headers: auth() }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: `/api/ai/guide/notes/${notes[0].id}`,
+          headers: auth(),
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/ai/guide/notes', headers: auth() })).json(),
+    ).toHaveLength(1);
   });
 });

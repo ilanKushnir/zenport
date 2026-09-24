@@ -42,6 +42,12 @@ const FEATURES: Feature[] = [
     hint: 'A path of practice and study from your library, around your time.',
   },
   {
+    to: '/ai/guide',
+    icon: 'lotus',
+    title: 'Your guide',
+    hint: 'How your practice is really going, what to try next, and where to head.',
+  },
+  {
     to: '/ai/library',
     icon: 'library',
     title: 'Enhance the library',

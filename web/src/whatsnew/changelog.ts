@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.25.0',
+    items: [
+      {
+        emoji: '🪷',
+        text: 'Your guide: an AI mentor looks back over your practice - what is going well, what to try, where to head next.',
+      },
+      {
+        emoji: '📓',
+        text: 'Your journal goes along only when you switch it on for that review, and you see what is sent first.',
+      },
+    ],
+  },
+  {
     version: '0.24.0',
     items: [
       {

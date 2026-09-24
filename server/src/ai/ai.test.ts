@@ -4,6 +4,7 @@ import { rankModels } from './providers.js';
 const chatModels = (all: string[]) => rankModels('openai', all);
 import { planPrompt, renderCatalog, resolveProposal, type CatalogEntry } from './planner.js';
 import { openSecret, sealSecret } from './secret.js';
+import { resolveGuide } from './guide.js';
 
 describe('key encryption', () => {
   it('round-trips, and refuses the wrong secret or a tampered value', () => {
@@ -259,5 +260,32 @@ describe('planner', () => {
     );
     expect(user).toContain('Approach "learn-first"');
     expect(user).toContain('as long as it takes');
+  });
+});
+
+describe('guide answers', () => {
+  const item = { id: 'abc', title: 'Night Rain', creator: 'Quiet Harbor', coverId: null };
+  const handles = new Map([['m12', item as unknown as MeditationSummaryDto]]);
+
+  it('calls recordings by title, drops unknown handles and caps what it keeps', () => {
+    const g = resolveGuide(
+      {
+        summary: 'You liked m12 "Night Rain" and m12 at bedtime; m99 is unknown.',
+        goingWell: ['a', '', 'b', 'c', 'd'],
+        patterns: [],
+        tips: [
+          { title: 'Listen', detail: 'Try m12 tonight.', handle: 'm12' },
+          { title: 'Made up', detail: '', handle: 'm99' },
+        ],
+        next: { title: 'On', detail: 'Keep going.', action: 'elsewhere' },
+        reflection: 'What helps?',
+      },
+      handles,
+    );
+    expect(g.summary).toBe('You liked "Night Rain" and “Night Rain” at bedtime; m99 is unknown.');
+    expect(g.goingWell).toEqual(['a', 'b', 'c']);
+    expect(g.tips[0]).toMatchObject({ detail: 'Try “Night Rain” tonight.', item: { id: 'abc' } });
+    expect(g.tips[1]!.item).toBeNull();
+    expect(g.next.action).toBe('none');
   });
 });

@@ -5,6 +5,14 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-09-24
+
+### Added
+
+- **Your guide** (AI → Your guide). An AI mentor looks back over a week, a month or three months: your sessions and when you sit, streaks, courses, how your plans have gone, your intentions and, if you ask, what is on your mind. It answers with how it is going, what is going well, what it notices, up to four things to try (linked to recordings in your library), where to head next (with Plan with AI or Adjust your plan when that fits), and a question to sit with. "Write about it" opens the journal with that question.
+  - **Your journal, only when you say.** A switch for each review, off every time. Before anything is sent, the page lists exactly what will be.
+  - **Notes are kept.** Every answer is saved as a dated note, only for you, and can be deleted.
+
 ## [0.24.0] — 2026-09-24
 
 ### Added

@@ -980,3 +980,56 @@ export interface EnhanceRunDto {
   /** Plain notes: what was skipped or could not be found. */
   notes: string[];
 }
+
+// ── The guide (AI mentor) ─────────────────────────────────────────────────
+
+export const GUIDE_PERIODS = [7, 30, 90] as const;
+export type GuidePeriod = (typeof GUIDE_PERIODS)[number];
+
+/** What a review will send, shown before anything is sent. */
+export interface GuideDisclosureDto {
+  canUse: boolean;
+  /** The provider and model it goes to (for "sent to …"). */
+  provider: AiProvider | null;
+  model: string | null;
+  days: number;
+  sessions: number;
+  practiceDays: number;
+  minutes: number;
+  lessons: number;
+  plans: number;
+  intentions: boolean;
+  /** Entries in the period - sent only when the person includes them. */
+  journalEntries: number;
+  journalIncluded: boolean;
+  libraryItems: number;
+}
+
+export interface GuideRequest {
+  days: GuidePeriod;
+  journal: boolean;
+  question?: string;
+}
+
+export interface GuideTipDto {
+  title: string;
+  detail: string;
+  item: { id: string; title: string; creator: string; coverId: string | null } | null;
+}
+
+export type GuideNextAction = 'none' | 'plan' | 'adjust';
+
+export interface GuideNoteDto {
+  id: number;
+  createdAt: string;
+  days: number;
+  usedJournal: boolean;
+  question: string | null;
+  model: string | null;
+  summary: string;
+  goingWell: string[];
+  patterns: { title: string; detail: string }[];
+  tips: GuideTipDto[];
+  next: { title: string; detail: string; action: GuideNextAction };
+  reflection: string;
+}

@@ -97,14 +97,17 @@ export function ReflectionForm({
   entry,
   onDone,
   onSkip,
+  prompt,
 }: {
   sessionId?: number | null;
   meditationId?: string | null;
   entry?: JournalEntryDto;
+  /** A question to write about (from the guide); it becomes the entry's title. */
+  prompt?: string;
   onDone: (entry: JournalEntryDto) => void;
   onSkip?: () => void;
 }) {
-  const [title, setTitle] = useState(entry?.title ?? '');
+  const [title, setTitle] = useState(entry?.title ?? prompt?.slice(0, 200) ?? '');
   const [body, setBody] = useState(entry?.body ?? '');
   const [mood, setMood] = useState<number | null>(entry?.mood ?? null);
   const [tags, setTags] = useState(entry?.tags.join(', ') ?? '');
@@ -157,7 +160,7 @@ export function ReflectionForm({
     });
   };
 
-  const empty = !body.trim() && !title.trim() && !mood && !voiceBlob;
+  const empty = !body.trim() && (!title.trim() || title === prompt) && !mood && !voiceBlob;
 
   return (
     <div className="rf">
@@ -181,8 +184,8 @@ export function ReflectionForm({
       </fieldset>
 
       <div className="rf-block">
-        <label htmlFor="rf-body" className="rf-label">
-          What surfaced?
+        <label htmlFor="rf-body" className={`rf-label${prompt ? ' rf-prompt' : ''}`}>
+          {prompt ?? 'What surfaced?'}
         </label>
         <textarea
           id="rf-body"

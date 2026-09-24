@@ -85,6 +85,13 @@ export function CommandPalette() {
         run: go('/ai'),
       },
       {
+        id: 'guide',
+        label: 'Your guide - how your practice is going',
+        icon: 'lotus',
+        group: 'Go',
+        run: go('/ai/guide'),
+      },
+      {
         id: 'intentions',
         label: 'Your intentions - why you practise',
         icon: 'heart',

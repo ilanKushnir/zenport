@@ -682,6 +682,20 @@ export const MIGRATIONS: string[] = [
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
   );
   `,
+  // v16: the guide's notes - one per review, kept for their owner only.
+  `
+  CREATE TABLE guide_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    days INTEGER NOT NULL,
+    used_journal INTEGER NOT NULL DEFAULT 0,
+    question TEXT,
+    body TEXT NOT NULL,
+    model TEXT
+  );
+  CREATE INDEX idx_guide_notes_user ON guide_notes(user_id, created_at);
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {
