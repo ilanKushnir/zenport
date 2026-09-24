@@ -5,7 +5,7 @@ import { PRACTICE_RESUME_MINUTES, formatClock, formatDuration } from '@zenport/s
 import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
-import { DoneTick } from '../components/DoneTick.tsx';
+import { DoneTick, doneWords } from '../components/DoneTick.tsx';
 import { TrackOrderEditor } from '../components/TrackOrderEditor.tsx';
 import { continueSeriesKey } from '../components/Shelves.tsx';
 import { usePlayer } from '../player/PlayerProvider.tsx';
@@ -261,7 +261,6 @@ export function ItemPage() {
                   {item.customOrder ? 'Your order' : 'Edit order'}
                 </button>
               ) : (
-                learning &&
                 item.trackCount > 1 && (
                   <span className="section-note">Tap a circle to mark it done - or not</span>
                 )
@@ -283,10 +282,11 @@ export function ItemPage() {
                     className={`row${t.completed ? ' done' : ''}${learning && t.id === nextTrack?.id && doneCount > 0 ? ' next' : ''}`}
                     key={t.id}
                   >
-                    {learning ? (
+                    {learning || item.tracks.length > 1 ? (
                       <DoneTick
                         track={t}
                         done={t.completed}
+                        num={learning ? undefined : t.ord}
                         onToggle={() => void toggleDone(t.id, !t.completed)}
                       />
                     ) : (
@@ -319,6 +319,14 @@ export function ItemPage() {
                           ) : null)}
                       </div>
                       <div className="sub">
+                        {t.completed && (
+                          <>
+                            <span className="done-label">
+                              <Icon name="check" size={12} /> {doneWords(t).done}
+                            </span>
+                            {' · '}
+                          </>
+                        )}
                         {t.video ? (
                           <>
                             <Icon name="video" size={12} /> video

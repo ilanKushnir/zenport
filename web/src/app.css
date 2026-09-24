@@ -5913,8 +5913,43 @@
   }
 }
 
-.row.done .grow > div:first-child {
+/* Done reads at a glance: a filled tick, a coloured word - and the title
+   stays as bright as the rest (dimming made a finished part look missing). */
+.done-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.done-label .nav-ic {
+  vertical-align: 0;
+}
+
+.row.done {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--accent) 9%, transparent),
+    transparent 70%
+  );
+  border-radius: var(--r-md);
+}
+
+.done-tick {
+  position: relative;
+}
+
+.dt-num {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--muted);
+  pointer-events: none;
 }
 
 .row.next {

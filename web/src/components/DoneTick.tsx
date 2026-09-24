@@ -29,15 +29,17 @@ function Ring({ done, size }: { done: boolean; size: number }) {
   );
 }
 
-/** A round tick, for lists. */
+/** A round tick, for lists. Still ahead, it can carry the part's number. */
 export function DoneTick({
   track,
   done,
   onToggle,
+  num,
 }: {
   track: Pick<TrackDto, 'title' | 'video' | 'role'>;
   done: boolean;
   onToggle: () => void;
+  num?: number;
 }) {
   const w = doneWords(track);
   const label = done
@@ -55,7 +57,12 @@ export function DoneTick({
         onToggle();
       }}
     >
-      <Ring done={done} size={22} />
+      <Ring done={done} size={num !== undefined ? 28 : 22} />
+      {num !== undefined && !done && (
+        <span className="dt-num" aria-hidden="true">
+          {num}
+        </span>
+      )}
     </button>
   );
 }

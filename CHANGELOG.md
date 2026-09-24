@@ -5,6 +5,13 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.30.1] — 2026-09-24
+
+### Changed
+
+- **Finished parts stand out.** On any recording with several parts, meditations included, each part has a tick: an empty numbered circle while it is ahead, a filled circle with a check once done, plus a coloured "Practised" (or "Done", "Watched") label and a soft highlight on the row. Titles no longer dim, which made a finished part look unavailable.
+- **Untick to come back to it.** Tap a filled tick to mark the part not done again, whether you'd like to repeat it or it didn't go the way you wanted. The same tick is in the player.
+
 ## [0.30.0] — 2026-09-24
 
 ### Changed

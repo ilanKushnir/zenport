@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.30.1',
+    items: [
+      {
+        emoji: '✅',
+        text: 'Finished parts now show a clear tick - tap it again to mark a part not done and come back to it.',
+      },
+    ],
+  },
+  {
     version: '0.30.0',
     items: [
       {
