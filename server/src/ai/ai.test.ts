@@ -3,6 +3,7 @@ import type { AiPlanRequest, MeditationSummaryDto } from '@zenport/shared';
 import { rankModels } from './providers.js';
 const chatModels = (all: string[]) => rankModels('openai', all);
 import { planPrompt, renderCatalog, resolveProposal, type CatalogEntry } from './planner.js';
+import { compactLessons, listByShelf, shortTitle } from './catalog.js';
 import { openSecret, sealSecret } from './secret.js';
 import { resolveGuide } from './guide.js';
 import { resolvePick } from './featured.js';
@@ -84,9 +85,10 @@ const req: AiPlanRequest = {
 describe('planner', () => {
   it('renders items with lessons beneath, and marks what is done', () => {
     const text = renderCatalog(entries);
-    expect(text).toContain('m1 | meditation | Mira Solen > Morning Ritual | 2 tracks, 20 min');
-    expect(text).toContain('    1. Intro (3m) [done]');
-    expect(text).toContain('m2 | course (video)');
+    expect(text).toMatch(/^Mira Solen:$/m);
+    expect(text).toMatch(/^ {2}m1 .* · meditation · 2 tracks, 20 min/m);
+    expect(text).toContain('1. Intro (3m) [done]');
+    expect(text).toMatch(/^ {2}m2 .* · course \(video\)/m);
   });
 
   it('trusts nothing: unknown handles, duplicates and wrong kinds are dropped', () => {
@@ -261,6 +263,48 @@ describe('planner', () => {
     );
     expect(user).toContain('Approach "learn-first"');
     expect(user).toContain('as long as it takes');
+  });
+});
+
+describe('compact catalogue', () => {
+  const l = (title: string, minutes: number | null, done = false) => ({
+    title,
+    minutes,
+    done,
+    practice: false,
+  });
+
+  it('drops a series name the title repeats, never to nothing', () => {
+    expect(shortTitle('Calm Pack - Day 3', 'Calm Pack')).toBe('Day 3');
+    expect(shortTitle('Calm Pack', 'Calm Pack')).toBe('Calm Pack');
+    expect(shortTitle('Evening Sit', 'Calm Pack')).toBe('Evening Sit');
+  });
+
+  it('says a plain numbered run as a range, with one length', () => {
+    const days = Array.from({ length: 10 }, (_, k) => l(`Calm Pack Day ${k + 1}`, 10 + (k % 2)));
+    expect(compactLessons(days, 'Calm Pack')).toEqual(['    parts: Day 1–10, ~11m each']);
+  });
+
+  it('keeps every part named when one is done or the names differ', () => {
+    const parts = [l('Day 1', 10, true), l('Day 2', 10), l('Day 3', 25)];
+    expect(compactLessons(parts, null)).toEqual([
+      '    parts: 1. Day 1 (10m) [done]; 2. Day 2 (10m); 3. Day 3 (25m)',
+    ]);
+  });
+
+  it('writes each shelf heading once', () => {
+    const it2 = (title: string, collection: string | null) => ({
+      handle: title,
+      item: { ...item(title, 'meditation', title), collection },
+      tail: '10 min',
+    });
+    expect(listByShelf([it2('b', 'Pack'), it2('a', 'Pack'), it2('c', null)])).toEqual([
+      'Mira Solen:',
+      '  c c · 10 min',
+      'Mira Solen > Pack:',
+      '  a a · 10 min',
+      '  b b · 10 min',
+    ]);
   });
 });
 

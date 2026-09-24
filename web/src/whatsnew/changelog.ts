@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.32.3',
+    items: [
+      {
+        emoji: '🔎',
+        text: 'Reviewing the library shows what to look at and what would change - before and after, with one tap to apply or keep.',
+      },
+      {
+        emoji: '✨',
+        text: "Your AI's suggested fixes appear right on the recording they are about.",
+      },
+    ],
+  },
+  {
     version: '0.32.2',
     items: [
       {

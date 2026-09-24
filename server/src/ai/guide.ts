@@ -19,6 +19,7 @@ import type {
 } from '@zenport/shared';
 import { TIMER_ITEM_ID } from '@zenport/shared';
 import type { Config } from '../config.js';
+import { listByShelf } from './catalog.js';
 import type { Db } from '../db/index.js';
 import { libraryDto } from '../library/queries.js';
 import { expandOccurrences } from '../plans/occurrences.js';
@@ -315,13 +316,16 @@ export function guideContext(
 
   // ── Library, to point at ──
   lines.push('');
-  lines.push('Their library (handle | type | creator > series > title | length | progress):');
-  for (const [h, i] of handles) {
-    const played = perItem.get(i.id);
-    lines.push(
-      `${h} | ${i.type} | ${clip(i.creator, 50)}${i.collection ? ` > ${clip(i.collection, 60)}` : ''} > ${clip(i.title, 80)} | ${i.totalDurationSec ? `${Math.round(i.totalDurationSec / 60)} min` : '?'}${i.trackCount > 1 ? `, ${i.trackCount} parts` : ''}${i.completedCount > 0 ? `, ${i.completedCount}/${i.trackCount} done` : ''}${i.practiceCount > 0 ? `, done ${i.practiceCount}x` : ''}${played ? ' [this period]' : ''}`,
-    );
-  }
+  lines.push('Their library, by creator > series (handle title · type · length · progress):');
+  lines.push(
+    ...listByShelf(
+      [...handles].map(([h, i]) => ({
+        handle: h,
+        item: i,
+        tail: `${i.type} · ${i.totalDurationSec ? `${Math.round(i.totalDurationSec / 60)} min` : '?'}${i.trackCount > 1 ? `, ${i.trackCount} parts` : ''}${i.completedCount > 0 ? `, ${i.completedCount}/${i.trackCount} done` : ''}${i.practiceCount > 0 ? `, done ${i.practiceCount}x` : ''}${perItem.get(i.id) ? ' [this period]' : ''}`,
+      })),
+    ),
+  );
 
   return {
     text: lines.join('\n'),

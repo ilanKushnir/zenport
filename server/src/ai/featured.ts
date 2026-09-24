@@ -13,6 +13,7 @@
  */
 import type { FeaturedPickDto, MeditationSummaryDto } from '@zenport/shared';
 import type { Config } from '../config.js';
+import { listByShelf } from './catalog.js';
 import type { Db } from '../db/index.js';
 import { libraryDto } from '../library/queries.js';
 import { dayKey } from '../stats/compute.js';
@@ -114,21 +115,35 @@ export function featuredContext(
   );
   const i = readIntentions(db, user.id);
   lines.push(i ? intentionsSummary(i) : 'They have not written down their intentions.');
-  const not = [...avoid].map((id) => handleOf.get(id)).filter(Boolean);
-  if (not.length) lines.push(`Not to pick (just done or picked lately): ${not.join(', ')}.`);
   lines.push('');
-  lines.push('Meditations (handle | creator > series > title | length | their history):');
-  for (const [h, it] of handles) {
-    const r = recent.get(it.id);
-    const history = r
-      ? `${r.n}x in 60 days, last ${dayKey(r.last, tz)}`
-      : it.practiceCount > 0
-        ? `done ${it.practiceCount}x, not lately`
-        : 'never tried';
-    lines.push(
-      `${h} | ${clip(it.creator, 50)}${it.collection ? ` > ${clip(it.collection, 60)}` : ''} > ${clip(it.title, 80)} | ${it.totalDurationSec ? `${Math.round(it.totalDurationSec / 60)} min` : '?'}${it.trackCount > 1 ? `, ${it.trackCount} parts` : ''} | ${history}`,
-    );
-  }
+  // What is not to be picked (just done, picked lately) is simply left out.
+  lines.push(
+    'Meditations to choose from, by creator > series (handle title · length · their history; no history = never tried):',
+  );
+  lines.push(
+    ...listByShelf(
+      [...handles]
+        .filter(([, it]) => !avoid.has(it.id))
+        .map(([h, it]) => {
+          const r = recent.get(it.id);
+          const history = r
+            ? `${r.n}x in 60 days, last ${dayKey(r.last, tz)}`
+            : it.practiceCount > 0
+              ? `done ${it.practiceCount}x, not lately`
+              : '';
+          return {
+            handle: h,
+            item: it,
+            tail: [
+              `${it.totalDurationSec ? `${Math.round(it.totalDurationSec / 60)} min` : '?'}${it.trackCount > 1 ? `, ${it.trackCount} parts` : ''}`,
+              history,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          };
+        }),
+    ),
+  );
   return { text: lines.join('\n'), handles };
 }
 

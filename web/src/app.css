@@ -9660,6 +9660,11 @@ html.scroll-locked .main {
   background: color-mix(in oklab, var(--amber) 14%, transparent);
 }
 
+.review-tag.ai {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .review-tag.done {
   color: #a9e3bb;
   background: color-mix(in oklab, #8fd6a6 14%, transparent);
@@ -9822,6 +9827,143 @@ html.scroll-locked .main {
   color: var(--text);
   font: inherit;
   font-size: 16px;
+}
+
+textarea.review-part-name {
+  display: block;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.review-part-was {
+  font-size: 12.5px;
+  color: var(--faint);
+  overflow-wrap: anywhere;
+}
+
+.review-part-was s {
+  text-decoration-color: color-mix(in oklab, var(--faint) 70%, transparent);
+}
+
+/* Why a recording is in front of you, and what would change. */
+.look-at {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in oklab, var(--amber) 30%, var(--hairline));
+  background: color-mix(in oklab, var(--amber) 6%, rgba(255, 255, 255, 0.02));
+}
+
+.look-at h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.look-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.look-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: var(--s3);
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.look-item.is-ai {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.look-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.look-item.is-ai .look-kind {
+  color: var(--accent);
+}
+
+.look-item p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.look-item p strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.look-diff {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+
+.look-diff li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  overflow-wrap: anywhere;
+}
+
+.look-diff s {
+  color: var(--faint);
+}
+
+.look-diff li > span {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.look-diff svg {
+  flex: none;
+  color: var(--faint);
+}
+
+.look-item p.look-why {
+  font-size: 13px;
+  font-style: italic;
+}
+
+.look-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-block-start: 2px;
+}
+
+.look-foot {
+  margin: 0;
+  font-size: 13px;
+  color: var(--faint);
 }
 
 .review-part-name:focus {

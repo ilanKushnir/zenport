@@ -24,6 +24,7 @@ import type {
 import { isPracticeType, naturalCompare } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 import { TRACK_ORDER_BY, TRACK_ORDER_JOIN } from '../library/queries.js';
+import { compactLessons, listByShelf, type ShelfRow } from './catalog.js';
 
 export interface CatalogEntry {
   handle: string;
@@ -134,12 +135,10 @@ export function renderCatalog(
   planned?: Map<string, string[]>,
   must: ReadonlySet<string> = new Set(),
 ): string {
-  const lines: string[] = [];
+  const rows: ShelfRow[] = [];
   for (const e of entries) {
     const i = e.item;
-    const total = i.totalDurationSec
-      ? `${Math.round(i.totalDurationSec / 60)} min`
-      : 'length unknown';
+    const total = i.totalDurationSec ? `${Math.round(i.totalDurationSec / 60)} min` : 'length ?';
     const h = history?.byItem.get(i.id);
     const progress =
       (i.completedCount > 0 ? `, ${i.completedCount}/${i.trackCount} done` : '') +
@@ -151,22 +150,14 @@ export function renderCatalog(
             .join(', ')}]`
         : '') +
       (must.has(i.id) ? ', [must include]' : '');
-    lines.push(
-      `${e.handle} | ${i.type}${i.hasVideo ? ' (video)' : ''} | ${clip(i.creator, 60)}${
-        i.collection ? ` > ${clip(i.collection, 80)}` : ''
-      } > ${clip(i.title, 100)} | ${i.trackCount} track${i.trackCount === 1 ? '' : 's'}, ${total}${progress}`,
-    );
-    if (e.lessons.length > 1) {
-      for (const [k, l] of e.lessons.slice(0, MAX_LESSONS).entries()) {
-        lines.push(
-          `    ${k + 1}. ${clip(l.title, 90)}${l.minutes ? ` (${l.minutes}m)` : ''}${l.practice ? ' [guided practice]' : ''}${l.done ? ' [done]' : ''}`,
-        );
-      }
-      if (e.lessons.length > MAX_LESSONS)
-        lines.push(`    … ${e.lessons.length - MAX_LESSONS} more`);
-    }
+    rows.push({
+      handle: e.handle,
+      item: i,
+      tail: `${i.type}${i.hasVideo ? ' (video)' : ''} · ${i.trackCount > 1 ? `${i.trackCount} tracks, ` : ''}${total}${progress}`,
+      below: compactLessons(e.lessons, i.collection, MAX_LESSONS),
+    });
   }
-  return lines.join('\n');
+  return listByShelf(rows, 100).join('\n');
 }
 
 /** Longest path the planner may lay out: three years, for "until it's done". */

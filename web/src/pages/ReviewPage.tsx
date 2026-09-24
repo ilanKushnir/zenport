@@ -9,7 +9,7 @@
  * changed - moves straight on to the next. Corrections are kept apart from
  * what the scanner reads, so no rescan or moved folder undoes them.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   formatClock,
@@ -18,6 +18,7 @@ import {
   type ReviewItemDto,
   type ReviewListDto,
   type ReviewSaveDto,
+  type SuggestionDto,
 } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
@@ -27,7 +28,7 @@ import { TYPE_META } from '../content.ts';
 import { AdminCrumb, AdminOnly } from './AdminPage.tsx';
 import { CreatorsAdmin } from '../components/CreatorsAdmin.tsx';
 
-type Show = 'new' | 'look' | 'edited' | 'hidden' | 'all';
+type Show = 'new' | 'look' | 'ai' | 'edited' | 'hidden' | 'all';
 const TYPES: ContentType[] = ['meditation', 'course', 'talk', 'soundscape'];
 
 const FLAG_LABEL: Record<string, string> = {
@@ -42,6 +43,26 @@ const FLAG_HINT: Record<string, string> = {
 };
 
 const worthALook = (i: ReviewItemDto) => !i.hidden && !i.reviewedAt && i.flags.length > 0;
+
+/** What an AI fix changes, in words. */
+const FIELD_LABEL: Record<string, string> = {
+  title: 'Title',
+  creator: 'Creator',
+  series: 'Series',
+  type: 'Type',
+  'part-names': 'Part names',
+  order: 'Order of the parts',
+};
+
+/** The AI's open fixes, by the recording they are about. */
+function fixesByItem(list: SuggestionDto[] | null): Map<string, SuggestionDto[]> {
+  const m = new Map<string, SuggestionDto[]>();
+  for (const s of list ?? []) {
+    if (s.kind !== 'fix' || s.status !== 'pending') continue;
+    m.set(s.target, [...(m.get(s.target) ?? []), s]);
+  }
+  return m;
+}
 
 export function ReviewPage() {
   const [params, setParams] = useSearchParams();
@@ -82,6 +103,8 @@ export function ReviewPage() {
 
 function Review() {
   const list = useApi<ReviewListDto>('/api/admin/review');
+  const suggestions = useApi<SuggestionDto[]>('/api/ai/library/suggestions');
+  const fixes = useMemo(() => fixesByItem(suggestions.data), [suggestions.data]);
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
   const [type, setType] = useState<ContentType | 'all'>('all');
@@ -93,11 +116,12 @@ function Review() {
     () => ({
       new: items.filter((i) => i.isNew && !i.hidden).length,
       look: items.filter(worthALook).length,
+      ai: items.filter((i) => !i.hidden && fixes.has(i.id)).length,
       edited: items.filter((i) => i.edited.length > 0).length,
       hidden: items.filter((i) => i.hidden).length,
       all: items.filter((i) => !i.hidden).length,
     }),
-    [items],
+    [items, fixes],
   );
 
   // ?item=<id> opens that recording straight away (from an AI suggestion).
@@ -115,6 +139,7 @@ function Review() {
   const shown = items.filter((i) => {
     if (show === 'new' && !(i.isNew && !i.hidden)) return false;
     if (show === 'look' && !worthALook(i)) return false;
+    if (show === 'ai' && (i.hidden || !fixes.has(i.id))) return false;
     if (show === 'edited' && i.edited.length === 0) return false;
     if (show === 'hidden' && !i.hidden) return false;
     if (show === 'all' && i.hidden) return false;
@@ -143,6 +168,16 @@ function Review() {
   const FILTERS: { key: Show; label: string; n: number; hint: string }[] = [
     { key: 'new', label: 'New', n: counts.new, hint: 'Added since you last looked' },
     { key: 'look', label: 'Worth a look', n: counts.look, hint: 'ZenPort was unsure' },
+    ...(counts.ai > 0 || show === 'ai'
+      ? [
+          {
+            key: 'ai' as const,
+            label: 'AI suggests',
+            n: counts.ai,
+            hint: 'Your AI suggested a fix',
+          },
+        ]
+      : []),
     { key: 'edited', label: 'Corrected', n: counts.edited, hint: 'Changed by you' },
     { key: 'hidden', label: 'Hidden', n: counts.hidden, hint: 'Left out of the library' },
     { key: 'all', label: 'Everything', n: counts.all, hint: 'The whole library' },
@@ -241,6 +276,7 @@ function Review() {
                 <li key={i.id}>
                   <ReviewRow
                     item={i}
+                    fixes={fixes.get(i.id) ?? []}
                     onOpen={() => setOpen({ id: i.id, queue: shown.map((x) => x.id) })}
                   />
                 </li>
@@ -257,6 +293,9 @@ function Review() {
           creators={list.data.creators}
           series={list.data.series}
           onMove={(id) => setOpen({ ...open, id })}
+          item={items.find((i) => i.id === open.id) ?? null}
+          fixes={fixes.get(open.id) ?? []}
+          onFixesChanged={suggestions.reload}
           onSaved={() => list.reload()}
           onClose={() => {
             setOpen(null);
@@ -270,6 +309,7 @@ function Review() {
               );
             }
             list.reload();
+            suggestions.reload();
           }}
         />
       )}
@@ -281,12 +321,21 @@ function emptyTitle(show: Show, narrowed: boolean): string {
   if (narrowed) return 'Nothing matches';
   if (show === 'new') return 'Nothing new';
   if (show === 'look') return 'Nothing wants a look';
+  if (show === 'ai') return 'No open AI suggestions';
   if (show === 'edited') return 'No corrections yet';
   if (show === 'hidden') return 'Nothing hidden';
   return 'The library is empty';
 }
 
-function ReviewRow({ item, onOpen }: { item: ReviewItemDto; onOpen: () => void }) {
+function ReviewRow({
+  item,
+  fixes,
+  onOpen,
+}: {
+  item: ReviewItemDto;
+  fixes: SuggestionDto[];
+  onOpen: () => void;
+}) {
   const meta = TYPE_META[item.type];
   return (
     <button className={`review-row${item.hidden ? ' is-hidden' : ''}`} onClick={onOpen}>
@@ -303,7 +352,7 @@ function ReviewRow({ item, onOpen }: { item: ReviewItemDto; onOpen: () => void }
           {item.collection ? ` · ${item.collection}` : ''}
           {item.trackCount > 1 ? ` · ${item.trackCount} ${meta.parts}` : ''}
         </span>
-        {(item.flags.length > 0 || item.edited.length > 0 || item.hidden) && (
+        {(item.flags.length > 0 || item.edited.length > 0 || item.hidden || fixes.length > 0) && (
           <span className="review-tags">
             {item.hidden && (
               <span className="review-tag">
@@ -316,6 +365,15 @@ function ReviewRow({ item, onOpen }: { item: ReviewItemDto; onOpen: () => void }
                   {FLAG_LABEL[f]}
                 </span>
               ))}
+            {fixes.length > 0 && (
+              <span
+                className="review-tag ai"
+                title={`AI suggests: ${fixes.map((f) => FIELD_LABEL[f.field] ?? f.field).join(', ')}`}
+              >
+                <Icon name="sparkle" size={11} /> AI:{' '}
+                {fixes.map((f) => (FIELD_LABEL[f.field] ?? f.field).toLowerCase()).join(', ')}
+              </span>
+            )}
             {item.edited.length > 0 && (
               <span className="review-tag done" title={`Corrected: ${item.edited.join(', ')}`}>
                 <Icon name="check-circle" size={11} /> Corrected
@@ -336,6 +394,9 @@ function ReviewEditor({
   queue,
   creators,
   series,
+  item,
+  fixes,
+  onFixesChanged,
   onMove,
   onSaved,
   onClose,
@@ -344,11 +405,32 @@ function ReviewEditor({
   queue: string[];
   creators: string[];
   series: { creator: string; collection: string }[];
+  item: ReviewItemDto | null;
+  fixes: SuggestionDto[];
+  onFixesChanged: () => void;
   onMove: (id: string) => void;
   onSaved: () => void;
   onClose: () => void;
 }) {
   const detail = useApi<ReviewDetailDto>(`/api/admin/items/${id}`);
+  // An AI fix applied here changes the recording itself: read it again, and
+  // start the form over from what it now is.
+  // Only once the new reading has arrived: starting over from the old one
+  // would show the recording as it was before the fix.
+  const [rev, setRev] = useState(0);
+  const waiting = useRef(false);
+  useEffect(() => {
+    if (waiting.current && detail.data) {
+      waiting.current = false;
+      setRev((r) => r + 1);
+    }
+  }, [detail.data]);
+  const applied = () => {
+    waiting.current = true;
+    detail.reload();
+    onFixesChanged();
+    onSaved();
+  };
   const at = queue.indexOf(id);
   const title = queue.length > 1 && at >= 0 ? `Review · ${at + 1} of ${queue.length}` : 'Review';
   return (
@@ -358,8 +440,12 @@ function ReviewEditor({
         <div className="skeleton" style={{ height: 360 }} />
       ) : (
         <EditorForm
-          key={id}
+          key={`${id}:${rev}`}
           d={detail.data}
+          flags={item && !item.reviewedAt ? item.flags : []}
+          fixes={fixes}
+          onApplied={applied}
+          onDismissed={onFixesChanged}
           creators={creators}
           series={series}
           prev={at > 0 ? queue[at - 1]! : null}
@@ -377,6 +463,10 @@ type Part = ReviewDetailDto['tracks'][number];
 
 function EditorForm({
   d,
+  flags,
+  fixes,
+  onApplied,
+  onDismissed,
   creators,
   series,
   prev,
@@ -386,6 +476,10 @@ function EditorForm({
   onClose,
 }: {
   d: ReviewDetailDto;
+  flags: ReviewItemDto['flags'];
+  fixes: SuggestionDto[];
+  onApplied: () => void;
+  onDismissed: () => void;
   creators: string[];
   series: { creator: string; collection: string }[];
   prev: string | null;
@@ -496,6 +590,22 @@ function EditorForm({
           </Link>
         </div>
       </div>
+
+      <LookAt
+        d={d}
+        flags={flags}
+        fixes={fixes}
+        names={names}
+        order={order}
+        onTidy={() =>
+          setNames((n) => ({
+            ...n,
+            ...Object.fromEntries(suggestions.map((t) => [t.id, t.suggestion!])),
+          }))
+        }
+        onApplied={onApplied}
+        onDismissed={onDismissed}
+      />
 
       <section className="review-fields" aria-label="Details">
         <Field
@@ -628,13 +738,18 @@ function EditorForm({
                   )}
                   <span className="reorder-n">{i + 1}</span>
                   <span className="review-part-main">
-                    <input
+                    <AutoText
                       className="review-part-name"
                       value={name}
                       placeholder={t.scannedTitle}
-                      onChange={(e) => setNames((n) => ({ ...n, [t.id]: e.target.value }))}
-                      aria-label={`Name of part ${i + 1}`}
+                      onChange={(v) => setNames((n) => ({ ...n, [t.id]: v }))}
+                      label={`Name of part ${i + 1}`}
                     />
+                    {name.trim() !== t.title && (
+                      <span className="review-part-was">
+                        was <s>{t.title}</s>
+                      </span>
+                    )}
                     <span className="sub">
                       {t.video ? (
                         <>
@@ -644,15 +759,25 @@ function EditorForm({
                         `.${t.ext}`
                       )}
                       {t.durationSec ? ` · ${formatClock(t.durationSec)}` : ''}
-                      {name.trim() !== t.scannedTitle && (
+                      {name.trim() !== t.title ? (
                         <button
                           type="button"
                           className="linkish review-part-reset"
-                          onClick={() => setNames((n) => ({ ...n, [t.id]: t.scannedTitle }))}
-                          title={t.scannedTitle}
+                          onClick={() => setNames((n) => ({ ...n, [t.id]: t.title }))}
                         >
-                          file name
+                          undo
                         </button>
+                      ) : (
+                        t.title !== t.scannedTitle && (
+                          <button
+                            type="button"
+                            className="linkish review-part-reset"
+                            onClick={() => setNames((n) => ({ ...n, [t.id]: t.scannedTitle }))}
+                            title={t.scannedTitle}
+                          >
+                            use the file name
+                          </button>
+                        )
                       )}
                     </span>
                   </span>
@@ -798,5 +923,223 @@ function Field({
         </span>
       )}
     </label>
+  );
+}
+
+/** One line of text that wraps and grows, so a long name is always read whole. */
+function AutoText({
+  value,
+  onChange,
+  placeholder,
+  label,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  label: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.blockSize = 'auto';
+    el.style.blockSize = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      className={className}
+      value={value}
+      placeholder={placeholder}
+      aria-label={label}
+      // A name is one line: Enter finishes it rather than breaking it.
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      onChange={(e) => onChange(e.target.value.replace(/\s*\n\s*/g, ' '))}
+    />
+  );
+}
+
+/**
+ * Why this recording is in front of you, in plain words: what ZenPort was
+ * unsure of, and what your AI suggests - each with what it is now and what
+ * it would become, and one tap to take it or leave it.
+ */
+function LookAt({
+  d,
+  flags,
+  fixes,
+  names,
+  order,
+  onTidy,
+  onApplied,
+  onDismissed,
+}: {
+  d: ReviewDetailDto;
+  flags: ReviewItemDto['flags'];
+  fixes: SuggestionDto[];
+  names: Record<string, string>;
+  order: Part[];
+  onTidy: () => void;
+  onApplied: () => void;
+  onDismissed: () => void;
+}) {
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [gone, setGone] = useState<Set<number>>(new Set());
+  const open = fixes.filter((f) => !gone.has(f.id));
+  if (flags.length === 0 && open.length === 0) return null;
+
+  const tidy = d.tracks.filter(
+    (t) => t.suggestion && (names[t.id] ?? '').trim() === t.scannedTitle,
+  );
+  const tidied = d.tracks.filter(
+    (t) => t.suggestion && (names[t.id] ?? '').trim() === t.suggestion,
+  );
+  const videos = d.tracks.filter((t) => t.video).length;
+
+  const act = async (f: SuggestionDto, how: 'apply' | 'dismiss') => {
+    setBusy(f.id);
+    setError(null);
+    try {
+      await api.post(`/api/ai/library/suggestions/${f.id}/${how}`, {});
+      setGone((g) => new Set(g).add(f.id));
+      if (how === 'apply') onApplied();
+      else onDismissed();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not work.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="look-at" aria-labelledby="look-at-h">
+      <h3 id="look-at-h">
+        <Icon name="eye" size={15} /> What to look at
+      </h3>
+      <ul className="look-list">
+        {flags.includes('raw-names') && (
+          <li className="look-item">
+            <span className="look-kind">Part names</span>
+            <p>
+              {tidied.length > 0 && tidy.length === 0
+                ? `Tidier names are in place for ${tidied.length} ${tidied.length === 1 ? 'part' : 'parts'} - save to keep them.`
+                : tidy.length > 0
+                  ? `${tidy.length} ${tidy.length === 1 ? 'part is' : 'parts are'} still named like files. ZenPort can tidy them:`
+                  : 'Some parts are still named like files. Rename any of them below, or leave them as they are.'}
+            </p>
+            {tidy.length > 0 && (
+              <>
+                <ul className="look-diff">
+                  {tidy.slice(0, 4).map((t) => (
+                    <li key={t.id}>
+                      <s>{t.scannedTitle}</s>
+                      <Icon name="chevron-right" size={12} />
+                      <span>{t.suggestion}</span>
+                    </li>
+                  ))}
+                  {tidy.length > 4 && <li className="sub">and {tidy.length - 4} more</li>}
+                </ul>
+                <button type="button" className="btn btn-sm btn-quiet" onClick={onTidy}>
+                  <Icon name="sparkle" size={14} /> Use the tidier names
+                </button>
+              </>
+            )}
+          </li>
+        )}
+        {flags.includes('mixed-media') && (
+          <li className="look-item">
+            <span className="look-kind">Order</span>
+            <p>
+              It mixes {videos} {videos === 1 ? 'video' : 'videos'} with {d.tracks.length - videos}{' '}
+              audio {d.tracks.length - videos === 1 ? 'file' : 'files'}, so the order may be off. It
+              plays as below:{' '}
+              <strong>
+                {order
+                  .map((t, i) => `${i + 1}. ${names[t.id] ?? t.title}`)
+                  .slice(0, 3)
+                  .join(' · ')}
+              </strong>
+              {order.length > 3 ? ' …' : ''}. Drag the parts to change it.
+            </p>
+          </li>
+        )}
+        {flags.includes('unknown-creator') && (
+          <li className="look-item">
+            <span className="look-kind">Creator</span>
+            <p>ZenPort could not tell who made it. Type the creator below.</p>
+          </li>
+        )}
+        {open.map((f) => (
+          <li key={f.id} className="look-item is-ai">
+            <span className="look-kind">
+              <Icon name="sparkle" size={12} /> AI suggests · {FIELD_LABEL[f.field] ?? f.field}
+            </span>
+            {f.parts && f.parts.length > 0 ? (
+              <ul className="look-diff">
+                {f.parts
+                  .filter((p) => p.from !== p.to)
+                  .slice(0, 6)
+                  .map((p, i) => (
+                    <li key={i}>
+                      <s>{p.from}</s>
+                      <Icon name="chevron-right" size={12} />
+                      <span>{p.to}</span>
+                    </li>
+                  ))}
+                {f.parts.filter((p) => p.from !== p.to).length > 6 && (
+                  <li className="sub">
+                    and {f.parts.filter((p) => p.from !== p.to).length - 6} more
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <ul className="look-diff">
+                <li>
+                  <s>{f.from || 'none'}</s>
+                  <Icon name="chevron-right" size={12} />
+                  <span>{f.to || 'none'}</span>
+                </li>
+              </ul>
+            )}
+            {f.reason && <p className="look-why">{f.reason}</p>}
+            <div className="look-actions">
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                disabled={busy !== null}
+                onClick={() => void act(f, 'apply')}
+              >
+                {busy === f.id ? 'Applying…' : 'Apply'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-quiet"
+                disabled={busy !== null}
+                onClick={() => void act(f, 'dismiss')}
+              >
+                Keep as is
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <p className="hint" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="look-foot">
+        Nothing to change? <strong>Looks right</strong> marks it checked and moves on.
+      </p>
+    </section>
   );
 }

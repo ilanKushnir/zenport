@@ -5,6 +5,21 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.32.3] — 2026-09-24
+
+### Changed
+
+- **Reviewing the library says what to look at.** Each recording opens with a "What to look at" panel that names, in plain words, why it is there, and shows what would change:
+  - **Part names** still named like files, with the tidier names side by side (before → after) and one tap to use them.
+  - **Order**, when videos and audio are mixed: how it plays now, and that you can drag to change it.
+  - **Creator**, when ZenPort could not tell who made it.
+  - **What your AI suggests** for this recording (a title, a type, part names, an order), each as before → after with the AI's reason, and **Apply** or **Keep as is** right there.
+
+  Nothing to change? "Looks right" marks it checked and moves on.
+- An **AI suggests** filter and an "AI: title, part names" tag on each row show which recordings have open AI fixes.
+- **Part names show in full.** They wrap onto more lines instead of being cut off at the edge. A renamed part shows what it was (and can be undone).
+- **AI requests are smaller.** The library sent with a plan, a practice review or today's pick is grouped under "creator > series" headings, instead of repeating both on every line. Numbered parts are sent as a range ("Day 1–30, ~10m each"). What should not be picked is left out rather than listed. For a library of 174 recordings, that is about 20–35% fewer tokens per request, with nothing dropped that an answer depends on.
+
 ## [0.32.2] — 2026-09-24
 
 ### Fixed

@@ -152,15 +152,12 @@ function fakeOpenAi(): AiClient {
       }
       if (schemaName === 'zenport_featured') {
         featuredCalls++;
-        // The first meditation not marked "not to pick".
-        const not = /Not to pick[^:]*: ([^\n]*)\./.exec(user)?.[1]?.split(', ') ?? [];
-        const handle = [...user.matchAll(/^(m\d+) \|/gm)]
-          .map((m) => m[1]!)
-          .find((h) => !not.includes(h));
+        // The first meditation offered (what is not to be picked is left out).
+        const handle = /^ {2}(m\d+) /m.exec(user)?.[1];
         return { handle, why: `Mornings suit you - ${handle} is short.` };
       }
       if (schemaName === 'zenport_guide') {
-        const h = /^(m\d+) \|/m.exec(user)?.[1] ?? 'm1';
+        const h = /^ {2}(m\d+) /m.exec(user)?.[1] ?? 'm1';
         return {
           summary: 'You sat three times this week, mostly in the morning.',
           goingWell: ['Mornings are becoming a habit.', ''],
@@ -199,12 +196,16 @@ function fakeOpenAi(): AiClient {
           ],
         };
       }
-      const handle = (word: string) =>
-        user
-          .split('\n')
-          .find((l) => l.includes(word))
-          ?.split(' | ')[0]
-          ?.trim();
+      // The first recording whose line - or its "creator > series" heading - names it.
+      const handle = (word: string) => {
+        let head = '';
+        for (const l of user.split('\n')) {
+          if (/^\S.*:$/.test(l)) head = l;
+          const m = /^ {2}(m\d+) /.exec(l);
+          if (m && (l.includes(word) || head.includes(word))) return m[1];
+        }
+        return undefined;
+      };
       return {
         name: 'Four weeks of mornings',
         intention: 'Arrive before the day does.',
