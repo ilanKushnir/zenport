@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.32.0',
+    items: [
+      {
+        emoji: '🧭',
+        text: 'Setting up ZenPort is now part of the welcome: choose your libraries, watch them being read, and let your AI tidy them.',
+      },
+      {
+        emoji: '📚',
+        text: 'Admins choose which mounted folders are libraries, right in the app - and change them any time.',
+      },
+    ],
+  },
+  {
     version: '0.31.1',
     items: [{ emoji: '📱', text: 'The tab bar now always sits at the very bottom of the phone.' }],
   },

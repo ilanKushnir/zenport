@@ -52,6 +52,27 @@ export interface ScanStateDto {
   warnings: string[];
   /** Recordings the last scan found that were never seen before. */
   newItems: number;
+  /** While scanning: how far it has got. */
+  progress?: ScanProgressDto | null;
+}
+
+export interface ScanProgressDto {
+  phase: 'reading' | 'understanding' | 'artwork' | 'saving';
+  /** The library being read now, and its place among them. */
+  root: string;
+  rootIndex: number;
+  roots: number;
+  /** Files met so far (all libraries). */
+  files: number;
+  /** Recordings recognised so far. */
+  items: number;
+  /** Within a phase that has a count: done of total. */
+  done: number;
+  total: number;
+  /** Creators recognised so far, in the order they were met. */
+  creators: string[];
+  /** A few of the recordings just recognised, for a live ticker. */
+  latest: string[];
 }
 
 /** One folder of a library root, as the last scan walked it. */
@@ -1231,4 +1252,67 @@ export interface FolderDocsDto {
   /** The folder's own name, when it is not the creator's top folder. */
   label: string | null;
   docs: DocumentDto[];
+}
+
+// ── Enhance the library, in one go (onboarding, Admin) ────────────────────
+
+export type EnhanceStepKey = 'levels' | 'pictures' | 'fixes' | 'about';
+
+export interface EnhanceJobRequest {
+  steps: EnhanceStepKey[];
+  /** Use found pictures and descriptions straight away (fixes always wait for you). */
+  apply: boolean;
+  /** Descriptions for at most this many recordings (web research is slow). */
+  aboutLimit?: number;
+}
+
+export interface EnhanceJobStepDto {
+  key: EnhanceStepKey;
+  state: 'waiting' | 'running' | 'done' | 'failed';
+  done: number;
+  total: number;
+  /** What it found or set. */
+  found: number;
+  note: string | null;
+  /** Pictures just found, to show as they arrive. */
+  images?: { name: string; url: string }[];
+}
+
+/** One thing the AI just decided, for a live feed. */
+export interface EnhanceFindingDto {
+  step: EnhanceStepKey;
+  title: string;
+  /** What it decided: "Beginner · Programme", "Day 1", the start of a description. */
+  detail: string;
+  at: number;
+}
+
+export interface EnhanceJobDto {
+  running: boolean;
+  /** Waiting for the scan to finish before starting. */
+  waitingForScan: boolean;
+  startedAt: string;
+  finishedAt: string | null;
+  apply: boolean;
+  steps: EnhanceJobStepDto[];
+  error: string | null;
+  /** The latest findings, newest first. */
+  findings: EnhanceFindingDto[];
+}
+
+// ── Choosing libraries (admin) ────────────────────────────────────────────
+
+export interface LibrariesDto {
+  /** The mounted folder libraries are chosen from; null when none is mounted. */
+  base: string | null;
+  /** Set by the server's configuration (ZP_LIBRARY_DIRS). */
+  fixed: { label: string; path: string }[];
+  chosen: { rel: string; label: string }[];
+}
+
+export interface LibraryBrowseDto {
+  rel: string;
+  folders: { name: string; rel: string; media: number; chosen: boolean; partly: boolean }[];
+  /** Counting stopped early: counts are "at least". */
+  capped: boolean;
 }

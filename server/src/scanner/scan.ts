@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { FolderNodeDto, ScanStateDto } from '@zenport/shared';
+import type { FolderNodeDto, ScanProgressDto, ScanStateDto } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 import { inferLibrary, looseDocuments, type InferredTrack } from '../library/infer.js';
 import { inferContentType, inferTrackRole } from '../library/contentType.js';
@@ -23,6 +23,8 @@ export interface ScanOptions {
    * do not care about artwork.
    */
   coverCacheDir?: string;
+  /** Told how far the scan has got, as it goes (for a live progress view). */
+  onProgress?: (p: ScanProgressDto) => void;
 }
 
 /** Pseudo-root for covers extracted from the files themselves. */
@@ -190,8 +192,36 @@ export async function runScan(
     loose: ReturnType<typeof looseDocuments>;
     files: Map<string, WalkedFile>;
   }[] = [];
+  let filesBefore = 0;
+  let itemsSoFar = 0;
+  const creatorsMet = new Set<string>();
+  let latest: string[] = [];
   for (const root of roots) {
-    const walk = await safeWalk(root.path);
+    const rootIndex = roots.indexOf(root);
+    const report = (p: Partial<ScanProgressDto>) =>
+      opts.onProgress?.({
+        phase: 'reading',
+        root: root.label,
+        rootIndex,
+        roots: roots.length,
+        files: filesBefore,
+        items: itemsSoFar,
+        done: 0,
+        total: 0,
+        creators: [...creatorsMet],
+        latest,
+        ...p,
+      });
+    report({});
+    let lastTick = 0;
+    const walk = await safeWalk(root.path, (n) => {
+      if (n - lastTick >= 25) {
+        lastTick = n;
+        report({ files: filesBefore + n });
+      }
+    });
+    filesBefore += walk.files.length;
+    report({ phase: 'understanding', files: filesBefore });
     if (!walk.ok) {
       rootResults.push({
         id: root.id,
@@ -209,6 +239,12 @@ export async function runScan(
     folderTrees.set(root.id, buildFolderTree(walk.files, root.label, exclusions));
     const kept = walk.files.filter((f) => !underAny(f.relPath, exclusions));
     const inferred = inferLibrary(kept);
+    itemsSoFar += inferred.length;
+    for (const it of inferred) creatorsMet.add(it.creator);
+    latest = inferred
+      .slice(0, 40)
+      .map((it) => (it.collection ? `${it.collection} · ${it.title}` : it.title));
+    report({ phase: 'understanding', files: filesBefore, items: itemsSoFar });
     passes.push({
       root,
       items: inferred,
@@ -393,8 +429,22 @@ export async function runScan(
     const ids = items.map((item) => itemIdentity(root.id, item));
 
     const embedded = new Map<string, { relPath: string; ext: string; size: number }>();
+    const persistReport = (phase: ScanProgressDto['phase'], done: number, total: number) =>
+      opts.onProgress?.({
+        phase,
+        root: root.label,
+        rootIndex: roots.indexOf(root),
+        roots: roots.length,
+        files: filesBefore,
+        items: itemsSoFar,
+        done,
+        total,
+        creators: [...creatorsMet],
+        latest,
+      });
     if (opts.coverCacheDir) {
       for (const [n, item] of items.entries()) {
+        if (n % 5 === 0) persistReport('artwork', n, items.length);
         if (item.coverRelPath) continue;
         const itemId = ids[n]!.id;
         const cover = await embeddedCover(opts.coverCacheDir, itemId, root.path, item.tracks);
@@ -402,6 +452,7 @@ export async function runScan(
       }
     }
 
+    persistReport('saving', items.length, items.length);
     db.exec('BEGIN');
     try {
       const upsertItem = db.prepare(

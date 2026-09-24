@@ -5,6 +5,27 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-09-24
+
+### Added
+
+- **Setting ZenPort up, in the welcome flow.** Whoever creates the first admin account is walked through it:
+  1. **Where your recordings live.** Browse the mounted folder and tick the folders that should be libraries. Each shows how many recording files it holds, and you can look inside and choose sub-folders instead. Libraries can be renamed. Choosing starts reading at once.
+  2. **Reading your library,** live. A ring fills as it goes, and the counts climb (files, recordings) through each phase: reading, understanding, artwork, saving. Recognised recordings tick by, and each creator pops in as it is found. At the end come the totals by kind, programmes, and the creators' faces. Meanwhile you can **connect your AI** right there.
+  3. **Let your AI tidy it.** Tick what you would like, each with an honest time estimate:
+     - levels and programmes
+     - creator pictures
+     - descriptions, for the first 12–96 recordings
+     - suggested fixes
+
+     Choose whether found pictures and descriptions are used straight away. It then runs **on the server**, waiting for the library to be read first, and keeps going while you finish the welcome or close the page. Each step shows its progress. A live feed shows what the AI just decided ("Discovery Series · Part 1 - Intermediate · a programme", a part name it fixed, a picture it found), and pictures pop in as they are found. The last welcome step says whether it is still working. Enhance the library shows the same progress.
+- **Libraries chosen in the app.** With `ZP_LIBRARY_BASE` set to a mounted folder, admins choose which folders inside it are libraries, name them, and add or remove them later under Admin → Library folders. Changes apply live, with no restart, and every path is checked to stay inside the mount. `ZP_LIBRARY_DIRS` still works, for libraries fixed by configuration.
+- **Scan progress.** Every scan (at boot, on its timer, Rescan, a new library) goes through one coordinator. The scan state reports its phase, counts, and the creators and recordings met so far. A change made mid-scan is always read by a scan that follows.
+
+### Changed
+
+- The folder-layout advice in the welcome flow is shown only to admins, who own the folders. Everyone else sees what the library holds.
+
 ## [0.31.1] — 2026-09-24
 
 ### Fixed

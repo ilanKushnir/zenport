@@ -5,7 +5,7 @@ import { buildApp } from './api/app.js';
 import { loadConfig } from './config.js';
 import { openDb } from './db/index.js';
 import { buildDeps } from './deps.js';
-import { runScan } from './scanner/scan.js';
+import { startScan } from './scanner/coordinator.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,10 +42,7 @@ async function main(): Promise<void> {
   );
 
   // Initial scan on boot, then on the configured interval.
-  const scan = () =>
-    runScan(db, config.libraryRoots, { coverCacheDir: path.join(config.dataDir, 'covers') }).catch(
-      (err) => app.log.error(err, 'scan failed'),
-    );
+  const scan = () => startScan(db, config, (err) => app.log.error(err, 'scan failed'));
   void scan();
   if (config.scanIntervalMinutes > 0) {
     const timer = setInterval(scan, config.scanIntervalMinutes * 60_000);

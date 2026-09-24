@@ -19,6 +19,7 @@ import { useApi } from '../hooks.ts';
 import { ErrorNote, Icon, Sheet, Switch } from '../components/ui.tsx';
 import { ago } from '../social.tsx';
 import { AdminCrumb } from './AdminPage.tsx';
+import { LibraryChooser } from '../onboarding/AdminSetup.tsx';
 
 function matches(node: FolderNodeDto, q: string): boolean {
   return node.name.toLowerCase().includes(q) || node.children.some((c) => matches(c, q));
@@ -83,6 +84,16 @@ export function FoldersPage() {
           files are never touched, and switching it back on returns it with its history.
         </p>
       </div>
+
+      {canEdit && (
+        <section className="section" aria-labelledby="sec-libraries">
+          <div className="section-head">
+            <h2 id="sec-libraries">Libraries</h2>
+            <span className="section-note">Tick a folder to read it; each is a library</span>
+          </div>
+          <LibraryChooser />
+        </section>
+      )}
 
       <div className="folder-stats" role="status">
         <div>

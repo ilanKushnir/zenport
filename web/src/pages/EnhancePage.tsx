@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type {
   AdminCreatorDto,
+  EnhanceJobDto,
   EnhanceRunDto,
   EnhanceStatusDto,
   ItemLevel,
@@ -185,6 +186,7 @@ function Enhance() {
         ))}
       </div>
 
+      <JobBanner onDone={refresh} />
       {error && <ErrorNote message={error} />}
       {status.error && <ErrorNote message={status.error} onRetry={status.reload} />}
 
@@ -1114,5 +1116,51 @@ function LevelsTab({
         </div>
       )}
     </section>
+  );
+}
+
+/** A run started in onboarding (or here): how far it has got, while it runs. */
+function JobBanner({ onDone }: { onDone: () => void }) {
+  const [job, setJob] = useState<EnhanceJobDto | null>(null);
+  const was = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      api
+        .get<EnhanceJobDto | null>('/api/ai/library/job')
+        .then((j) => {
+          if (!alive) return;
+          setJob(j);
+          if (was.current && j && !j.running) onDone();
+          was.current = !!j?.running;
+        })
+        .catch(() => {});
+    void load();
+    const t = window.setInterval(() => void load(), 2000);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+    };
+  }, [onDone]);
+  if (!job?.running) return null;
+  const now = job.steps.find((s) => s.state === 'running');
+  const LABEL: Record<string, string> = {
+    levels: 'Setting levels',
+    pictures: 'Finding creator pictures',
+    fixes: 'Looking for fixes',
+    about: 'Researching descriptions',
+  };
+  return (
+    <div className="enh-notice" role="status">
+      <span className="guide-orb" aria-hidden="true" />
+      <span className="grow">
+        {job.waitingForScan
+          ? 'Your AI starts as soon as the library has been read.'
+          : now
+            ? `${LABEL[now.key]} - ${now.done} of ${now.total || '…'}`
+            : 'Your AI is at work.'}{' '}
+        ({job.steps.filter((s) => s.state === 'done').length} of {job.steps.length} done)
+      </span>
+    </div>
   );
 }

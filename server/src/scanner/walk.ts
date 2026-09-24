@@ -30,7 +30,10 @@ const MAX_DEPTH = 24;
  * and symlink chains cannot escape. Results are naturally ordered and
  * deterministic.
  */
-export async function safeWalk(rootPath: string): Promise<WalkResult> {
+export async function safeWalk(
+  rootPath: string,
+  onFile?: (count: number) => void,
+): Promise<WalkResult> {
   const warnings: string[] = [];
   const files: WalkedFile[] = [];
   let ignored = 0;
@@ -117,6 +120,7 @@ export async function safeWalk(rootPath: string): Promise<WalkResult> {
         continue;
       }
       files.push({ relPath: rel, name, ext, kind, sizeBytes, mtimeMs });
+      onFile?.(files.length);
     }
   }
 

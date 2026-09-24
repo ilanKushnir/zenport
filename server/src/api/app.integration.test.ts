@@ -8,6 +8,7 @@ import { openDb, type Db } from '../db/index.js';
 import { AiError, type AiClient } from '../ai/providers.js';
 import { silenceMp3 } from '../ai/mp3.js';
 import { runScan } from '../scanner/scan.js';
+import { isScanning } from '../scanner/coordinator.js';
 import type { Config } from '../config.js';
 
 let app: FastifyInstance;
@@ -2875,5 +2876,139 @@ describe('Programme or pack', () => {
       payload: { ids: [every.id], structure: null },
     });
     expect((await read()).every.structureSource).toBe('name');
+  });
+});
+
+describe('Choosing libraries', () => {
+  it('browses the mount, adds a library and scans it, refuses a way out, and removes it', async () => {
+    const base = mkdtempSync(path.join(tmpdir(), 'zp-base-'));
+    const put = (rel: string) => {
+      const abs = path.join(base, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'b'.repeat(300)}`);
+    };
+    put('Spiritual/Tomas Reyes/Evening/a.mp3');
+    put('Spiritual/Tomas Reyes/Evening/b.mp3');
+    put('Podcasts/Other/x.mp3');
+    const cfg: Config = { ...makeConfig(), libraryRoots: [], libraryBase: base };
+    const own = buildApp({
+      db: openDb(':memory:'),
+      config: cfg,
+      version: 'test',
+      deps: {
+        fetchVideoMeta: async () => null,
+        listPlaylist: null,
+        transcribe: null,
+        ai: fakeOpenAi(),
+      },
+    });
+    await own.ready();
+    try {
+      const setup = await own.inject({
+        method: 'POST',
+        url: '/api/setup',
+        headers: CSRF,
+        payload: { username: 'astra', password: 'astra-demo-password-1' },
+      });
+      const h = {
+        cookie: `zp_session=${setup.cookies.find((c) => c.name === 'zp_session')!.value}`,
+        ...CSRF,
+      };
+      const top = (
+        await own.inject({ method: 'GET', url: '/api/admin/libraries/browse', headers: h })
+      ).json();
+      expect(top.folders.map((f: { name: string; media: number }) => [f.name, f.media])).toEqual([
+        ['Podcasts', 1],
+        ['Spiritual', 2],
+      ]);
+      expect(
+        (
+          await own.inject({
+            method: 'GET',
+            url: '/api/admin/libraries/browse?rel=../..',
+            headers: h,
+          })
+        ).statusCode,
+      ).toBe(400);
+
+      const added = (
+        await own.inject({
+          method: 'POST',
+          url: '/api/admin/libraries',
+          headers: h,
+          payload: { rel: 'Spiritual', label: 'My Library' },
+        })
+      ).json();
+      expect(added.chosen).toEqual([{ rel: 'Spiritual', label: 'My Library' }]);
+      expect(cfg.libraryRoots.map((r) => r.label)).toEqual(['My Library']);
+      for (let i = 0; i < 100 && isScanning(); i++) await new Promise((r) => setTimeout(r, 20));
+      const lib = (await own.inject({ method: 'GET', url: '/api/library', headers: h })).json();
+      expect(lib.items.map((i: { title: string }) => i.title)).toEqual(['Evening']);
+
+      // Choosing a folder inside a chosen one replaces it (never read twice).
+      await own.inject({
+        method: 'POST',
+        url: '/api/admin/libraries',
+        headers: h,
+        payload: { rel: 'Spiritual/Tomas Reyes' },
+      });
+      expect(
+        (await own.inject({ method: 'GET', url: '/api/admin/libraries', headers: h })).json()
+          .chosen,
+      ).toEqual([{ rel: 'Spiritual/Tomas Reyes', label: 'Tomas Reyes' }]);
+
+      await own.inject({
+        method: 'DELETE',
+        url: '/api/admin/libraries?rel=Spiritual%2FTomas%20Reyes',
+        headers: h,
+      });
+      expect(cfg.libraryRoots).toEqual([]);
+      for (let i = 0; i < 100 && isScanning(); i++) await new Promise((r) => setTimeout(r, 20));
+    } finally {
+      await own.close();
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('Enhance in one go', () => {
+  it('runs the chosen steps on the server and reports each', async () => {
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/ai/library/job',
+          headers: auth(),
+          payload: { steps: ['levels'], apply: true },
+        })
+      ).statusCode,
+    ).toBe(400);
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    const started = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/ai/library/job',
+        headers: auth(),
+        payload: { steps: ['fixes', 'levels'], apply: true },
+      })
+    ).json();
+    expect(started.steps.map((s: { key: string }) => s.key)).toEqual(['levels', 'fixes']);
+    let state = started;
+    for (let i = 0; i < 200 && state.running; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      state = (
+        await app.inject({ method: 'GET', url: '/api/ai/library/job', headers: auth() })
+      ).json();
+    }
+    expect(state.running).toBe(false);
+    expect(state.steps.map((s: { state: string }) => s.state)).toEqual(['done', 'done']);
+    expect(state.steps[0].done).toBe(state.steps[0].total);
   });
 });

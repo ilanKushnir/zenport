@@ -11,7 +11,12 @@ export interface Config {
   host: string;
   port: number;
   dataDir: string;
+  /** The libraries in use: those set by ZP_LIBRARY_DIRS, plus any an admin chose (live). */
   libraryRoots: LibraryRootConfig[];
+  /** Just the ones ZP_LIBRARY_DIRS sets (fixed by the server's configuration). */
+  envRoots?: LibraryRootConfig[];
+  /** A mounted folder whose sub-folders an admin may choose as libraries (ZP_LIBRARY_BASE). */
+  libraryBase?: string | null;
   sessionSecret: string;
   sessionDays: number;
   trustHttps: boolean;
@@ -58,6 +63,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     port: Number(envValue(env, 'ZP_PORT') ?? 8484),
     dataDir,
     libraryRoots,
+    envRoots: [...libraryRoots],
+    libraryBase: envValue(env, 'ZP_LIBRARY_BASE') ?? null,
     sessionSecret: sessionSecret || 'dev-only-secret-change-me-0123456789abcdef',
     sessionDays: Number(envValue(env, 'ZP_SESSION_DAYS') ?? 30),
     trustHttps: envValue(env, 'ZP_TRUST_HTTPS') === '1',

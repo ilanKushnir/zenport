@@ -816,6 +816,14 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (creator, collection)
   );
   `,
+  // v26: libraries an admin chose from inside ZP_LIBRARY_BASE.
+  `
+  CREATE TABLE library_choices (
+    rel_path TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    added_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

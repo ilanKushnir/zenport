@@ -11,6 +11,7 @@ import { registerFeaturedRoutes } from './routes/featured.js';
 import { registerDiscoverRoutes } from './routes/discover.js';
 import { registerCreatorRoutes } from './routes/creators.js';
 import { registerSitRoutes } from './routes/sits.js';
+import { registerLibrarySourceRoutes } from './routes/libraries.js';
 import { registerMediaRoutes } from './routes/media.js';
 import { registerPracticeRoutes } from './routes/practice.js';
 import { registerPlanRoutes } from './routes/plans.js';
@@ -23,6 +24,7 @@ import { registerMiscRoutes } from './routes/misc.js';
 import { registerInviteRoutes } from './routes/invites.js';
 import { registerFriendRoutes } from './routes/friends.js';
 import { resolveRoots } from '../scanner/roots.js';
+import { wantedRoots } from '../library/sources.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -38,7 +40,9 @@ const PUBLIC_PATHS = new Set(['/api/health', '/api/setup/status', '/api/setup', 
 export function buildApp(ctx: AppContext): FastifyInstance {
   // Ids that follow each library's path (see scanner/roots.ts). Everything -
   // scans, media, folders - reads the roots from here on.
-  ctx.config.libraryRoots = resolveRoots(ctx.db, ctx.config.libraryRoots);
+  // The libraries in use: the server's fixed ones, and those an admin chose.
+  if (!ctx.config.envRoots) ctx.config.envRoots = [...ctx.config.libraryRoots];
+  ctx.config.libraryRoots = resolveRoots(ctx.db, wantedRoots(ctx.db, ctx.config));
   const app = Fastify({
     logger: { level: ctx.config.logLevel },
     bodyLimit: 1024 * 1024,
@@ -126,6 +130,7 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   registerDiscoverRoutes(app, ctx);
   registerCreatorRoutes(app, ctx);
   registerSitRoutes(app, ctx);
+  registerLibrarySourceRoutes(app, ctx);
   registerJournalRoutes(app, ctx);
   registerYouTubeRoutes(app, ctx);
   registerPrefsRoutes(app, ctx);

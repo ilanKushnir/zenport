@@ -12,7 +12,13 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AiSettingsDto, IntentionsDto, ScanStateDto, UserPrefsDto } from '@zenport/shared';
+import type {
+  AiSettingsDto,
+  EnhanceJobDto,
+  IntentionsDto,
+  ScanStateDto,
+  UserPrefsDto,
+} from '@zenport/shared';
 import { useApi } from '../hooks.ts';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
@@ -24,6 +30,7 @@ import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
 import { Scene, SceneCycle } from './scenes.tsx';
 import { ProviderConnect } from '../components/AiConnect.tsx';
 import { IntentionsForm } from '../components/IntentionsForm.tsx';
+import { EnhanceStep, LibrariesStep, ScanStep } from './AdminSetup.tsx';
 
 const GOALS = [5, 10, 15, 20, 30, 45] as const;
 const TIMERS = [3, 5, 10, 15, 20, 30, 45, 60] as const;
@@ -38,11 +45,20 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const { user, refresh } = useAuth();
   const scan = useApi<ScanStateDto>('/api/library/scan-state');
 
+  // Whoever sets ZenPort up chooses the libraries, watches them read and
+  // lets the AI enhance them; everyone else is shown what is there.
+  const isAdmin = user?.role === 'admin';
   const steps = [
     { key: 'welcome', art: <Scene name="welcome" breathe /> },
     { key: 'why', art: <Scene name="feel" /> },
-    { key: 'library', art: <Scene name="kinds" /> },
-    { key: 'shape', art: <SceneCycle /> },
+    ...(isAdmin
+      ? [
+          { key: 'shape', art: <SceneCycle /> },
+          { key: 'libraries', art: null, wide: true },
+          { key: 'scan', art: null, wide: true },
+          { key: 'enhance', art: null, wide: true },
+        ]
+      : [{ key: 'library', art: <Scene name="kinds" /> }]),
     { key: 'sit', art: <Scene name="breathe" breathe /> },
     { key: 'rhythm', art: <Scene name="rhythm" /> },
     { key: 'ai', art: <Scene name="ai" /> },
@@ -51,6 +67,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     { key: 'ready', art: <Scene name="ready" /> },
   ];
   const last = steps.length - 1;
+  const key = steps[step]!.key;
 
   // Stable identity so the key handler below can depend on it honestly
   // instead of re-subscribing on every render.
@@ -93,11 +110,17 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </button>
         </div>
 
-        <div className="ob-body" key={steps[step]!.key}>
-          <div className="ob-figure">{steps[step]!.art}</div>
+        <div
+          className={`ob-body${(steps[step] as { wide?: boolean }).wide ? ' ob-wide' : ''}`}
+          key={key}
+        >
+          {steps[step]!.art && <div className="ob-figure">{steps[step]!.art}</div>}
 
           <div className="ob-copy">
-            {step === 0 && (
+            {key === 'libraries' && <LibrariesStep />}
+            {key === 'scan' && <ScanStep />}
+            {key === 'enhance' && <EnhanceStep onBack={() => setStep((s) => s - 1)} />}
+            {key === 'welcome' && (
               <>
                 <h1 id="ob-title">
                   Welcome to <Wordmark size={28} className="wm-inline" />
@@ -109,7 +132,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 1 && (
+            {key === 'why' && (
               <>
                 <h1 id="ob-title">What brings you here?</h1>
                 <p className="ob-lede">
@@ -134,7 +157,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 2 && (
+            {key === 'library' && (
               <>
                 <h1 id="ob-title">Your library, in place</h1>
                 {indexed > 0 ? (
@@ -144,8 +167,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   </p>
                 ) : (
                   <p className="ob-lede">
-                    Nothing yet - point <code>ZP_LIBRARY_DIRS</code> at your folders and it all
-                    appears here, read-only.
+                    Nothing here yet - whoever set up ZenPort is still adding the recordings.
                   </p>
                 )}
                 <ul className="ob-list">
@@ -162,28 +184,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     <Icon name="download" /> Save meditations to play offline
                   </li>
                 </ul>
-                {user?.role === 'admin' && indexed > 0 && (
-                  <p className="ob-note ob-review">
-                    Curious how it was read?{' '}
-                    <button
-                      type="button"
-                      className="linkish"
-                      onClick={() => {
-                        // The app's router mounts once this flow ends: point
-                        // it at the review page first.
-                        window.history.replaceState(null, '', '/admin/library');
-                        void finish();
-                      }}
-                    >
-                      Review it now
-                    </button>{' '}
-                    - or any time from Admin. Nothing needs doing.
-                  </p>
-                )}
               </>
             )}
 
-            {step === 3 && (
+            {key === 'shape' && (
               <>
                 <h1 id="ob-title">Shape it so it reads well</h1>
                 <p className="ob-lede">
@@ -209,7 +213,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 4 && (
+            {key === 'sit' && (
               <>
                 <h1 id="ob-title">Or just breathe</h1>
                 <p className="ob-lede">
@@ -233,7 +237,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 5 && (
+            {key === 'rhythm' && (
               <>
                 <h1 id="ob-title">Find a rhythm you'll keep</h1>
                 <p className="ob-lede">A gentle daily target - or none at all.</p>
@@ -281,7 +285,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 6 && (
+            {key === 'ai' && (
               <>
                 <h1 id="ob-title">Your own AI companion</h1>
                 <p className="ob-lede">
@@ -335,7 +339,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 7 && (
+            {key === 'friends' && (
               <>
                 <h1 id="ob-title">Practise together</h1>
                 <p className="ob-lede">
@@ -374,7 +378,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 8 && (
+            {key === 'feel' && (
               <>
                 <h1 id="ob-title">Make it yours</h1>
                 <div className="ob-field">
@@ -453,13 +457,14 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               </>
             )}
 
-            {step === 9 && (
+            {key === 'ready' && (
               <>
                 <h1 id="ob-title">That's everything</h1>
                 <p className="ob-lede">
                   Today is home: your plan, where you left off, one tap to begin.
                 </p>
                 <Summary prefs={prefs} indexed={indexed} />
+                {isAdmin && <AiStillWorking />}
                 <p className="ob-note">
                   Press <kbd>⌘</kbd>
                   <kbd>K</kbd> anywhere to jump to a meditation, start a timer, or change a setting.
@@ -522,5 +527,20 @@ function Summary({ prefs, indexed }: { prefs: UserPrefsDto; indexed: number }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** At the end: if the AI is still enhancing, say it carries on without them. */
+function AiStillWorking() {
+  const job = useApi<EnhanceJobDto | null>('/api/ai/library/job');
+  const j = job.data;
+  if (!j) return null;
+  return (
+    <p className="ob-note ob-ok">
+      <Icon name="sparkle" size={15} />{' '}
+      {j.running
+        ? `Your AI is still enhancing the library (${j.steps.filter((x) => x.state === 'done').length} of ${j.steps.length} done) - it carries on while you practise. Follow it under AI → Enhance the library.`
+        : 'Your library has been enhanced. Suggested fixes wait for you under AI → Enhance the library.'}
+    </p>
   );
 }

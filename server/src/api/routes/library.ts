@@ -1,4 +1,3 @@
-import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../context.js';
@@ -9,7 +8,8 @@ import {
   type RemovedLibraryDto,
   type ReviewSummaryDto,
 } from '@zenport/shared';
-import { lastFolderTree, readScanState, runScan } from '../../scanner/scan.js';
+import { lastFolderTree, readScanState } from '../../scanner/scan.js';
+import { scanProgress, startScan } from '../../scanner/coordinator.js';
 import {
   markReviewed,
   reviewDetail,
@@ -21,11 +21,13 @@ import { markFeaturedOpened } from '../../ai/featured.js';
 
 export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { db, config } = ctx;
-  let scanning: Promise<unknown> | null = null;
 
   app.get('/api/library', async (req) => libraryDto(db, config, req.user!.id));
 
-  app.get('/api/library/scan-state', async () => readScanState(db));
+  app.get('/api/library/scan-state', async () => ({
+    ...readScanState(db),
+    progress: scanProgress(),
+  }));
 
   // The Continue row: set something aside, or bring it back. Opening an item
   // (or playing it - see practice start) brings it back on its own.
@@ -52,18 +54,8 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     return { ok: true };
   });
 
-  const rescan = (): Promise<unknown> => {
-    if (!scanning) {
-      scanning = runScan(db, config.libraryRoots, {
-        coverCacheDir: path.join(config.dataDir, 'covers'),
-      })
-        .catch((err) => app.log.error(err, 'rescan failed'))
-        .finally(() => {
-          scanning = null;
-        });
-    }
-    return scanning;
-  };
+  const rescan = (): Promise<unknown> =>
+    startScan(db, config, (err) => app.log.error(err, 'rescan failed'));
 
   app.post('/api/library/rescan', async (req, reply) => {
     if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
@@ -285,7 +277,6 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
       );
     }
     // Wait for the rescan so the answer reflects the new shelves.
-    if (scanning) await scanning;
     await rescan();
     return { ok: true, scan: readScanState(db) };
   });

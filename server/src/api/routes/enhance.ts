@@ -30,6 +30,7 @@ import { ImageFetchError } from '../../ai/fetchImage.js';
 import { AiError, WEB_SEARCH } from '../../ai/providers.js';
 import { libraryDto } from '../../library/queries.js';
 import { setLevels, setSeriesStructure, setStructures } from '../../library/levels.js';
+import { jobState, startJob } from '../../ai/job.js';
 
 const FILE = /^[0-9a-f]{20}\.webp$/;
 
@@ -153,6 +154,36 @@ export function registerEnhanceRoutes(app: FastifyInstance, ctx: AppContext): vo
       return reply.code(400).send({ error: 'creator, collection and structure required' });
     setSeriesStructure(db, body.data.creator, body.data.collection, body.data.structure);
     return { ok: true };
+  });
+
+  // Everything at once, on the server (onboarding; Admin can run it again).
+  app.post('/api/ai/library/job', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const body = z
+      .object({
+        steps: z
+          .array(z.enum(['levels', 'pictures', 'fixes', 'about']))
+          .min(1)
+          .max(4),
+        apply: z.boolean(),
+        aboutLimit: z.number().int().min(1).max(120).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Choose what to enhance.' });
+    const c = enhanceCtx(req.user!.id);
+    if (!c) return reply.code(400).send({ error: 'Set up AI first.' });
+    const needsSearch = body.data.steps.some((s) => s === 'pictures' || s === 'about');
+    if (needsSearch && !WEB_SEARCH[c.target.provider]) {
+      return reply.code(400).send({
+        error: 'Pictures and descriptions need a provider that can search the web.',
+      });
+    }
+    return startJob(c, req.user!.id, body.data);
+  });
+
+  app.get('/api/ai/library/job', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    return jobState();
   });
 
   app.post('/api/ai/library/about', async (req, reply) => {

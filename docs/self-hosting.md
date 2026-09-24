@@ -28,7 +28,9 @@ The first-start flow is deliberate and closes behind you:
 | `/library/meditations` | `:ro`             | your meditation files. ZenPort only ever reads.                                                            |
 | `/data`                | rw (named volume) | SQLite database + journal voice notes. Local disk only — never SMB/NFS, SQLite corrupts on network shares. |
 
-Multiple roots: set `ZP_LIBRARY_DIRS=/library/a,/library/b` and add matching read-only volume lines to a compose override. Each root is scanned on its own and keeps its identity by path. A root you take out is kept, not deleted: bring it back, even at another path, and its recordings are recognised with everyone's progress. To let it go for good, use Admin → Library folders → _No longer mounted_.
+**Choosing libraries in the app (recommended).** Mount one parent folder read-only at `/library` and set `ZP_LIBRARY_BASE=/library`. The admin then picks which folders inside it are libraries, in the welcome flow or under Admin → Library folders, names them, and can add or remove them any time. Each change is read at once, with no restart. Chosen paths are checked to stay inside the base.
+
+**Fixed libraries.** Alternatively (or as well), set `ZP_LIBRARY_DIRS=/library/a,/library/b` and add matching read-only volume lines to a compose override. These show in the app as set by the server. Each root is scanned on its own and keeps its identity by path. A root you take out is kept, not deleted: bring it back, even at another path, and its recordings are recognised with everyone's progress. To let it go for good, use Admin → Library folders → _No longer mounted_.
 
 ## Reverse proxy / HTTPS
 

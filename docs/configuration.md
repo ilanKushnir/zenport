@@ -7,7 +7,8 @@ All configuration is environment variables. Every `ZP_*` variable also accepts a
 | `ZP_HOST`                  | `127.0.0.1` (image: `0.0.0.0`) | bind address                                                                |
 | `ZP_PORT`                  | `8484`                         | HTTP port                                                                   |
 | `ZP_DATA_DIR`              | `./data` (image: `/data`)      | writable state: SQLite + voice notes                                        |
-| `ZP_LIBRARY_DIRS`          | _(empty)_                      | comma-separated read-only library roots                                     |
+| `ZP_LIBRARY_BASE`          | _(empty)_                      | a mounted folder whose sub-folders an admin chooses as libraries in the app |
+| `ZP_LIBRARY_DIRS`          | _(empty)_                      | comma-separated read-only library roots, fixed by configuration             |
 | `ZP_SESSION_SECRET`        | _(required in production)_     | >= 32 chars; `openssl rand -hex 32`                                         |
 | `ZP_SESSION_DAYS`          | `30`                           | session cookie lifetime                                                     |
 | `ZP_SETUP_TOKEN`           | _(empty = open first run)_     | token the setup wizard demands before the first account exists              |
