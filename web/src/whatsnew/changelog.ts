@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.33.1',
+    items: [
+      {
+        emoji: '↩️',
+        text: 'Going back returns you to where you had scrolled, instead of the top.',
+      },
+    ],
+  },
+  {
     version: '0.33.0',
     items: [
       {

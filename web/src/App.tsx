@@ -7,12 +7,13 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigationType,
   useNavigate,
 } from 'react-router-dom';
 import type { SetupStatusDto, UserInfo } from '@zenport/shared';
 import { api, ApiError } from './api.ts';
 import { clearApiCache } from './hooks.ts';
-import { pageScrollTop } from './scrollRoot.ts';
+import { carryScroll, pageScrollTop, rememberScroll, restoreScroll } from './scrollRoot.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup } from './components/Brand.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
@@ -232,11 +233,24 @@ function Shell({ children }: { children: ReactNode }) {
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
   }, []);
+  // A page opened anew starts at the top; back (or forward) to one returns
+  // to where it was left. The frame scrolls, not the document, so the
+  // browser's own restoring cannot do this.
+  const navType = useNavigationType();
+  const lastPath = useRef<string | null>(null);
   useEffect(() => {
-    // New page: move the reading position back to the top.
-    document.getElementById('main')?.scrollTo?.(0, 0);
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    const samePage = lastPath.current === location.pathname;
+    lastPath.current = location.pathname;
+    let stopRestore = () => {};
+    // A filter or a search on the same page leaves the reading place alone.
+    if (samePage && navType !== 'POP') carryScroll(location.key);
+    else stopRestore = restoreScroll(location.key, navType === 'POP');
+    const stopRemember = rememberScroll(location.key);
+    return () => {
+      stopRestore();
+      stopRemember();
+    };
+  }, [location.key]);
 
   return (
     <div className="shell">

@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.33.1] — 2026-09-24
+
+### Fixed
+
+- **Back returns to where you were.** Going back from a recording to a creator page (or any page) jumped to the top. The page scrolls inside the app's frame on a phone, so the browser's own restoring never applied, and every change of page went to the top. Now each page remembers how far it was scrolled: Back and Forward return there (waiting a moment if the page is still drawing, and never fighting your own scrolling). A page opened anew starts at the top, and a filter or search on the same page leaves your place alone.
+
 ## [0.33.0] — 2026-09-24
 
 ### Changed
