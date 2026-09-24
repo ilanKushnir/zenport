@@ -25,7 +25,7 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: '0.34.0',
+    version: '0.34.1',
     items: [
       {
         emoji: '🧩',

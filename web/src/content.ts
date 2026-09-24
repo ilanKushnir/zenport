@@ -203,7 +203,10 @@ export function titleInSeries(title: string, series: string | null): string {
   if (!series) return title;
   const name = displayName(series).trim();
   if (!name || !title.toLowerCase().startsWith(name.toLowerCase())) return title;
-  const rest = title.slice(name.length).replace(/^[\s,:.|/·–—-]+/, '').trim();
+  const rest = title
+    .slice(name.length)
+    .replace(/^[\s,:.|/·–—-]+/, '')
+    .trim();
   return rest.length >= 2 ? rest : title;
 }
 

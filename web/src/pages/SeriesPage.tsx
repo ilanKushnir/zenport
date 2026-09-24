@@ -163,7 +163,8 @@ export function SeriesPage() {
               disabled={starting}
             >
               <Icon name="play" size={17} />
-              {done === 0 ? 'Start' : done >= total ? 'Begin again' : 'Continue'} · {titleInSeries(next.title, name)}
+              {done === 0 ? 'Start' : done >= total ? 'Begin again' : 'Continue'} ·{' '}
+              {titleInSeries(next.title, name)}
             </button>
             {user?.role === 'admin' && (
               <button className="btn btn-ghost" onClick={() => setPicking(true)}>

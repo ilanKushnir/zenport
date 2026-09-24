@@ -5,6 +5,10 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.34.1] — 2026-09-24
+
+The 0.34.0 release, published. Its build stopped on a formatting check, so 0.34.0 was never released.
+
 ## [0.34.0] — 2026-09-24
 
 ### Added
