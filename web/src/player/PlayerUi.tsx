@@ -155,19 +155,89 @@ export function FocusMode() {
   useScrollLock(open);
   const [sheet, setSheet] = useState<null | 'settings' | 'tracks'>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // The player context changes several times a second while playing; the drag
+  // handler must not be torn down mid-gesture, so it reads this ref instead.
+  const minimise = useRef(() => p.setFocus(false));
+  minimise.current = () => p.setFocus(false);
 
-  // Belt and braces for iOS: a drag anywhere on the player that is not on a
-  // control that scrolls or slides does nothing at all.
+  // Drag down to minimise, as with any native full-screen player. A drag that
+  // starts on the seek bar, a volume slider or a sheet keeps its own gesture;
+  // anywhere else the page never scrolls (iOS would otherwise rubber-band the
+  // whole player), and a downward pull moves the player with the finger. Let
+  // go past a sixth of the screen, or with a flick, and it slides down into
+  // the mini player; otherwise it springs back.
   useEffect(() => {
     const el = rootRef.current;
     if (!open || !el) return;
+    let startY = 0;
+    let lastY = 0;
+    let lastT = 0;
+    let velocity = 0;
+    let armed = false;
+    let dragging = false;
+    const ease = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    const place = (dy: number) => {
+      const y = Math.max(0, dy);
+      const k = Math.min(1, y / el.offsetHeight);
+      el.style.transform = `translate3d(0, ${y}px, 0) scale(${1 - k * 0.06})`;
+      el.style.borderRadius = `${Math.min(34, y / 4)}px`;
+    };
+    const onStart = (e: TouchEvent) => {
+      const t = e.target as HTMLElement;
+      armed = e.touches.length === 1 && !t.closest('.slider, .sheet');
+      dragging = false;
+      if (!armed) return;
+      startY = lastY = e.touches[0]!.clientY;
+      lastT = performance.now();
+      velocity = 0;
+    };
     const onMove = (e: TouchEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest('.slider, .sheet')) return;
       e.preventDefault();
+      if (!armed) return;
+      const y = e.touches[0]!.clientY;
+      const now = performance.now();
+      velocity = (y - lastY) / Math.max(1, now - lastT);
+      lastY = y;
+      lastT = now;
+      if (!dragging && y - startY > 8) {
+        dragging = true;
+        el.style.transition = 'none';
+        el.style.animation = 'none';
+        startY = y;
+      }
+      if (dragging) place(y - startY);
     };
+    const onEnd = () => {
+      if (!dragging) {
+        armed = false;
+        return;
+      }
+      dragging = false;
+      armed = false;
+      const dy = lastY - startY;
+      if (performance.now() - lastT > 90) velocity = 0;
+      if (dy > el.offsetHeight / 6 || velocity > 0.55) {
+        el.style.transition = `transform 280ms ${ease}, border-radius 280ms ${ease}`;
+        el.style.transform = 'translate3d(0, 100%, 0) scale(0.94)';
+        window.setTimeout(() => minimise.current(), 260);
+      } else {
+        el.style.transition = `transform 360ms ${ease}, border-radius 360ms ${ease}`;
+        el.style.transform = '';
+        el.style.borderRadius = '';
+      }
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchmove', onMove, { passive: false });
-    return () => el.removeEventListener('touchmove', onMove);
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    };
   }, [open]);
 
   // Escape minimises (a sheet on top handles its own Escape first).
@@ -204,6 +274,7 @@ export function FocusMode() {
       aria-label={`Playing ${it.title}`}
       ref={rootRef}
     >
+      <span className="fp-grab" aria-hidden="true" />
       <div className="fp-wash" aria-hidden="true">
         {it.coverId ? (
           <img src={`/api/media/asset/${it.coverId}?w=320`} alt="" />
@@ -641,6 +712,28 @@ export function PracticeSettingsSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Practice settings" onClose={onClose} labelId="ps-title">
       <div className="ps">
+        <div className="ps-awake">
+          <span className="ps-awake-ic">
+            <Icon name="sun" size={20} />
+          </span>
+          <div className="ps-text">
+            <h3>Keep the screen on</h3>
+            <p>
+              {p.wakeLockSupported
+                ? 'While a practice plays, so auto-lock never cuts a long sit short.'
+                : 'This browser cannot hold the screen on; audio still plays with the screen off.'}
+            </p>
+            {p.wakeLockNote && s.keepAwake && p.wakeLockSupported && (
+              <p className="ps-warn">{p.wakeLockNote}</p>
+            )}
+          </div>
+          <Switch
+            checked={s.keepAwake}
+            onChange={(v) => p.updateSettings({ keepAwake: v })}
+            label="Keep the screen on while practicing"
+            disabled={!p.wakeLockSupported}
+          />
+        </div>
         <Section
           art="set-arrive"
           title="Settle in"
@@ -716,29 +809,6 @@ export function PracticeSettingsSheet({ onClose }: { onClose: () => void }) {
             <Icon name="volume" size={18} />
           </div>
         </Section>
-
-        <div className="ps-awake">
-          <span className="ps-awake-ic">
-            <Icon name="sun" size={20} />
-          </span>
-          <div className="ps-text">
-            <h3>Keep the screen on</h3>
-            <p>
-              {p.wakeLockSupported
-                ? 'While a practice plays, so auto-lock never cuts a long sit short.'
-                : 'This browser cannot hold the screen on; audio still plays with the screen off.'}
-            </p>
-            {p.wakeLockNote && s.keepAwake && p.wakeLockSupported && (
-              <p className="ps-warn">{p.wakeLockNote}</p>
-            )}
-          </div>
-          <Switch
-            checked={s.keepAwake}
-            onChange={(v) => p.updateSettings({ keepAwake: v })}
-            label="Keep the screen on while practicing"
-            disabled={!p.wakeLockSupported}
-          />
-        </div>
       </div>
     </Sheet>
   );

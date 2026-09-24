@@ -25,6 +25,10 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.13.1',
+    items: [{ emoji: '👇', text: 'Pull the player down with a finger to tuck it away.' }],
+  },
+  {
     version: '0.13.0',
     items: [
       {

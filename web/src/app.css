@@ -1382,13 +1382,44 @@
   overflow: hidden;
   overscroll-behavior: contain;
   isolation: isolate;
-  animation: fp-in 380ms var(--ease);
+  transform-origin: 50% 0;
+  will-change: transform;
+  animation: fp-in 460ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/* The player rises from the bottom, the way it goes back down. */
 @keyframes fp-in {
   from {
-    opacity: 0;
-    transform: translateY(24px);
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+:root[data-calm='1'] .fp {
+  animation: fade-in 200ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp {
+    animation: fade-in 200ms ease both;
+  }
+}
+
+/* A grab handle: the player can be pulled down into the mini player. */
+.fp-grab {
+  position: absolute;
+  inset-block-start: calc(env(safe-area-inset-top) + 6px);
+  inset-inline-start: 50%;
+  z-index: 2;
+  inline-size: 38px;
+  block-size: 5px;
+  margin-inline-start: -19px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fp-grab {
+    display: none;
   }
 }
 

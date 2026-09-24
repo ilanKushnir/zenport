@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.13.1] — 2026-09-24
+
+### Added
+
+- **Pull the player down to minimise it.** The full-screen player follows the finger from anywhere but the seek bar and the volume sliders - rounding its corners and easing back a touch as it goes - and slides into the mini player once pulled past a sixth of the screen or flicked; a short pull springs back. A grab handle at the top says it can be done. The player also rises from the bottom when it opens, the way it leaves.
+
+### Changed
+
+- *Keep the screen on* is the first thing in Practice settings.
+
 ## [0.13.0] — 2026-09-24
 
 ### Added
