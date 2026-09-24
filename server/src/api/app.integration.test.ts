@@ -3038,7 +3038,7 @@ describe('Enhance in one go', () => {
 });
 
 describe('Recordings that belong together', () => {
-  it('offers numbered folders filed apart as one series, groups them, or lets them be', async () => {
+  it('reads numbered folders filed apart as one series; offers sets sharing a name', async () => {
     for (const rel of [
       'Mira Solen/Meditations/Calm Harbour - Vol. 2 (2019)/a.mp3',
       'Mira Solen/Meditations/Calm Harbour - Vol. 1 (2018)/b.mp3',
@@ -3060,28 +3060,39 @@ describe('Recordings that belong together', () => {
         why: string;
         items: { id: string; title: string }[];
       }[];
-    const found = await groups();
-    // Two sharing a name are not yet a set; three numbered ones are, in their order.
-    expect(found.map((g) => g.name)).toEqual(['Calm Harbour']);
-    expect(found[0]!.why).toBe('numbered');
-    expect(found[0]!.items.map((i) => i.title)).toEqual([
+    const lib = async () =>
+      (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json().items as {
+        id: string;
+        title: string;
+        collection: string | null;
+      }[];
+
+    // A numbered set is a series as soon as it is read - nothing to accept.
+    const read = await lib();
+    expect(
+      read
+        .filter((i) => i.collection === 'Calm Harbour')
+        .map((i) => i.title)
+        .sort(),
+    ).toEqual([
       'Calm Harbour - Vol. 1 (2018)',
       'Calm Harbour - Vol. 2 (2019)',
       'Calm Harbour - Vol. 3 (2020)',
     ]);
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/admin/groups/apply',
-      headers: auth(),
-      payload: { ids: found[0]!.items.map((i) => i.id), name: 'Calm Harbour' },
-    });
-    expect(res.statusCode).toBe(200);
-    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json()
-      .items as { title: string; collection: string | null }[];
-    expect(lib.filter((i) => i.collection === 'Calm Harbour')).toHaveLength(3);
-    // Grouped: no longer offered.
+    expect(read.find((i) => i.title === 'Evening Light')!.collection).toBeNull();
+    // Two sharing a name are not yet a set.
     expect(await groups()).toEqual([]);
+
+    // An admin's word wins: out of the series, and it stays out on the next read.
+    const vol3 = read.find((i) => i.title.includes('Vol. 3'))!;
+    await app.inject({
+      method: 'PUT',
+      url: `/api/admin/items/${vol3.id}`,
+      headers: auth(),
+      payload: { series: '' },
+    });
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    expect((await lib()).find((i) => i.id === vol3.id)!.collection).toBeNull();
 
     // A third "Open Sky - To …" makes a set by name; "Not together" is remembered.
     mkdirSync(path.join(libRoot, 'Mira Solen/Meditations/Open Sky - To Calm (2022)'), {

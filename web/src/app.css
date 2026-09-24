@@ -9851,6 +9851,30 @@ textarea.review-part-name {
   text-decoration-color: color-mix(in oklab, var(--faint) 70%, transparent);
 }
 
+/* On a creator's page, for the admin: sets that look like they belong together. */
+.cr-sets {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-block: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  border: 1px dashed color-mix(in oklab, var(--accent) 45%, transparent);
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.cr-sets > span {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.cr-sets strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* Start the library over (Library folders). */
 .start-over {
   margin-block-start: var(--s7, 40px);

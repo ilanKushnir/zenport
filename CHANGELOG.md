@@ -5,6 +5,13 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.35.1] — 2026-09-24
+
+### Changed
+
+- **Numbered sets become one series on their own.** "Advanced Workshop Meditations - Vol. 1" to "Vol. 5" stayed five separate recordings until an admin found the suggestion in Review and accepted it. Now the scanner groups them as it reads the library: sibling folders of one creator that share a name before a set number that differs between them (Vol. 1…5, 01…13, Volume 1 and 2). They become one series in numbered order. A series you set yourself (or none) in Review still wins, on every later scan. Sets that only share a name ("Open Sky - To Rest", "… - To Joy") are still offered rather than assumed, and a note on the creator's page (for the admin) now points to them.
+- The next-step card on a creator's page no longer repeats the series name.
+
 ## [0.35.0] — 2026-09-24
 
 ### Added

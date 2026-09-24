@@ -16,6 +16,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type {
   ContentType,
+  GroupSuggestionDto,
   ItemLevel,
   LibraryDto,
   MeditationDetailDto,
@@ -23,6 +24,7 @@ import type {
 } from '@zenport/shared';
 import { formatDuration, isPracticeType } from '@zenport/shared';
 import { api } from '../api.ts';
+import { useAuth } from '../App.tsx';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { Cover, EmptyState, ErrorNote, Icon, PageSkeleton } from '../components/ui.tsx';
@@ -31,6 +33,7 @@ import {
   compareItems,
   compareSeries,
   displayName,
+  titleInSeries,
   inOrder,
   groupSeries,
   isFinished,
@@ -62,6 +65,10 @@ export function CreatorPage() {
   const creatorName = decodeURIComponent(name);
   const lib = useApi<LibraryDto>('/api/library');
   useRefreshOn('zenport:progress', () => lib.reload());
+  const { user } = useAuth();
+  // For the admin: sets here that look like they belong together (Review).
+  const sets = useApi<GroupSuggestionDto[]>(user?.role === 'admin' ? '/api/admin/groups' : null);
+  const setsHere = (sets.data ?? []).filter((g) => g.creator === creatorName);
   const player = usePlayer();
   const [level, setLevel] = useState<ItemLevel | 'all-levels'>('all-levels');
   const [starting, setStarting] = useState(false);
@@ -235,7 +242,9 @@ export function CreatorPage() {
                   <Link to={nextInfo.href}>{displayName(nextInfo.name)}</Link>
                 </h2>
                 <p className="sub">
-                  {next?.kind === 'series' ? displayName(nextItem.title) : 'Programme'}
+                  {next?.kind === 'series'
+                    ? titleInSeries(displayName(nextItem.title), nextInfo.name)
+                    : 'Programme'}
                   {nextInfo.level ? ` · ${LEVEL_SHORT[nextInfo.level]}` : ''}
                   {` · ${nextInfo.done} of ${nextInfo.total} done`}
                 </p>
@@ -261,6 +270,19 @@ export function CreatorPage() {
                 </div>
               </div>
             </section>
+          )}
+
+          {setsHere.length > 0 && (
+            <Link className="cr-sets" to="/admin/library?show=sets">
+              <Icon name="library" size={15} />
+              <span>
+                {setsHere.length === 1
+                  ? `"${setsHere[0]!.name}" - ${setsHere[0]!.items.length} recordings that look like one set.`
+                  : `${setsHere.length} sets of recordings here look like they belong together.`}{' '}
+                <strong>Group them</strong>
+              </span>
+              <Icon name="chevron-right" size={15} />
+            </Link>
           )}
 
           <FolderDocs

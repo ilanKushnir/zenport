@@ -1,6 +1,7 @@
 import { naturalCompare, titleFromStem, type InferenceDecision } from '@zenport/shared';
 import { orderTracks } from './trackOrder.js';
 import type { WalkedFile } from '../scanner/walk.js';
+import { numberedStem } from './setNames.js';
 
 /**
  * Deterministic, explainable hierarchy inference. No AI, no probabilities —
@@ -493,11 +494,61 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
   };
   attachDeepDocs(root, null);
 
+  groupNumberedSets(items);
+
   items.sort((a, b) => naturalCompare(a.itemKey, b.itemKey));
   for (const item of items) {
     item.documents.sort((a, b) => naturalCompare(a.relPath, b.relPath));
   }
   return items;
+}
+
+/**
+ * Numbered sets filed side by side - "Calm Harbour - Vol. 1" to "Vol. 5",
+ * "Quiet Walk 01" to "13", each its own folder in one folder of the creator's
+ * - are one series, named by what they share. Their folders do not say so;
+ * their names do, unmistakably (a number that runs through siblings with the
+ * same name before it). Recordings already in a series from their folders
+ * are left as they are, and an admin's series always wins over this.
+ */
+function groupNumberedSets(items: InferredItem[]): void {
+  const shelves = new Map<string, InferredItem[]>();
+  for (const item of items) {
+    if (item.collection) continue;
+    const parent = item.itemKey.includes('/')
+      ? item.itemKey.slice(0, item.itemKey.lastIndexOf('/'))
+      : '';
+    const k = `${item.creator}\u0000${parent}`;
+    shelves.set(k, [...(shelves.get(k) ?? []), item]);
+  }
+  for (const shelf of shelves.values()) {
+    const sets = new Map<string, { stem: string; members: { item: InferredItem; n: number }[] }>();
+    for (const item of shelf) {
+      const s = numberedStem(item.title);
+      if (!s) continue;
+      const key = s.stem
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim();
+      const g = sets.get(key) ?? { stem: s.stem, members: [] };
+      g.members.push({ item, n: s.n });
+      sets.set(key, g);
+    }
+    for (const g of sets.values()) {
+      const numbers = new Set(g.members.map((m) => m.n));
+      // Two or more, numbered differently: two copies of "Part 1" are not a set.
+      if (g.members.length < 2 || numbers.size < 2) continue;
+      for (const { item } of g.members) {
+        item.collection = g.stem;
+        item.decisions.push({
+          field: 'collection',
+          value: g.stem,
+          rule: 'numbered-set',
+          evidence: `one of ${g.members.length} numbered folders side by side named "${g.stem}"`,
+        });
+      }
+    }
+  }
 }
 
 /**

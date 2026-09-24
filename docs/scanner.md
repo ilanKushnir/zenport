@@ -88,7 +88,12 @@ A creator's page is walked in that light: the next step (the programme under way
 
 ### Recordings that belong together
 
-Each folder with audio is its own recording, so a set filed as sibling folders (_Calm Harbour - Vol. 1_ to _Vol. 5_, _Quiet Walk 01…13_, or three or more _Open Sky - To …_) is read as separate recordings with no series. Review the library → **Belong together** offers each such set, found from the names alone within one creator's folder among recordings in no series. **Group as one series** gives them a series (named as you like), in their numbered order; **Not together** is remembered (`server/src/library/groups.ts`). Nothing in the folders changes, and any recording can be taken out again from Review.
+Each folder with audio is its own recording, so a set filed as sibling folders reads as separate recordings with no series. Only the names say they belong together.
+
+- **Numbered sets become a series as they are read** (`groupNumberedSets` in `server/src/library/infer.ts`). Two or more sibling folders of one creator share a name before a set number that differs between them: _Calm Harbour - Vol. 1_ to _Vol. 5_, _Quiet Walk 01…13_, _Open Sky Volume 1, 2_. They become one series of that name, in numbered order. A bare number needs a name of two words or more, so _Take 10_ is a title, not the tenth of a set. Recordings already in a series from their folders are left alone. An admin's series (or no series) set in Review always wins, on every later scan.
+- **Sets that only share a name are offered**, not assumed: three or more like _Open Sky - To Rest_ and _Open Sky - To Joy_. They appear in Review the library → **Belong together**, and a note on the creator's page points the admin there. **Group as one series** gives them a series named as you like; **Not together** is remembered (`server/src/library/groups.ts`).
+
+Nothing in the folders changes either way.
 
 ## Starting over
 

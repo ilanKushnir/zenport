@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.35.1',
+    items: [
+      {
+        emoji: '🧩',
+        text: 'Numbered sets - Vol. 1 to Vol. 5, 01 to 13 - become one series on their own, in order.',
+      },
+    ],
+  },
+  {
     version: '0.35.0',
     items: [
       {
