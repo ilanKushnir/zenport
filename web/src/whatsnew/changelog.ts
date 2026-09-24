@@ -25,6 +25,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.20.0',
+    items: [
+      {
+        emoji: '🌅',
+        text: 'Today begins at a glance: what to practise, what to keep learning, Breathe and Write.',
+      },
+      {
+        emoji: '🧹',
+        text: 'Practice history comes a card per day - clear a whole day, or remove a single session.',
+      },
+      {
+        emoji: '🖱️',
+        text: 'On a desktop: cards rise gently under the mouse, scrollbars wear the app colours, and nothing shifts when a window opens.',
+      },
+    ],
+  },
+  {
     version: '0.19.0',
     items: [
       {

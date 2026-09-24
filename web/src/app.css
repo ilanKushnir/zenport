@@ -524,31 +524,46 @@
   }
 }
 
+/* Pointer hover (desktop only): a card rises gently, its shadow deepens and
+   the artwork drifts a touch closer - eased, never a jump. Touch screens
+   have no hover and keep only the press. The lift uses the separate
+   `translate` property so it never fights the press's `transform`. */
+:root {
+  --lift-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --lift-t: 380ms;
+}
+
 .med-card {
   display: block;
   min-width: 0;
   color: var(--text);
   border-radius: var(--r-md);
   transition:
-    translate var(--t-med) var(--ease),
+    translate var(--lift-t) var(--lift-ease),
     filter var(--t-med) var(--ease);
+}
+
+.med-card .cover {
+  transition: box-shadow var(--lift-t) var(--lift-ease);
+}
+
+.med-card .cover img {
+  transition: scale 700ms var(--lift-ease);
 }
 
 @media (hover: hover) {
   .med-card:hover {
     text-decoration: none;
-    translate: 0 -3px;
+    translate: 0 -4px;
   }
-}
 
-@media (hover: hover) {
   .med-card:hover .cover {
-    box-shadow: 0 14px 34px rgba(10, 7, 16, 0.55);
+    box-shadow: 0 18px 38px rgba(10, 7, 16, 0.55);
   }
-}
 
-.med-card .cover {
-  transition: box-shadow var(--t-med) var(--ease);
+  .med-card:hover .cover img {
+    scale: 1.04;
+  }
 }
 
 .med-card .cover {
@@ -3797,65 +3812,108 @@
   color: var(--faint);
 }
 
+/*
+ * Today's Begin: two main cards - what to practise, what to continue
+ * learning - each with one small tag for why it is here, and two quick
+ * tiles, Breathe and Write. Read at a glance: a cover, a tag, a title, one
+ * round action. Main cards on the left, the tiles stacked beside them on a
+ * desktop; stacked, then tiles side by side, on a phone.
+ */
 .begin-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--s4);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
 }
 
-.begin-card {
+.begin-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+}
+
+.begin-quick {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+@media (min-width: 900px) {
+  .begin-grid {
+    grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .begin-quick {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 1fr;
+  }
+}
+
+.begin-card,
+.begin-tile {
   display: flex;
   align-items: center;
   gap: var(--s4);
-  padding: var(--s4);
+  padding: var(--s3) var(--s4) var(--s3) var(--s3);
   border-radius: var(--r-lg);
   border: 1px solid var(--hairline);
   background: var(--surface);
-  text-align: start;
   color: var(--text);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
   transition:
     border-color var(--t-fast) var(--ease),
     transform var(--t-fast) var(--ease),
+    translate var(--lift-t) var(--lift-ease),
     background var(--t-fast) var(--ease);
 }
 
 @media (hover: hover) {
-  .begin-card:hover {
+  .begin-card:hover,
+  .begin-tile:hover {
     border-color: var(--border);
     background: var(--raised);
     text-decoration: none;
-    transform: translateY(-2px);
+    translate: 0 -3px;
   }
 }
 
 .begin-primary {
-  background: linear-gradient(120deg, var(--accent-soft), transparent 58%), var(--surface);
+  background:
+    radial-gradient(130% 160% at 0% 0%, var(--accent-soft), transparent 62%), var(--surface);
+}
+
+.begin-learn {
+  background:
+    radial-gradient(
+      130% 160% at 0% 0%,
+      color-mix(in oklab, var(--t-course) 13%, transparent),
+      transparent 62%
+    ),
+    var(--surface);
 }
 
 .begin-cover {
-  inline-size: 72px;
-  block-size: 72px;
+  inline-size: 68px;
+  block-size: 68px;
   flex: none;
-  border-radius: var(--r-md);
+  border-radius: 14px;
 }
 
 .begin-text {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.begin-text .why {
-  font-size: 11px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--accent);
+  align-items: flex-start;
+  gap: 3px;
+  min-inline-size: 0;
 }
 
 .begin-text .ttl {
+  max-inline-size: 100%;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3863,6 +3921,7 @@
 }
 
 .begin-text .sub {
+  max-inline-size: 100%;
   font-size: 13px;
   color: var(--muted);
   overflow: hidden;
@@ -3870,12 +3929,52 @@
   white-space: nowrap;
 }
 
+/* Why it is here, in one or two words. */
+.begin-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.begin-learn .begin-tag {
+  color: var(--t-course);
+  background: color-mix(in oklab, var(--t-course) 16%, transparent);
+}
+
+.begin-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  inline-size: 100%;
+}
+
+.begin-bar {
+  flex: 1;
+  max-inline-size: 160px;
+  block-size: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.begin-bar > span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--t-course);
+}
+
 .begin-go {
-  margin-inline-start: auto;
   display: grid;
   place-items: center;
-  inline-size: 44px;
-  block-size: 44px;
+  inline-size: 46px;
+  block-size: 46px;
   border-radius: 50%;
   flex: none;
   background: var(--accent-fill);
@@ -3884,21 +3983,35 @@
   color: var(--ink-on-accent);
 }
 
-.begin-ic {
-  display: grid;
-  place-items: center;
-  inline-size: 44px;
-  block-size: 44px;
-  border-radius: var(--r-md);
-  flex: none;
-  background: var(--raised);
-  color: var(--accent);
+.begin-learn .begin-go {
+  background: color-mix(in oklab, var(--t-course) 24%, transparent);
+  background-image: none;
+  color: var(--t-course);
 }
 
-@media (max-width: 1080px) {
-  .begin-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.begin-tile {
+  gap: var(--s3);
+  padding: var(--s3);
+}
+
+.begin-tile-ic {
+  display: grid;
+  place-items: center;
+  inline-size: 42px;
+  block-size: 42px;
+  border-radius: 13px;
+  flex: none;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.begin-write .begin-tile-ic {
+  color: var(--t-talk, #b9a6ff);
+  background: color-mix(in oklab, var(--t-talk, #b9a6ff) 16%, transparent);
+}
+
+.begin-tile .ttl {
+  font-size: 16px;
 }
 
 /* ===================================================================
@@ -6036,22 +6149,6 @@
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-}
-
-.begin-learn {
-  background:
-    linear-gradient(120deg, color-mix(in oklab, var(--t-course) 12%, transparent), transparent 60%),
-    var(--surface);
-}
-
-.begin-learn .why {
-  color: var(--t-course);
-}
-
-.begin-learn .begin-go {
-  background: color-mix(in oklab, var(--t-course) 22%, transparent);
-  background-image: none;
-  color: var(--t-course);
 }
 
 /* The AI planner */
@@ -8234,6 +8331,7 @@ span.role-chip {
       .chip,
       .med-card,
       .begin-card,
+      .begin-tile,
       .more-tile,
       .prow-head,
       .prow-action,
@@ -8249,6 +8347,8 @@ span.role-chip {
     ) {
     transition:
       transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      translate var(--lift-t) var(--lift-ease),
+      box-shadow var(--lift-t) var(--lift-ease),
       background var(--t-fast) var(--ease),
       border-color var(--t-fast) var(--ease),
       color var(--t-fast) var(--ease);
@@ -8258,6 +8358,7 @@ span.role-chip {
       .btn,
       .chip,
       .begin-card,
+      .begin-tile,
       .more-tile,
       .person-card,
       .seg-opt,
@@ -9800,5 +9901,117 @@ html.scroll-locked body {
   }
   .shell:has(.mini) .scan-notice {
     inset-block-end: calc(var(--tabbar-h) + 84px);
+  }
+}
+
+/* Practice history: a card per day, its sessions divided by hairlines. */
+.hist {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+  max-inline-size: 760px;
+}
+
+.hist-day {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 86%, transparent);
+  overflow: hidden;
+}
+
+.hist-day-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s3) var(--s2) var(--s4);
+}
+
+.hist-day-head .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  min-inline-size: 0;
+}
+
+.hist-day-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.hist-clear {
+  flex: none;
+  color: var(--faint);
+}
+
+.hist-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 10px var(--s2) 10px var(--s4);
+  border-block-start: 1px solid var(--hairline);
+}
+
+.hist-row .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.hist-row .sub,
+.hist-day-head .sub {
+  font-size: 12.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-title {
+  font-size: 14.5px;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hist-dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.hist-dot.done {
+  background: var(--accent);
+}
+
+.hist-act {
+  flex: none;
+  color: var(--faint);
+}
+
+@media (hover: hover) {
+  .hist-title:hover {
+    color: var(--accent);
+  }
+
+  /* On a desktop the row's tools stay quiet until the row is pointed at. */
+  .hist-row .hist-act {
+    opacity: 0.45;
+    transition: opacity var(--t-fast) var(--ease);
+  }
+
+  .hist-row:hover .hist-act,
+  .hist-row .hist-act:focus-visible {
+    opacity: 1;
   }
 }

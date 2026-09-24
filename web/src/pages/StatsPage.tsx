@@ -4,7 +4,8 @@ import type { PracticeSessionDto, StatsDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
-import { EmptyState, ErrorNote, Sheet } from '../components/ui.tsx';
+import { EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
+import { useAuth } from '../App.tsx';
 
 export function StatsPage() {
   const [tab, setTab] = useState<'overview' | 'history'>('overview');
@@ -246,22 +247,73 @@ function monthSummary(s: StatsDto): string {
   return `Last 12 weeks: ${total} minutes in total.`;
 }
 
+/** The calendar day a moment falls on, in the person's own timezone. */
+function dayKey(iso: string, tz: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(iso));
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+function dayLabel(day: string, tz: string): string {
+  const today = dayKey(new Date().toISOString(), tz);
+  const yesterday = dayKey(new Date(Date.now() - 86_400_000).toISOString(), tz);
+  if (day === today) return 'Today';
+  if (day === yesterday) return 'Yesterday';
+  return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/** "Today" and "Yesterday" mid-sentence; a date stays as it is. */
+const inSentence = (label: string) =>
+  label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : label;
+
+function timeOf(iso: string, tz: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: tz,
+    });
+  } catch {
+    return iso.slice(11, 16);
+  }
+}
+
+type Ask =
+  | { kind: 'day'; day: string; sessions: PracticeSessionDto[] }
+  | { kind: 'one'; session: PracticeSessionDto };
+
+/**
+ * Practice history, a card per day. A day can be cleared whole, a sit
+ * removed or its minutes corrected - always after a plain question, and the
+ * statistics follow. Journal entries written after a sit are kept.
+ */
 function History() {
   const history = useApi<PracticeSessionDto[]>('/api/practice/history');
+  const { user } = useAuth();
+  const tz = user?.timezone || 'UTC';
   const [editing, setEditing] = useState<PracticeSessionDto | null>(null);
+  const [asking, setAsking] = useState<Ask | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const grouped = useMemo(() => {
     const map = new Map<string, PracticeSessionDto[]>();
     for (const s of history.data ?? []) {
-      const day = s.startedAt.slice(0, 10);
+      if (s.status === 'active') continue;
+      const day = dayKey(s.startedAt, tz);
       map.set(day, [...(map.get(day) ?? []), s]);
     }
     return [...map.entries()];
-  }, [history.data]);
+  }, [history.data, tz]);
 
   if (history.loading) return <div className="skeleton" style={{ height: 200 }} />;
   if (history.error) return <ErrorNote message={history.error} onRetry={history.reload} />;
-  if ((history.data ?? []).length === 0) {
+  if (grouped.length === 0) {
     return (
       <EmptyState title="No sessions yet">
         Your practice history will collect here, day by day.
@@ -269,45 +321,116 @@ function History() {
     );
   }
 
+  const remove = async (ids: number[]) => {
+    setBusy(true);
+    try {
+      await api.post('/api/practice/remove', { ids });
+      window.dispatchEvent(new Event('zenport:progress'));
+      history.reload();
+      setAsking(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
-      {grouped.map(([day, sessions]) => (
-        <div className="timeline-day" key={day}>
-          <div className="timeline-date">
-            <strong>
-              {new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
-                weekday: 'short',
-              })}
-            </strong>
-            {new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </div>
-          <div>
-            {sessions.map((s) => (
-              <div
-                className="occ"
-                key={s.id}
-                data-status={s.status === 'completed' ? 'completed' : 'skipped'}
-              >
-                <span className="dot" aria-hidden="true" />
-                <span className="occ-name">
-                  <Link to={`/m/${s.meditationId}`}>{s.meditationTitle}</Link>
-                </span>
-                <span className="badge">
-                  {formatDuration(s.listenedSec)} · {s.status}
-                </span>
-                <div className="occ-actions">
-                  <button className="btn btn-sm btn-quiet" onClick={() => setEditing(s)}>
-                    Correct
-                  </button>
+      <div className="hist">
+        {grouped.map(([day, sessions]) => {
+          const minutes = sessions.reduce((n, s) => n + s.listenedSec, 0) / 60;
+          return (
+            <section className="hist-day" key={day} aria-label={dayLabel(day, tz)}>
+              <header className="hist-day-head">
+                <div className="grow">
+                  <h3>{dayLabel(day, tz)}</h3>
+                  <span className="sub">
+                    {formatMinutes(minutes)} · {sessions.length}{' '}
+                    {sessions.length === 1 ? 'session' : 'sessions'}
+                  </span>
                 </div>
-              </div>
-            ))}
+                <button
+                  className="btn btn-sm btn-quiet hist-clear"
+                  onClick={() => setAsking({ kind: 'day', day, sessions })}
+                >
+                  <Icon name="trash" size={14} /> Clear day
+                </button>
+              </header>
+              <ul className="hist-list">
+                {sessions.map((s) => (
+                  <li className="hist-row" key={s.id}>
+                    <span
+                      className={`hist-dot${s.status === 'completed' ? ' done' : ''}`}
+                      aria-hidden="true"
+                    />
+                    <span className="grow">
+                      <Link className="hist-title" to={`/m/${s.meditationId}`}>
+                        {s.meditationTitle}
+                      </Link>
+                      <span className="sub">
+                        {timeOf(s.startedAt, tz)} · {formatDuration(s.listenedSec)} ·{' '}
+                        {s.status === 'completed' ? 'finished' : 'ended early'}
+                      </span>
+                    </span>
+                    <button
+                      className="icon-btn hist-act"
+                      aria-label={`Correct the minutes of ${s.meditationTitle}`}
+                      title="Correct the minutes"
+                      onClick={() => setEditing(s)}
+                    >
+                      <Icon name="pencil" size={16} />
+                    </button>
+                    <button
+                      className="icon-btn hist-act"
+                      aria-label={`Remove ${s.meditationTitle} from your history`}
+                      title="Remove from history"
+                      onClick={() => setAsking({ kind: 'one', session: s })}
+                    >
+                      <Icon name="trash" size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+
+      {asking && (
+        <Sheet
+          title={
+            asking.kind === 'day'
+              ? `Clear ${inSentence(dayLabel(asking.day, tz))}?`
+              : 'Remove this session?'
+          }
+          onClose={() => !busy && setAsking(null)}
+          labelId="hist-ask"
+        >
+          <div className="forget">
+            <p>
+              {asking.kind === 'day'
+                ? `${asking.sessions.length} ${asking.sessions.length === 1 ? 'session' : 'sessions'} (${formatMinutes(asking.sessions.reduce((n, s) => n + s.listenedSec, 0) / 60)}) leave your history. Your streaks, totals and charts are counted again without them.`
+                : `${asking.session.meditationTitle} at ${timeOf(asking.session.startedAt, tz)} (${formatDuration(asking.session.listenedSec)}) leaves your history. Your streaks, totals and charts are counted again without it.`}
+            </p>
+            <p>Anything you wrote in your journal afterwards stays.</p>
+            <div className="forget-actions">
+              <button className="btn btn-primary" onClick={() => setAsking(null)} disabled={busy}>
+                Keep
+              </button>
+              <button
+                className="btn btn-danger"
+                disabled={busy}
+                onClick={() =>
+                  void remove(
+                    asking.kind === 'day' ? asking.sessions.map((s) => s.id) : [asking.session.id],
+                  )
+                }
+              >
+                {busy ? 'Removing…' : asking.kind === 'day' ? 'Clear the day' : 'Remove'}
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        </Sheet>
+      )}
       {editing && (
         <CorrectSessionSheet
           session={editing}
@@ -341,21 +464,14 @@ function CorrectSessionSheet({
       .catch(() => {});
     onSaved();
   };
-  const remove = async () => {
-    if (!window.confirm('Delete this session record? Statistics will recalculate without it.'))
-      return;
-    setBusy(true);
-    await api.del(`/api/practice/${session.id}`).catch(() => {});
-    onSaved();
-  };
 
   return (
-    <Sheet title="Correct this session" onClose={onClose}>
+    <Sheet title="Correct the minutes" onClose={onClose}>
       <p style={{ color: 'var(--muted)', marginBottom: 16 }}>
         {session.meditationTitle} · {session.startedAt.slice(0, 16).replace('T', ' ')}
       </p>
       <div className="field">
-        <label htmlFor="cs-min">Minutes practiced</label>
+        <label htmlFor="cs-min">Minutes practised</label>
         <input
           id="cs-min"
           type="number"
@@ -365,12 +481,9 @@ function CorrectSessionSheet({
           onChange={(e) => setMinutes(e.target.value)}
         />
       </div>
-      <div className="form-actions" style={{ justifyContent: 'space-between' }}>
-        <button className="btn btn-danger" disabled={busy} onClick={() => void remove()}>
-          Delete record
-        </button>
+      <div className="form-actions">
         <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
-          Save correction
+          Save
         </button>
       </div>
     </Sheet>

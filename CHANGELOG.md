@@ -5,6 +5,23 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-09-24
+
+### Added
+
+- **Clear practice history.** History is a card per day, in your own timezone: Today, Yesterday, then the weekday and date, with the day's minutes and sessions. **Clear day** removes a whole day; each session can be removed or its minutes corrected. Both ask first, in the app's own sheet rather than a browser box, and say what changes: streaks, totals and charts are counted again, and journal entries stay.
+
+### Changed
+
+- **Today's Begin, at a glance.** There are two main cards, what to practise and what to keep learning. Each has a cover, a one- or two-word tag (Your plan · Last time · Favourite · New · Course) instead of a sentence, and one round action. Learning shows its progress as a bar. **Breathe** and **Write** (was "Write something down") are two compact tiles. On a desktop the main cards sit left with the tiles stacked beside them; on a phone they stack, with the tiles side by side.
+- **Hover on a desktop** eases instead of jumping. Cards rise 4px over 380ms, the artwork drifts a touch closer and the shadow deepens. A press style had been replacing the cards' transition, so the lift snapped. Touch screens have no hover and keep only the press.
+- **Scrollbars in the app's colours** on a desktop: a slim plum thumb on a clear track, brighter under the pointer.
+
+### Fixed
+
+- Opening What's new, or any sheet, on a desktop no longer shifts the page sideways by a scrollbar's width and back on close. The scrollbar's room is kept (`scrollbar-gutter: stable`) while the page is locked.
+- "1 minutes so far today" reads "1 minute".
+
 ## [0.19.0] — 2026-09-24
 
 ### Added

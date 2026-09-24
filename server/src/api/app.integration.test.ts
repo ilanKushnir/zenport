@@ -1533,3 +1533,47 @@ describe('library review', () => {
     expect(back.items.some((i: { id: string }) => i.id === item.id)).toBe(true);
   });
 });
+
+describe('clearing practice history', () => {
+  it("removes several of your own sessions at once, and nobody else's", async () => {
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const itemId = lib.items[0].id;
+    const ids: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const s = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/practice/start',
+          headers: auth(),
+          payload: { meditationId: itemId },
+        })
+      ).json();
+      await app.inject({
+        method: 'POST',
+        url: `/api/practice/${s.id}/finish`,
+        headers: auth(),
+        payload: { listenedSec: 120, status: 'completed' },
+      });
+      ids.push(s.id);
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/practice/remove',
+      headers: auth(),
+      payload: { ids: [ids[0], ids[1], 99999] },
+    });
+    expect(res.json()).toEqual({ ok: true, removed: 2 });
+    const left = (
+      await app.inject({ method: 'GET', url: '/api/practice/history', headers: auth() })
+    ).json();
+    expect(left.map((s: { id: number }) => s.id)).toEqual([ids[2]]);
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/practice/remove',
+      headers: auth(),
+      payload: { ids: [] },
+    });
+    expect(bad.statusCode).toBe(400);
+  });
+});

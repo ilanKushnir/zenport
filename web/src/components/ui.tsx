@@ -620,6 +620,9 @@ const PATHS: Record<string, ReactNode> = {
   list: (
     <path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" strokeWidth="1.8" />
   ),
+  pencil: (
+    <path d="M14.5 5.5l4 4M4.5 19.5l1-4.5L15.8 4.7a1.4 1.4 0 0 1 2 0l1.5 1.5a1.4 1.4 0 0 1 0 2L9 18.5z" />
+  ),
   grip: (
     <g fill="currentColor" stroke="none">
       <circle cx="9" cy="6.5" r="1.5" />

@@ -86,6 +86,10 @@ html {
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
   overscroll-behavior: none;
+  /* A desktop scrollbar takes room. Keep that room even while a sheet locks
+     the page (overflow: hidden) - otherwise everything behind a sheet or
+     What's new slides sideways by a scrollbar's width, and back on close. */
+  scrollbar-gutter: stable;
   /* A fixed-size app, like a native one: scrolling yes, pinch and double-tap
      zoom no (iOS also gets its gesture events cancelled in main.tsx). */
   touch-action: pan-x pan-y;
@@ -365,4 +369,46 @@ kbd {
   border: 1px solid var(--border);
   background: var(--raised);
   color: var(--muted);
+}
+
+/*
+ * Scrollbars in the app's own colours, where the platform draws them (a
+ * desktop with a mouse; phones float their own thin bars and are left be):
+ * a slim plum thumb on a clear track, brightening under the pointer.
+ * scrollbar-color is the standard (Chrome, Firefox); Safari reads the
+ * -webkit- rules, which Chrome ignores once scrollbar-color is set.
+ */
+@media (hover: hover) and (pointer: fine) {
+  :root {
+    --sb-thumb: color-mix(in oklab, var(--accent) 34%, #3b3150);
+    --sb-thumb-hover: color-mix(in oklab, var(--accent) 60%, #4a3d63);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sb-thumb) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    inline-size: 10px;
+    block-size: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--sb-thumb) padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--sb-thumb-hover) padding-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }

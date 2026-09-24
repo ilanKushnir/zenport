@@ -186,6 +186,28 @@ export function registerPracticeRoutes(app: FastifyInstance, ctx: AppContext): v
     return { ok: true };
   });
 
+  // Clear several at once - a whole day from the history page. Only the
+  // person's own, and never a session still running.
+  app.post('/api/practice/remove', async (req, reply) => {
+    const body = z
+      .object({ ids: z.array(z.number().int().positive()).min(1).max(500) })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'ids required' });
+    const del = db.prepare(
+      `DELETE FROM practice_sessions WHERE id = ? AND user_id = ? AND status != 'active'`,
+    );
+    let removed = 0;
+    db.exec('BEGIN');
+    try {
+      for (const id of body.data.ids) removed += Number(del.run(id, req.user!.id).changes);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    return { ok: true, removed };
+  });
+
   app.delete('/api/practice/:id', async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     const res = db

@@ -77,11 +77,11 @@ export function TodayPage() {
       .filter((o) => o.focus !== 'learning')
       .map((o) => planNext(o.meditationIds, byId, 'practice'))
       .find(Boolean);
-    if (fromPlan) return { item: fromPlan, why: 'From your plan for today' };
-    if (recent[0]) return { item: recent[0], why: 'You were here last' };
-    if (starred[0]) return { item: starred[0], why: 'One of your favourites' };
+    if (fromPlan) return { item: fromPlan, tag: { icon: 'plans', label: 'Your plan' } };
+    if (recent[0]) return { item: recent[0], tag: { icon: 'history', label: 'Last time' } };
+    if (starred[0]) return { item: starred[0], tag: { icon: 'heart', label: 'Favourite' } };
     const newest = [...items].sort((a, b) => b.addedAt.localeCompare(a.addedAt))[0];
-    if (newest) return { item: newest, why: 'Most recently added to your library' };
+    if (newest) return { item: newest, tag: { icon: 'sparkle', label: 'New' } };
     return null;
   }, [todayOcc, byId, recent, starred, items]);
 
@@ -94,13 +94,18 @@ export function TodayPage() {
       .filter((o) => o.focus === 'learning')
       .map((o) => planNext(o.meditationIds, byId, 'learning'))
       .find(Boolean);
-    if (fromPlan) return { item: fromPlan, why: 'Learning plan for today' };
+    if (fromPlan) return { item: fromPlan, tag: { icon: 'plans', label: 'Your plan' } };
     const going = (history.data ?? [])
       .map((h) => byId.get(h.meditationId))
       .find(
         (i) => i && (i.type === 'course' || i.type === 'talk') && i.completedCount < i.trackCount,
       );
-    return going ? { item: going, why: 'Continue learning' } : null;
+    return going
+      ? {
+          item: going,
+          tag: { icon: TYPE_META[going.type].icon, label: TYPE_META[going.type].label },
+        }
+      : null;
   }, [todayOcc, byId, history.data]);
 
   if (lib.loading) {
@@ -148,78 +153,98 @@ export function TodayPage() {
               <h2 id="sec-begin">Begin</h2>
             </div>
             <div className="begin-grid">
-              {suggestion && (
-                <button
-                  className="begin-card begin-primary"
-                  onClick={() => navigate(`/m/${suggestion.item!.id}`)}
-                >
-                  <Cover
-                    coverId={suggestion.item!.coverId}
-                    title={suggestion.item!.title}
-                    creator={suggestion.item!.creator}
-                    className="begin-cover"
-                  />
-                  <div className="begin-text">
-                    <span className="why">{suggestion.why}</span>
-                    <span className="ttl">{itemLabel(suggestion.item!)}</span>
-                    <span className="sub">
-                      {suggestion.item!.creator}
-                      {suggestion.item!.totalDurationSec
-                        ? ` · ${formatDuration(suggestion.item!.totalDurationSec)}`
-                        : ''}
+              <div className="begin-main">
+                {suggestion && (
+                  <button
+                    className="begin-card begin-primary"
+                    onClick={() => navigate(`/m/${suggestion.item!.id}`)}
+                    aria-label={`${suggestion.tag.label}: ${itemLabel(suggestion.item!)}`}
+                  >
+                    <Cover
+                      coverId={suggestion.item!.coverId}
+                      title={suggestion.item!.title}
+                      creator={suggestion.item!.creator}
+                      className="begin-cover"
+                    />
+                    <span className="begin-text">
+                      <span className="begin-tag">
+                        <Icon name={suggestion.tag.icon} size={12} /> {suggestion.tag.label}
+                      </span>
+                      <span className="ttl">{itemLabel(suggestion.item!)}</span>
+                      <span className="sub">
+                        {suggestion.item!.creator}
+                        {suggestion.item!.totalDurationSec
+                          ? ` · ${formatDuration(suggestion.item!.totalDurationSec)}`
+                          : ''}
+                      </span>
                     </span>
-                  </div>
-                  <span className="begin-go" aria-hidden="true">
-                    <Icon name="play" size={20} />
-                  </span>
-                </button>
-              )}
-
-              {learnNext && learnNext.item.id !== suggestion?.item?.id && (
-                <button
-                  className="begin-card begin-learn"
-                  onClick={() => navigate(`/m/${learnNext.item.id}`)}
-                >
-                  <Cover
-                    coverId={learnNext.item.coverId}
-                    title={learnNext.item.title}
-                    creator={learnNext.item.creator}
-                    className="begin-cover"
-                  />
-                  <div className="begin-text">
-                    <span className="why">{learnNext.why}</span>
-                    <span className="ttl">{itemLabel(learnNext.item)}</span>
-                    <span className="sub">
-                      {learnNext.item.trackCount > 1
-                        ? `${TYPE_META[learnNext.item.type].part[0]!.toUpperCase()}${TYPE_META[learnNext.item.type].part.slice(1)} ${Math.min(learnNext.item.completedCount + 1, learnNext.item.trackCount)} of ${learnNext.item.trackCount}`
-                        : learnNext.item.creator}
+                    <span className="begin-go" aria-hidden="true">
+                      <Icon name="play" size={20} />
                     </span>
-                  </div>
-                  <span className="begin-go" aria-hidden="true">
-                    <Icon name="book" size={19} />
+                  </button>
+                )}
+
+                {learnNext && learnNext.item.id !== suggestion?.item?.id && (
+                  <button
+                    className="begin-card begin-learn"
+                    onClick={() => navigate(`/m/${learnNext.item.id}`)}
+                    aria-label={`Continue ${itemLabel(learnNext.item)}`}
+                  >
+                    <Cover
+                      coverId={learnNext.item.coverId}
+                      title={learnNext.item.title}
+                      creator={learnNext.item.creator}
+                      className="begin-cover"
+                    />
+                    <span className="begin-text">
+                      <span className="begin-tag">
+                        <Icon name={learnNext.tag.icon} size={12} /> {learnNext.tag.label}
+                      </span>
+                      <span className="ttl">{itemLabel(learnNext.item)}</span>
+                      {learnNext.item.trackCount > 1 ? (
+                        <span className="begin-progress">
+                          <span className="begin-bar" aria-hidden="true">
+                            <span
+                              style={{
+                                inlineSize: `${Math.round((learnNext.item.completedCount / learnNext.item.trackCount) * 100)}%`,
+                              }}
+                            />
+                          </span>
+                          <span className="sub">
+                            {learnNext.item.completedCount} of {learnNext.item.trackCount}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="sub">{learnNext.item.creator}</span>
+                      )}
+                    </span>
+                    <span className="begin-go" aria-hidden="true">
+                      <Icon name="play" size={20} />
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              <div className="begin-quick">
+                <Link className="begin-tile" to="/breathe">
+                  <span className="begin-tile-ic" aria-hidden="true">
+                    <Icon name="timer" size={21} />
                   </span>
-                </button>
-              )}
-
-              <Link className="begin-card begin-alt" to="/breathe">
-                <span className="begin-ic">
-                  <Icon name="timer" size={22} />
-                </span>
-                <div className="begin-text">
-                  <span className="ttl">Breathe</span>
-                  <span className="sub">{prefs.defaultTimerMinutes} minutes, bell to close</span>
-                </div>
-              </Link>
-
-              <Link className="begin-card begin-alt" to="/journal">
-                <span className="begin-ic">
-                  <Icon name="journal" size={22} />
-                </span>
-                <div className="begin-text">
-                  <span className="ttl">Write something down</span>
-                  <span className="sub">A line now is worth pages later</span>
-                </div>
-              </Link>
+                  <span className="begin-text">
+                    <span className="ttl">Breathe</span>
+                    <span className="sub">{prefs.defaultTimerMinutes} min</span>
+                  </span>
+                </Link>
+                <Link className="begin-tile begin-write" to="/journal">
+                  <span className="begin-tile-ic" aria-hidden="true">
+                    <Icon name="journal" size={21} />
+                  </span>
+                  <span className="begin-text">
+                    <span className="ttl">Write</span>
+                    <span className="sub">Journal</span>
+                  </span>
+                </Link>
+              </div>
             </div>
           </section>
 
@@ -317,10 +342,12 @@ function subtitle(
   nothingIndexed: boolean,
 ): string {
   if (nothingIndexed) return 'Your library is empty - but the timer is ready whenever you are.';
+  const m = Math.round(minutes);
+  const mins = `${m} ${m === 1 ? 'minute' : 'minutes'}`;
   if (minutes > 0 && goal !== null && minutes >= goal) {
-    return `${Math.round(minutes)} minutes today - you've met your target. Anything more is a gift.`;
+    return `${mins} today - you've met your target. Anything more is a gift.`;
   }
-  if (minutes > 0) return `${Math.round(minutes)} minutes so far today.`;
+  if (minutes > 0) return `${mins} so far today.`;
   if (streak > 1) return `${streak} days in a row. Today is open.`;
   return 'Nothing yet today. A few minutes is plenty.';
 }
