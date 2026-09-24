@@ -28,7 +28,7 @@ The first-start flow is deliberate and closes behind you:
 | `/library/meditations` | `:ro`             | your meditation files. ZenPort only ever reads.                                                            |
 | `/data`                | rw (named volume) | SQLite database + journal voice notes. Local disk only — never SMB/NFS, SQLite corrupts on network shares. |
 
-Multiple roots: set `ZP_LIBRARY_DIRS=/library/a,/library/b` and add matching read-only volume lines to a compose override.
+Multiple roots: set `ZP_LIBRARY_DIRS=/library/a,/library/b` and add matching read-only volume lines to a compose override. Each root is scanned on its own and keeps its identity by path. A root you take out is kept, not deleted: bring it back, even at another path, and its recordings are recognised with everyone's progress. To let it go for good, use Admin → Library folders → _No longer mounted_.
 
 ## Reverse proxy / HTTPS
 

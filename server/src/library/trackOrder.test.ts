@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest';
+import { naturalCompare } from '@zenport/shared';
+import { orderTracks } from './trackOrder.js';
+
+const files = (...names: string[]) =>
+  names
+    .map((name) => ({ name, ext: name.split('.').at(-1)!.toLowerCase() }))
+    .sort((a, b) => naturalCompare(a.name, b.name));
+const order = (...names: string[]) => orderTracks(files(...names)).tracks.map((t) => t.name);
+
+describe('orderTracks', () => {
+  it('puts an unnumbered intro video before the numbered days of a series', () => {
+    const days = Array.from({ length: 10 }, (_, i) => `Discovery Part 1 Day ${i + 1}.mp3`);
+    const got = order(...days, 'Discovery Series Intro-video.mp4');
+    expect(got[0]).toBe('Discovery Series Intro-video.mp4');
+    expect(got.slice(1)).toEqual(days);
+  });
+
+  it('treats a number every part shares as no sequence at all', () => {
+    expect(order('Part 1 Day 1.mp3', 'Part 1 Day 2.mp3', 'Part 1 Introduction.mp3')).toEqual([
+      'Part 1 Introduction.mp3',
+      'Part 1 Day 1.mp3',
+      'Part 1 Day 2.mp3',
+    ]);
+  });
+
+  it('keeps a numbered explanation video in the middle where its number puts it', () => {
+    expect(
+      order('01 Breath.mp3', '02 Body.mp3', '03 Intro to week two.mp4', '04 Heart.mp3'),
+    ).toEqual(['01 Breath.mp3', '02 Body.mp3', '03 Intro to week two.mp4', '04 Heart.mp3']);
+  });
+
+  it('brings a welcome forward and sends closings and bonuses to the end', () => {
+    expect(
+      order(
+        'Bonus - questions.mp3',
+        'Lesson 1.mp3',
+        'Lesson 2.mp3',
+        'Welcome.mp3',
+        'Closing words.mp3',
+      ),
+    ).toEqual([
+      'Welcome.mp3',
+      'Lesson 1.mp3',
+      'Lesson 2.mp3',
+      'Bonus - questions.mp3',
+      'Closing words.mp3',
+    ]);
+  });
+
+  it('leaves a plain numbered set and an all-video course alone', () => {
+    expect(order('Day 2.mp3', 'Day 10.mp3', 'Day 1.mp3')).toEqual([
+      'Day 1.mp3',
+      'Day 2.mp3',
+      'Day 10.mp3',
+    ]);
+    const course = ['Chapter 1.mp4', 'Chapter 2.mp4', 'Summary.mp4'];
+    expect(order(...course)).toEqual(course);
+    expect(orderTracks(files(...course)).moved).toBe(0);
+  });
+
+  it('orders named talks with the introduction first', () => {
+    expect(order('Letting go.mp4', 'Introduction.mp4', 'Kindness.mp4')).toEqual([
+      'Introduction.mp4',
+      'Kindness.mp4',
+      'Letting go.mp4',
+    ]);
+  });
+});

@@ -36,7 +36,7 @@ zenport/
 ## Decisions worth knowing
 
 - **`node:sqlite` over an ORM/driver**: zero native modules, synchronous API that keeps services trivially testable, WAL mode, forward-only migrations in one file.
-- **Stable identity by content path**: items/tracks/assets are keyed by sha1(root, relative path). Rescans upsert; disappearance sets `missing=1`; user data references never break.
+- **Stable identity**: items/tracks/assets are keyed by sha1(root, relative path) when first seen. Roots keep their id by path (`library_roots`), and a file or folder that moves is recognised by its content fingerprint and keeps its id, so user data follows it. Rescans upsert; disappearance sets `missing=1`; user data references never break. See [scanner.md](scanner.md).
 - **Pure cores, thin routes**: inference, occurrence expansion, and stats are pure functions with the heaviest test coverage; routes validate (zod), call services, and shape DTOs.
 - **Injected externals**: oEmbed/yt-dlp/transcription enter through `deps.ts`, so integration tests run fully offline and the "disabled" states are first-class.
 - **Client-reported durations**: no ffprobe dependency in v0.1; the browser reports `loadedmetadata` durations once and the server persists them.

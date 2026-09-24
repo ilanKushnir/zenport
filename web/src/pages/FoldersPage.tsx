@@ -7,11 +7,17 @@
  * library as it now is. Only the admin can change it; everyone can look.
  */
 import { useMemo, useState } from 'react';
-import type { FolderNodeDto, LibraryFoldersDto, ScanStateDto } from '@zenport/shared';
+import type {
+  FolderNodeDto,
+  LibraryFoldersDto,
+  RemovedLibraryDto,
+  ScanStateDto,
+} from '@zenport/shared';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import { useApi } from '../hooks.ts';
-import { ErrorNote, Icon, Switch } from '../components/ui.tsx';
+import { ErrorNote, Icon, Sheet, Switch } from '../components/ui.tsx';
+import { ago } from '../social.tsx';
 import { AdminCrumb } from './AdminPage.tsx';
 
 function matches(node: FolderNodeDto, q: string): boolean {
@@ -122,6 +128,8 @@ export function FoldersPage() {
           A scan is running - the tree will be up to date when it finishes.
         </p>
       )}
+
+      {canEdit && <RemovedLibraries onForgotten={() => scan.reload()} />}
 
       {folders.data?.roots.map((root) => (
         <section key={root.id} className="folder-root" aria-label={root.label}>
@@ -257,5 +265,128 @@ function FolderRow({
         </ul>
       )}
     </li>
+  );
+}
+
+/**
+ * Libraries that were mounted once and are no longer in ZP_LIBRARY_DIRS.
+ * Nothing about them is thrown away on its own: kept, their recordings are
+ * recognised when the files come back - at the old path or a new one - with
+ * everyone's places and ticks. Forgetting is the owner's explicit choice.
+ */
+function RemovedLibraries({ onForgotten }: { onForgotten: () => void }) {
+  const removed = useApi<RemovedLibraryDto[]>('/api/library/removed');
+  const [asking, setAsking] = useState<RemovedLibraryDto | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  if (!removed.data || removed.data.length === 0) {
+    return note ? (
+      <p className="notice" role="status" style={{ marginBottom: 20 }}>
+        {note}
+      </p>
+    ) : null;
+  }
+
+  const forget = async (lib: RemovedLibraryDto) => {
+    setBusy(true);
+    try {
+      await api.del(`/api/library/removed/${lib.id}`);
+      setNote(
+        `Forgot "${lib.label}" and everything about its ${lib.items === 1 ? 'recording' : `${lib.items} recordings`}.`,
+      );
+      setAsking(null);
+      removed.reload();
+      onForgotten();
+    } catch (err) {
+      setNote(
+        `Could not forget it - ${err instanceof Error ? err.message : 'the server refused'}.`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="section removed-libs" aria-labelledby="sec-removed">
+      <div className="section-head">
+        <h2 id="sec-removed">No longer mounted</h2>
+      </div>
+      <p className="removed-lede">
+        These libraries are not in <code>ZP_LIBRARY_DIRS</code> any more. Everything about them is
+        kept: mount the files again - at the same path or any other - and ZenPort recognises them,
+        with everyone&apos;s places, ticks and your order and types.
+      </p>
+      {note && (
+        <p className="notice" role="status" style={{ marginBottom: 12 }}>
+          {note}
+        </p>
+      )}
+      <div className="removed-list">
+        {removed.data.map((lib) => (
+          <div className="removed-row" key={lib.id}>
+            <span className="removed-ic" aria-hidden="true">
+              <Icon name="folder" size={18} />
+            </span>
+            <span className="grow">
+              <strong>{lib.label}</strong>
+              <span className="sub">
+                {lib.items} recording{lib.items === 1 ? '' : 's'}
+                {lib.people > 0
+                  ? ` · progress from ${lib.people} ${lib.people === 1 ? 'person' : 'people'}`
+                  : ''}{' '}
+                · last seen {ago(lib.lastSeen)}
+              </span>
+            </span>
+            <button className="btn btn-sm btn-quiet" onClick={() => setAsking(lib)}>
+              Forget…
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {asking && (
+        <Sheet
+          title={`Forget ${asking.label}?`}
+          onClose={() => !busy && setAsking(null)}
+          labelId="forget-title"
+        >
+          <div className="forget">
+            <p>
+              Keep it, and nothing is lost: if{' '}
+              {asking.items === 1
+                ? 'this recording comes'
+                : `these ${asking.items} recordings come`}{' '}
+              back, ZenPort knows {asking.items === 1 ? 'it' : 'them'} again.
+            </p>
+            <p>
+              Forget it, and ZenPort lets go of them for good: the recordings, everyone&apos;s
+              places and ticks and favourites
+              {asking.people > 0
+                ? ` (${asking.people} ${asking.people === 1 ? 'person has' : 'people have'} some)`
+                : ''}
+              , your types, roles and orders, and their place in plans. Practice history and journal
+              entries stay - they are what happened. The files themselves are never touched.
+            </p>
+            <div className="forget-actions">
+              <button
+                className="btn btn-primary"
+                onClick={() => setAsking(null)}
+                disabled={busy}
+                autoFocus
+              >
+                Keep everything
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={() => void forget(asking)}
+                disabled={busy}
+              >
+                {busy ? 'Forgetting…' : 'Forget it'}
+              </button>
+            </div>
+          </div>
+        </Sheet>
+      )}
+    </section>
   );
 }

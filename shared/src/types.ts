@@ -185,6 +185,19 @@ export interface MeditationDetailDto extends MeditationSummaryDto {
   evidence: InferenceDecision[];
   related: MeditationSummaryDto[];
   resume: ResumeStateDto | null;
+  /** The parts play in an order the owner set by hand, not the scanner's. */
+  customOrder: boolean;
+}
+
+/** A library that was mounted once and is no longer in ZP_LIBRARY_DIRS. */
+export interface RemovedLibraryDto {
+  id: number;
+  label: string;
+  items: number;
+  tracks: number;
+  /** People with any progress on its recordings (places, ticks, favourites). */
+  people: number;
+  lastSeen: string;
 }
 
 export interface CreatorDto {

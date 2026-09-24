@@ -18,6 +18,16 @@ import type { Config } from '../config.js';
 import { documentKind } from '../scanner/classify.js';
 import { readScanState } from '../scanner/scan.js';
 
+/**
+ * How an item's parts are ordered wherever they are listed or played: the
+ * owner's order (track_order) first, then any part it does not list - one
+ * added since - in the scanner's order. Joined on the item too, so a part
+ * regrouped into another item does not drag a stale position along.
+ */
+export const TRACK_ORDER_JOIN =
+  'LEFT JOIN track_order o ON o.track_id = t.id AND o.item_id = t.item_id';
+export const TRACK_ORDER_BY = '(o.pos IS NULL), o.pos, t.ord';
+
 interface ItemRow {
   id: string;
   root_id: number;
@@ -241,9 +251,10 @@ export function itemDetail(
     db
       .prepare(
         `SELECT t.id, t.ord, t.title, t.name, t.ext, t.duration_sec, t.missing, t.inferred_role,
-                t.size_bytes, r.role AS manual_role
+                t.size_bytes, r.role AS manual_role, o.pos AS custom_pos
          FROM tracks t LEFT JOIN track_roles r ON r.track_id = t.id
-         WHERE t.item_id = ? ORDER BY t.ord`,
+         ${TRACK_ORDER_JOIN}
+         WHERE t.item_id = ? ORDER BY ${TRACK_ORDER_BY}`,
       )
       .all(itemId) as {
       id: string;
@@ -256,10 +267,12 @@ export function itemDetail(
       inferred_role: string;
       size_bytes: number;
       manual_role: string | null;
+      custom_pos: number | null;
     }[]
-  ).map((t) => ({
+  ).map((t, i) => ({
     id: t.id,
-    ord: t.ord,
+    // Its place as it plays - the owner's order where there is one.
+    ord: i + 1,
     title: t.title,
     fileName: t.name,
     ext: t.ext,
@@ -336,5 +349,6 @@ export function itemDetail(
     ],
     related: relatedRows.map((r) => summarize(db, config, r, userId)),
     resume,
+    customOrder: !!db.prepare('SELECT 1 FROM track_order WHERE item_id = ? LIMIT 1').get(itemId),
   };
 }

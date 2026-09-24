@@ -1,4 +1,5 @@
 import { naturalCompare, titleFromStem, type InferenceDecision } from '@zenport/shared';
+import { orderTracks } from './trackOrder.js';
 import type { WalkedFile } from '../scanner/walk.js';
 
 /**
@@ -279,7 +280,8 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
   };
 
   const emitItemsForLeaf = (node: DirNode, chain: DirNode[], audio: WalkedFile[]) => {
-    const sortedAudio = [...audio].sort((a, b) => naturalCompare(a.name, b.name));
+    const placed = orderTracks([...audio].sort((a, b) => naturalCompare(a.name, b.name)));
+    const sortedAudio = placed.tracks;
     const stems = sortedAudio.map((f) => stemOf(f.name));
     const isRoot = node.parent === null;
     const ancestry = resolveAncestry(chain);
@@ -420,6 +422,15 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
         rule: 'numbered-track-set',
         evidence:
           'the audio files are numbered or share one stem, so they play in order as one piece',
+      });
+    }
+    if (placed.moved > 0) {
+      decisions.push({
+        field: 'tracks',
+        value: `${placed.moved} moved`,
+        rule: 'intro-first',
+        evidence:
+          'parts not numbered in the sequence were placed by what they are: an introduction or a framing video first, a closing or bonus last',
       });
     }
     const cover = pickFolderCover(node, node.name);

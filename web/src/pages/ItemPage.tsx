@@ -6,6 +6,7 @@ import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
 import { DoneTick } from '../components/DoneTick.tsx';
+import { TrackOrderEditor } from '../components/TrackOrderEditor.tsx';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
@@ -26,6 +27,7 @@ export function ItemPage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [sitTogether, setSitTogether] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const { user } = useAuth();
   const lib = useApi<{ items: { id: string; creator: string; collection: string | null }[] }>(
     '/api/library',
@@ -225,75 +227,99 @@ export function ItemPage() {
                     ? 'Video'
                     : 'Audio'}
               </h2>
-              {learning && item.trackCount > 1 && (
-                <span className="section-note">Tap a circle to mark it done - or not</span>
+              {reordering ? null : user?.role === 'admin' && item.tracks.length > 1 ? (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-quiet section-edit"
+                  onClick={() => setReordering(true)}
+                  title={item.customOrder ? 'In the order you set - tap to change it' : undefined}
+                >
+                  <Icon name="reorder" size={14} />
+                  {item.customOrder ? 'Your order' : 'Edit order'}
+                </button>
+              ) : (
+                learning &&
+                item.trackCount > 1 && (
+                  <span className="section-note">Tap a circle to mark it done - or not</span>
+                )
               )}
             </div>
-            <div className="rowlist">
-              {item.tracks.map((t) => (
-                <div
-                  className={`row${t.completed ? ' done' : ''}${learning && t.id === nextTrack?.id && doneCount > 0 ? ' next' : ''}`}
-                  key={t.id}
-                >
-                  {learning ? (
-                    <DoneTick
-                      track={t}
-                      done={t.completed}
-                      onToggle={() => void toggleDone(t.id, !t.completed)}
-                    />
-                  ) : (
-                    <span className="num">{t.ord}</span>
-                  )}
-                  <div className="grow">
-                    <div className="track-title">
-                      {t.title}
-                      {learning &&
-                        (user?.role === 'admin' ? (
-                          <button
-                            type="button"
-                            className={`role-chip${t.role === 'practice' ? ' practice' : ''}`}
-                            onClick={() =>
-                              void setRole(t.id, t.role === 'practice' ? 'lesson' : 'practice')
-                            }
-                            title={
-                              t.role === 'practice'
-                                ? 'A meditation in this course - tap to mark it a lesson'
-                                : 'A lesson - tap to mark it a meditation'
-                            }
-                          >
-                            <Icon name={t.role === 'practice' ? 'lotus' : 'book'} size={12} />
-                            {t.role === 'practice' ? 'Meditation' : 'Lesson'}
-                          </button>
-                        ) : t.role === 'practice' ? (
-                          <span className="role-chip practice">
-                            <Icon name="lotus" size={12} /> Meditation
-                          </span>
-                        ) : null)}
+            {reordering ? (
+              <TrackOrderEditor
+                item={item}
+                onClose={() => setReordering(false)}
+                onSaved={() => {
+                  setReordering(false);
+                  detail.reload();
+                }}
+              />
+            ) : (
+              <div className="rowlist">
+                {item.tracks.map((t) => (
+                  <div
+                    className={`row${t.completed ? ' done' : ''}${learning && t.id === nextTrack?.id && doneCount > 0 ? ' next' : ''}`}
+                    key={t.id}
+                  >
+                    {learning ? (
+                      <DoneTick
+                        track={t}
+                        done={t.completed}
+                        onToggle={() => void toggleDone(t.id, !t.completed)}
+                      />
+                    ) : (
+                      <span className="num">{t.ord}</span>
+                    )}
+                    <div className="grow">
+                      <div className="track-title">
+                        {t.title}
+                        {learning &&
+                          (user?.role === 'admin' ? (
+                            <button
+                              type="button"
+                              className={`role-chip${t.role === 'practice' ? ' practice' : ''}`}
+                              onClick={() =>
+                                void setRole(t.id, t.role === 'practice' ? 'lesson' : 'practice')
+                              }
+                              title={
+                                t.role === 'practice'
+                                  ? 'A meditation in this course - tap to mark it a lesson'
+                                  : 'A lesson - tap to mark it a meditation'
+                              }
+                            >
+                              <Icon name={t.role === 'practice' ? 'lotus' : 'book'} size={12} />
+                              {t.role === 'practice' ? 'Meditation' : 'Lesson'}
+                            </button>
+                          ) : t.role === 'practice' ? (
+                            <span className="role-chip practice">
+                              <Icon name="lotus" size={12} /> Meditation
+                            </span>
+                          ) : null)}
+                      </div>
+                      <div className="sub">
+                        {t.video ? (
+                          <>
+                            <Icon name="video" size={12} /> video
+                          </>
+                        ) : (
+                          `.${t.ext}`
+                        )}
+                        {t.durationSec ? ` · ${formatClock(t.durationSec)}` : ''}
+                        {t.missing ? ' · missing' : ''}
+                      </div>
                     </div>
-                    <div className="sub">
-                      {t.video ? (
-                        <>
-                          <Icon name="video" size={12} /> video
-                        </>
-                      ) : (
-                        `.${t.ext}`
-                      )}
-                      {t.durationSec ? ` · ${formatClock(t.durationSec)}` : ''}
-                      {t.missing ? ' · missing' : ''}
-                    </div>
+                    {!t.missing && !item.missing && (
+                      <button
+                        className="icon-btn"
+                        aria-label={`Play ${t.title}`}
+                        onClick={() => player.start(item, { trackId: t.id })}
+                      >
+                        <Icon name="play" />
+                      </button>
+                    )}
                   </div>
-                  {!t.missing && !item.missing && (
-                    <button
-                      className="icon-btn"
-                      aria-label={`Play ${t.title}`}
-                      onClick={() => player.start(item, { trackId: t.id })}
-                    >
-                      <Icon name="play" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {item.documents.length > 0 && (

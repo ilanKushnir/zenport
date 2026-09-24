@@ -620,6 +620,17 @@ const PATHS: Record<string, ReactNode> = {
   list: (
     <path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" strokeWidth="1.8" />
   ),
+  grip: (
+    <g fill="currentColor" stroke="none">
+      <circle cx="9" cy="6.5" r="1.5" />
+      <circle cx="15" cy="6.5" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="17.5" r="1.5" />
+      <circle cx="15" cy="17.5" r="1.5" />
+    </g>
+  ),
+  reorder: <path d="M8 19.5v-15M4.5 8 8 4.5 11.5 8M16 4.5v15M12.5 16l3.5 3.5 3.5-3.5" />,
   gauge: <path d="M4.5 16.5a8 8 0 1 1 15 0M12 13l4-4.5M12 13.2h.01" />,
   volume: (
     <path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" />

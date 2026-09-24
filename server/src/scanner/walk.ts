@@ -10,6 +10,8 @@ export interface WalkedFile {
   ext: string;
   kind: FileKind;
   sizeBytes: number;
+  /** Last modified, ms since the epoch - with the size, says when a fingerprint is stale. */
+  mtimeMs?: number;
 }
 
 export interface WalkResult {
@@ -105,13 +107,16 @@ export async function safeWalk(rootPath: string): Promise<WalkResult> {
         continue;
       }
       let sizeBytes = 0;
+      let mtimeMs = 0;
       try {
-        sizeBytes = (await fs.stat(abs)).size;
+        const st = await fs.stat(abs);
+        sizeBytes = st.size;
+        mtimeMs = Math.floor(st.mtimeMs);
       } catch {
         warnings.push(`could not stat "${rel}"`);
         continue;
       }
-      files.push({ relPath: rel, name, ext, kind, sizeBytes });
+      files.push({ relPath: rel, name, ext, kind, sizeBytes, mtimeMs });
     }
   }
 

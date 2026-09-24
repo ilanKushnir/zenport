@@ -23,6 +23,7 @@ import type {
 } from '@zenport/shared';
 import { isPracticeType, naturalCompare } from '@zenport/shared';
 import type { Db } from '../db/index.js';
+import { TRACK_ORDER_BY, TRACK_ORDER_JOIN } from '../library/queries.js';
 
 export interface CatalogEntry {
   handle: string;
@@ -50,7 +51,8 @@ export function buildCatalog(
   const trackStmt = db.prepare(
     `SELECT t.id, t.title, t.duration_sec, COALESCE(r.role, t.inferred_role) AS role
      FROM tracks t LEFT JOIN track_roles r ON r.track_id = t.id
-     WHERE t.item_id = ? AND t.missing = 0 ORDER BY t.ord`,
+     ${TRACK_ORDER_JOIN}
+     WHERE t.item_id = ? AND t.missing = 0 ORDER BY ${TRACK_ORDER_BY}`,
   );
   return items
     .filter((i) => !i.missing)

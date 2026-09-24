@@ -6,8 +6,10 @@ ZenPort's scanner is deliberately boring: fixed rules over folder structure, app
 
 - **Read-only.** The scanner opens files for reading only. It never renames, moves, writes, or "fixes" anything in a library root.
 - **Contained.** Symlinks are resolved and verified to stay inside the root (`realpath` check); anything pointing outside is skipped with a warning. Path traversal cannot escape a root — the same check guards media serving at request time.
-- **Idempotent.** Item/track/asset identities are stable hashes of (root, source-relative path). Rescans upsert; nothing is duplicated.
-- **History-safe.** Files that disappear mark their items _missing_ instead of deleting them. Practice history, plans, and journal links survive; when the files return, the items revive.
+- **Idempotent.** A new item or track gets an id hashed from its library root and source-relative path. Rescans upsert; nothing is duplicated.
+- **Recognises what moved.** Every track also carries a fingerprint: a hash of its size, first 64 KiB and last 64 KiB, re-read only when its size or modified time changes. A file at a path ZenPort has never seen, matching a file that is gone from where it was, takes that file's id. A new folder, most of whose files are such matches, takes the old folder's id. That covers a moved or renamed folder or file, and a library unmounted and mounted back at another path. Everything stored against those ids comes along: places, ticks, practice history, favourites, types, roles, the owner's order and plans. Path still wins over content, so a retagged file at the same path keeps its identity. A file that was both moved and retagged falls back to name + size.
+- **Libraries keep their ids.** A root's id follows its path, not its place in `ZP_LIBRARY_DIRS`, so reordering the list, or taking an entry out, renumbers nothing.
+- **History-safe.** Files that disappear mark their items _missing_ instead of deleting them. Practice history, plans, and journal links survive; when the files return, the items revive. A library taken out of `ZP_LIBRARY_DIRS` leaves the shelves quietly and is kept. Admin → Library folders lists it under _No longer mounted_, where the admin can keep it or forget it for good. Forgetting removes its recordings with everyone's places, ticks, favourites, types, roles and orders; practice history and journal entries stay.
 - **Deterministic.** Same tree in, same index out, including ordering.
 
 ## Supported files
@@ -27,6 +29,8 @@ A folder that directly contains audio is a **meditation** ("media leaf"). Around
 4. **Collection.** Any folders between the creator and the meditation, joined (`21 Day Journey`).
 5. **Tracks vs. separate meditations.** Multiple audio files in one folder are **one meditation with ordered tracks** when they read as a set (all stems numbered, or identical stems with trailing numbers). Heterogeneous files directly in a creator-level folder are **one meditation each** (`Orin Vale/Body Scan.wav`).
 6. **Natural order.** `2 - opening` sorts before `10 - closing`. Track titles drop the numeric prefix.
+   Parts that are not numbered in the sequence are placed by what they are. An introduction (`Intro`, `Welcome`, `Overview`, `Trailer`…) goes first. So does an unnumbered video among numbered audio parts, which frames the series. A closing or bonus goes last. A number every part shares, such as the `Part 1` in `Series Part 1 Day 3`, does not count as a sequence number. A numbered explanation video keeps its place in the middle.
+   The admin can then drag the parts into any order on the item's page (**Edit order**). That order is stored apart from the scanner's, so rescans never undo it. Parts added later follow it, and **Automatic order** puts the scanner's order back.
 7. **Covers.** Preference order: canonical stems (`cover`, `folder`, `front`, `album`, `art`) → image named like the folder → first image. File-level meditations use an image with a matching stem. No image → the UI renders a typographic fallback (never stock art).
 8. **Documents.** Attach to the meditation whose folder (or audio-less subfolder, e.g. `handouts/`) contains them.
 

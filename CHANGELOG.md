@@ -5,6 +5,20 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-09-24
+
+### Added
+
+- **Your own order.** Admins get *Edit order* on any recording with several parts: drag each part by its grip, by finger or mouse, or use the arrow keys. The page scrolls on its own near the edges. The order is kept apart from the scanner's, so no rescan undoes it; parts added later follow it, and *Automatic order* puts the scanner's order back.
+- **ZenPort recognises what moved.** Every file carries a fingerprint: its size plus its first and last 64 KiB, re-read only when the file changes. Rename a folder, move it somewhere else, rename a file, or mount the whole library back at another path, and ZenPort knows the recordings again. Everyone's places, ticks, history, favourites, and your types, roles, order and plans come along. The scan notes say when it happens.
+- **Libraries that are no longer mounted.** Take a folder out of `ZP_LIBRARY_DIRS` and its recordings leave the shelves quietly, but nothing about them is thrown away. Admin → Library folders lists it under *No longer mounted* and asks: keep everything, so it is recognised if it comes back, or forget it for good. Forgetting removes the recordings with everyone's places, ticks, favourites, types, roles and orders; practice history and journal entries stay.
+
+### Changed
+
+- **Intros go first.** Parts not numbered in a series' sequence are placed by what they are: an introduction, or an unnumbered video framing numbered audio, goes first; a closing or bonus goes last. A number every part shares (the `Part 1` in `Part 1 Day 3`) is not a sequence number, and a numbered explanation video keeps its place.
+- Libraries keep their id by path, so reordering `ZP_LIBRARY_DIRS` or taking an entry out no longer gives every recording a new identity. On the first boot after upgrading, existing libraries keep the ids they had.
+- The first scan after upgrading reads a little of every file once, to fingerprint it; later scans read only new or changed files.
+
 ## [0.16.1] — 2026-09-24
 
 ### Added

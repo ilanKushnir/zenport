@@ -25,6 +25,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.17.0',
+    items: [
+      { emoji: '🎬', text: 'Intros and framing videos now come first in a series, not last.' },
+      {
+        emoji: '↕️',
+        text: 'Admins can drag the parts of any recording into their own order - Edit order.',
+      },
+      {
+        emoji: '🧭',
+        text: "Move or rename folders freely: ZenPort recognises the files and keeps everyone's progress.",
+      },
+    ],
+  },
+  {
     version: '0.16.1',
     items: [
       {

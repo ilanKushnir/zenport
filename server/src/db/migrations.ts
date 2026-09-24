@@ -513,6 +513,42 @@ export const MIGRATIONS: string[] = [
          notes = NULL
    WHERE notes LIKE 'Planned with %' AND instr(notes, '. ') > 14;
   `,
+
+  // v11: identity that survives the library moving.
+  //
+  // `library_roots` gives each mounted folder an id that follows its path,
+  // not its place in ZP_LIBRARY_DIRS - reordering or removing an entry no
+  // longer renumbers the others. The first boot seeds it with the ids the
+  // list order gave, so nothing already stored changes meaning.
+  //
+  // `tracks.fingerprint` is a hash of a file's size, first 64 KiB and last
+  // 64 KiB: cheap to read over SMB, and the same wherever the file lives.
+  // When a file or a whole folder turns up at a new path - moved, renamed, or
+  // a library unmounted and mounted back somewhere else - the scanner gives
+  // it the identity it had, so progress, ticks, favourites, types, roles and
+  // order all stay. `fp_stamp` (size:mtime) says when it must be re-read.
+  //
+  // `track_order` is the owner's own order for an item's parts, apart from
+  // the scanner's guess (tracks.ord) like item_types and track_roles, so no
+  // rescan can undo it. Parts it does not list (added later) follow it.
+  `
+  CREATE TABLE library_roots (
+    id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    last_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+  ALTER TABLE tracks ADD COLUMN fingerprint TEXT;
+  ALTER TABLE tracks ADD COLUMN fp_stamp TEXT;
+  CREATE INDEX idx_tracks_fingerprint ON tracks(fingerprint);
+  CREATE TABLE track_order (
+    track_id TEXT PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    pos INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+  CREATE INDEX idx_track_order_item ON track_order(item_id);
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

@@ -16,6 +16,7 @@ import { registerPrefsRoutes } from './routes/prefs.js';
 import { registerMiscRoutes } from './routes/misc.js';
 import { registerInviteRoutes } from './routes/invites.js';
 import { registerFriendRoutes } from './routes/friends.js';
+import { resolveRoots } from '../scanner/roots.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -29,6 +30,9 @@ export const SESSION_COOKIE = 'zp_session';
 const PUBLIC_PATHS = new Set(['/api/health', '/api/setup/status', '/api/setup', '/api/auth/login']);
 
 export function buildApp(ctx: AppContext): FastifyInstance {
+  // Ids that follow each library's path (see scanner/roots.ts). Everything -
+  // scans, media, folders - reads the roots from here on.
+  ctx.config.libraryRoots = resolveRoots(ctx.db, ctx.config.libraryRoots);
   const app = Fastify({
     logger: { level: ctx.config.logLevel },
     bodyLimit: 1024 * 1024,

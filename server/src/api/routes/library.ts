@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../context.js';
 import { freshSince, itemDetail, libraryDto } from '../../library/queries.js';
-import { CONTENT_TYPES, type LibraryFoldersDto } from '@zenport/shared';
+import { CONTENT_TYPES, type LibraryFoldersDto, type RemovedLibraryDto } from '@zenport/shared';
 import { lastFolderTree, readScanState, runScan } from '../../scanner/scan.js';
 
 export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -46,6 +46,99 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
         tree: lastFolderTree(r.id),
       })),
     };
+  });
+
+  // Libraries mounted once and no longer in ZP_LIBRARY_DIRS, with what is
+  // still kept about them. Kept means recognised: if the files come back -
+  // at the same path or any other - everyone picks up where they were.
+  app.get('/api/library/removed', async (req, reply): Promise<RemovedLibraryDto[] | void> => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const live = config.libraryRoots.map((r) => r.id);
+    const rows = db
+      .prepare(
+        `SELECT lr.id, lr.label, lr.last_seen,
+           (SELECT COUNT(*) FROM items i WHERE i.root_id = lr.id) AS items,
+           (SELECT COUNT(*) FROM tracks t WHERE t.root_id = lr.id) AS tracks
+         FROM library_roots lr
+         WHERE lr.id NOT IN (${live.map(() => '?').join(', ') || 'NULL'})
+         ORDER BY lr.last_seen DESC`,
+      )
+      .all(...live) as {
+      id: number;
+      label: string;
+      last_seen: string;
+      items: number;
+      tracks: number;
+    }[];
+    return rows
+      .filter((r) => r.items > 0)
+      .map((r) => ({
+        id: r.id,
+        label: r.label,
+        items: r.items,
+        tracks: r.tracks,
+        people: (
+          db
+            .prepare(
+              `SELECT COUNT(DISTINCT user_id) AS n FROM (
+                 SELECT user_id FROM playback_positions WHERE item_id IN (SELECT id FROM items WHERE root_id = ?)
+                 UNION SELECT user_id FROM track_completions WHERE item_id IN (SELECT id FROM items WHERE root_id = ?)
+                 UNION SELECT user_id FROM favorites WHERE item_id IN (SELECT id FROM items WHERE root_id = ?))`,
+            )
+            .get(r.id, r.id, r.id) as { n: number }
+        ).n,
+        lastSeen: r.last_seen,
+      }));
+  });
+
+  // Forget a removed library for good: its recordings, and everyone's places,
+  // ticks, favourites and the owner's types, roles and order for them. Their
+  // ids come out of plans. Practice history and journal entries stay - they
+  // are what happened. The files themselves are never touched (read-only).
+  app.delete('/api/library/removed/:id', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const rootId = Number((req.params as { id: string }).id);
+    if (!Number.isInteger(rootId)) return reply.code(400).send({ error: 'bad id' });
+    if (config.libraryRoots.some((r) => r.id === rootId)) {
+      return reply.code(409).send({ error: 'this library is still mounted' });
+    }
+    const itemIds = (
+      db.prepare('SELECT id FROM items WHERE root_id = ?').all(rootId) as { id: string }[]
+    ).map((r) => r.id);
+    db.exec('BEGIN');
+    try {
+      const inItems = `IN (SELECT id FROM items WHERE root_id = ${rootId})`;
+      const inTracks = `IN (SELECT id FROM tracks WHERE root_id = ${rootId} OR item_id ${inItems})`;
+      db.exec(`DELETE FROM playback_positions WHERE item_id ${inItems} OR track_id ${inTracks}`);
+      db.exec(`DELETE FROM track_completions WHERE item_id ${inItems} OR track_id ${inTracks}`);
+      db.exec(`DELETE FROM track_roles WHERE track_id ${inTracks}`);
+      db.exec(`DELETE FROM track_order WHERE item_id ${inItems} OR track_id ${inTracks}`);
+      db.exec(`DELETE FROM track_durations_reported WHERE track_id ${inTracks}`);
+      db.exec(`DELETE FROM favorites WHERE item_id ${inItems}`);
+      db.exec(`DELETE FROM item_types WHERE item_id ${inItems}`);
+      db.exec(`DELETE FROM assets WHERE item_id ${inItems}`);
+      db.exec(`DELETE FROM tracks WHERE root_id = ${rootId} OR item_id ${inItems}`);
+      db.exec(`DELETE FROM items WHERE root_id = ${rootId}`);
+      db.prepare('DELETE FROM excluded_folders WHERE root_id = ?').run(rootId);
+      db.prepare('DELETE FROM library_roots WHERE id = ?').run(rootId);
+      if (itemIds.length > 0) {
+        const gone = new Set(itemIds);
+        const plans = db
+          .prepare("SELECT id, meditation_ids FROM plans WHERE meditation_ids <> '[]'")
+          .all() as { id: number; meditation_ids: string }[];
+        const setIds = db.prepare('UPDATE plans SET meditation_ids = ? WHERE id = ?');
+        for (const p of plans) {
+          const ids = JSON.parse(p.meditation_ids) as string[];
+          const kept = ids.filter((x) => !gone.has(x));
+          if (kept.length !== ids.length) setIds.run(JSON.stringify(kept), p.id);
+        }
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    return { ok: true, forgotten: itemIds.length };
   });
 
   app.put('/api/library/exclusions', async (req, reply) => {
@@ -157,6 +250,50 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
       throw err;
     }
     return { ok: true, updated: ids.length };
+  });
+
+  // The owner's order for an item's parts, set by dragging them. Stored per
+  // track id, apart from the scanner's order, so no rescan undoes it - and
+  // ids follow files that move, so neither does reorganising the library.
+  app.put('/api/items/:id/order', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const { id } = req.params as { id: string };
+    const body = z
+      .object({ trackIds: z.array(z.string().min(1).max(64)).min(1).max(2000) })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'trackIds required' });
+    const own = new Set(
+      (db.prepare('SELECT id FROM tracks WHERE item_id = ?').all(id) as { id: string }[]).map(
+        (t) => t.id,
+      ),
+    );
+    if (own.size === 0) return reply.code(404).send({ error: 'meditation not found' });
+    const ids = body.data.trackIds;
+    if (new Set(ids).size !== ids.length || ids.some((t) => !own.has(t))) {
+      return reply.code(400).send({ error: 'every id must be a part of this item, once' });
+    }
+    db.exec('BEGIN');
+    try {
+      db.prepare('DELETE FROM track_order WHERE item_id = ?').run(id);
+      const put = db.prepare(
+        'INSERT INTO track_order (track_id, item_id, pos, updated_at) VALUES (?, ?, ?, ?)',
+      );
+      const now = new Date().toISOString();
+      ids.forEach((trackId, i) => put.run(trackId, id, i + 1, now));
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    return { ok: true };
+  });
+
+  // Back to the order the scanner reads from the file names.
+  app.delete('/api/items/:id/order', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const { id } = req.params as { id: string };
+    db.prepare('DELETE FROM track_order WHERE item_id = ?').run(id);
+    return { ok: true };
   });
 
   // A track inside a course: a lesson or a meditation. The owner's choice;

@@ -1283,3 +1283,125 @@ describe('people: invitations, roles and friends', () => {
     expect(seen.body).not.toContain('abcd');
   });
 });
+
+describe('order and libraries that move', () => {
+  const mainRoots = () => [{ id: 0, path: libRoot, label: 'Meditations' }];
+  const put = (root: string, rel: string) => {
+    const abs = path.join(root, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, `${rel}:${'q'.repeat(300)}`);
+  };
+
+  it('keeps the owner order through a rescan and a moved folder, and resets it', async () => {
+    for (const n of [
+      'Discovery Part 1 Day 1',
+      'Discovery Part 1 Day 2',
+      'Discovery Part 1 Day 3',
+    ]) {
+      put(libRoot, `Series/Discovery/${n}.mp3`);
+    }
+    put(libRoot, 'Series/Discovery/Discovery Series Intro-video.mp4');
+    await runScan(db, mainRoots());
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const item = lib.items.find((i: { title: string }) => i.title === 'Discovery');
+    const get = async () =>
+      (await app.inject({ method: 'GET', url: `/api/items/${item.id}`, headers: auth() })).json();
+    const d0 = await get();
+    // The unnumbered intro video leads the numbered days on its own.
+    expect(d0.tracks.map((t: { title: string }) => t.title)[0]).toMatch(/Intro/);
+    expect(d0.customOrder).toBe(false);
+
+    const wanted = [d0.tracks[1].id, d0.tracks[0].id, d0.tracks[3].id, d0.tracks[2].id];
+    const put1 = await app.inject({
+      method: 'PUT',
+      url: `/api/items/${item.id}/order`,
+      headers: auth(),
+      payload: { trackIds: wanted },
+    });
+    expect(put1.statusCode).toBe(200);
+    const bad = await app.inject({
+      method: 'PUT',
+      url: `/api/items/${item.id}/order`,
+      headers: auth(),
+      payload: { trackIds: [wanted[0], wanted[0]] },
+    });
+    expect(bad.statusCode).toBe(400);
+
+    // Move the folder: same item, same order.
+    const { renameSync } = await import('node:fs');
+    mkdirSync(path.join(libRoot, 'Elsewhere'), { recursive: true });
+    renameSync(
+      path.join(libRoot, 'Series/Discovery'),
+      path.join(libRoot, 'Elsewhere/Discovery Part 1'),
+    );
+    await runScan(db, mainRoots());
+    const d1 = await get();
+    expect(d1.title).toBe('Discovery Part 1');
+    expect(d1.customOrder).toBe(true);
+    expect(d1.tracks.map((t: { id: string }) => t.id)).toEqual(wanted);
+    expect(d1.tracks.map((t: { ord: number }) => t.ord)).toEqual([1, 2, 3, 4]);
+
+    const reset = await app.inject({
+      method: 'DELETE',
+      url: `/api/items/${item.id}/order`,
+      headers: auth(),
+    });
+    expect(reset.statusCode).toBe(200);
+    const d2 = await get();
+    expect(d2.customOrder).toBe(false);
+    expect(d2.tracks.map((t: { id: string }) => t.id)).toEqual(
+      d0.tracks.map((t: { id: string }) => t.id),
+    );
+  });
+
+  it('lists a library taken out of the list, and forgets it only when asked', async () => {
+    const other = mkdtempSync(path.join(tmpdir(), 'zp-api-other-'));
+    try {
+      put(other, 'Juniper/Rain/rain.mp3');
+      await runScan(db, [...mainRoots(), { id: 7, path: other, label: 'other' }]);
+      db.prepare("INSERT INTO library_roots (id, path, label) VALUES (7, ?, 'other')").run(other);
+      await setupAndLogin();
+      const rain = db.prepare("SELECT id FROM items WHERE title = 'Rain'").get() as { id: string };
+      const fav = await app.inject({
+        method: 'PUT',
+        url: `/api/favorites/${rain.id}`,
+        headers: auth(),
+      });
+      expect(fav.statusCode).toBe(200);
+
+      // Mounted no more: off the shelves, kept, and listed for the admin.
+      await runScan(db, mainRoots());
+      const removed = (
+        await app.inject({ method: 'GET', url: '/api/library/removed', headers: auth() })
+      ).json();
+      expect(removed).toEqual([
+        expect.objectContaining({ id: 7, label: 'other', items: 1, tracks: 1 }),
+      ]);
+      const stillMounted = await app.inject({
+        method: 'DELETE',
+        url: '/api/library/removed/0',
+        headers: auth(),
+      });
+      expect(stillMounted.statusCode).toBe(409);
+      const forget = await app.inject({
+        method: 'DELETE',
+        url: '/api/library/removed/7',
+        headers: auth(),
+      });
+      expect(forget.json()).toMatchObject({ ok: true, forgotten: 1 });
+      expect(db.prepare('SELECT COUNT(*) AS n FROM items WHERE root_id = 7').get()).toEqual({
+        n: 0,
+      });
+      expect(
+        db.prepare('SELECT COUNT(*) AS n FROM favorites WHERE item_id = ?').get(rain.id),
+      ).toEqual({ n: 0 });
+      const after = (
+        await app.inject({ method: 'GET', url: '/api/library/removed', headers: auth() })
+      ).json();
+      expect(after).toEqual([]);
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
+});

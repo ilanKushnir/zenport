@@ -6,6 +6,7 @@ import type { Db } from '../db/index.js';
 import { inferLibrary, type InferredTrack } from '../library/infer.js';
 import { inferContentType, inferTrackRole } from '../library/contentType.js';
 import { extractEmbeddedArt } from './artwork.js';
+import { fingerprintFile, inPool } from './fingerprint.js';
 import { safeWalk, type WalkedFile } from './walk.js';
 
 export interface ScanRoot {
@@ -132,11 +133,36 @@ async function embeddedCover(
 const sid = (input: string) => createHash('sha1').update(input).digest('hex').slice(0, 20);
 const nowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
+interface TrackRow {
+  id: string;
+  item_id: string;
+  root_id: number;
+  rel_path: string;
+  name: string;
+  size_bytes: number;
+  fingerprint: string | null;
+  fp_stamp: string | null;
+}
+
+const at = (rootId: number, rel: string) => `${rootId}\u0000${rel}`;
+
 /**
  * Scan every configured root, infer the library, and persist it idempotently.
- * Item/track/asset identities are stable hashes of (rootId, source-relative
- * path); files that vanish are marked missing rather than deleted, so user
- * history, plans, and journals always survive a library hiccup.
+ *
+ * Identity, in order of trust:
+ * 1. Path. A file or folder still where it was keeps its id - even if it
+ *    was retagged and its bytes changed.
+ * 2. Content. A file at a path ZenPort has never seen, whose fingerprint
+ *    matches a file that is gone from where it was (moved, renamed, or in a
+ *    library that was unmounted and mounted back elsewhere), takes that
+ *    file's id; a new folder most of whose files are such a match takes the
+ *    old folder's id. Everything stored against those ids - places, ticks,
+ *    history, favourites, types, roles, order, plans - carries across.
+ *    A file whose fingerprint changed as well falls back to name + size.
+ * 3. Otherwise it is new, with an id hashed from its root and path.
+ *
+ * Nothing is ever deleted here: what vanished is marked missing, so user
+ * history survives a library hiccup, and comes back if the files do.
  */
 export async function runScan(
   db: Db,
@@ -156,6 +182,13 @@ export async function runScan(
   const seenAssets = new Set<string>();
   const excludedByRoot = new Map<number, string[]>();
 
+  // ── 1. Walk and read every root before touching anything, so a file that
+  // moved from one root to another is known to be gone from the first.
+  const passes: {
+    root: ScanRoot;
+    items: ReturnType<typeof inferLibrary>;
+    files: Map<string, WalkedFile>;
+  }[] = [];
   for (const root of roots) {
     const walk = await safeWalk(root.path);
     if (!walk.ok) {
@@ -170,17 +203,165 @@ export async function runScan(
     rootResults.push({ id: root.id, label: root.label, ok: true, note: null });
     ignored += walk.ignored;
     for (const w of walk.warnings) warnings.push(`${root.label}: ${w}`);
-
     const exclusions = loadExclusions(db, root.id);
     excludedByRoot.set(root.id, exclusions);
     folderTrees.set(root.id, buildFolderTree(walk.files, root.label, exclusions));
-    const items = inferLibrary(walk.files.filter((f) => !underAny(f.relPath, exclusions)));
+    passes.push({
+      root,
+      items: inferLibrary(walk.files.filter((f) => !underAny(f.relPath, exclusions))),
+      files: new Map(walk.files.map((f) => [f.relPath, f])),
+    });
+  }
+  const configured = new Set(roots.map((r) => r.id));
+  const okRoots = new Set(passes.map((p) => p.root.id));
+
+  // ── 2. What is already known, and what of it is gone from where it was.
+  const known = db
+    .prepare(
+      'SELECT id, item_id, root_id, rel_path, name, size_bytes, fingerprint, fp_stamp FROM tracks',
+    )
+    .all() as unknown as TrackRow[];
+  const trackAt = new Map(known.map((t) => [at(t.root_id, t.rel_path), t]));
+  const itemAt = new Map(
+    (
+      db.prepare('SELECT id, root_id, item_key FROM items').all() as {
+        id: string;
+        root_id: number;
+        item_key: string;
+      }[]
+    ).map((i) => [at(i.root_id, i.item_key), i.id]),
+  );
+  const takenItemIds = new Set(itemAt.values());
+  const takenTrackIds = new Set(known.map((t) => t.id));
+  // Gone: in a library no longer configured, or not under its path in a
+  // library that scanned cleanly. A library that could not be read this time
+  // gives nothing up - it may only be a network blip.
+  const isGone = (t: TrackRow) =>
+    !configured.has(t.root_id) ||
+    (okRoots.has(t.root_id) && !passes.find((p) => p.root.id === t.root_id)!.files.has(t.rel_path));
+  const gone = known.filter(isGone);
+  const byFingerprint = new Map<string, TrackRow[]>();
+  const byNameSize = new Map<string, TrackRow[]>();
+  for (const t of gone) {
+    if (t.fingerprint)
+      byFingerprint.set(t.fingerprint, [...(byFingerprint.get(t.fingerprint) ?? []), t]);
+    const ns = `${t.name}|${t.size_bytes}`;
+    byNameSize.set(ns, [...(byNameSize.get(ns) ?? []), t]);
+  }
+  const liveItemIds = new Set(known.filter((t) => !isGone(t)).map((t) => t.item_id));
+  const tracksPerItem = new Map<string, number>();
+  for (const t of known) tracksPerItem.set(t.item_id, (tracksPerItem.get(t.item_id) ?? 0) + 1);
+
+  // ── 3. Fingerprint every track this scan stores - read only when a file
+  // is new or its size or modified time changed since it was last read.
+  const prints = new Map<string, { fp: string | null; stamp: string }>();
+  const toRead: { key: string; abs: string; size: number; stamp: string }[] = [];
+  for (const pass of passes) {
+    for (const item of pass.items) {
+      for (const track of item.tracks) {
+        const f = pass.files.get(track.relPath);
+        const stamp = `${track.sizeBytes}:${f?.mtimeMs ?? 0}`;
+        const key = at(pass.root.id, track.relPath);
+        const row = trackAt.get(key);
+        if (row?.fingerprint && row.fp_stamp === stamp) {
+          prints.set(key, { fp: row.fingerprint, stamp });
+        } else {
+          toRead.push({
+            key,
+            abs: path.join(pass.root.path, track.relPath),
+            size: track.sizeBytes,
+            stamp,
+          });
+        }
+      }
+    }
+  }
+  await inPool(toRead, 8, async (r) => {
+    prints.set(r.key, { fp: await fingerprintFile(r.abs, r.size), stamp: r.stamp });
+  });
+
+  const claimedItems = new Set<string>();
+  const claimedTracks = new Set<string>();
+  const freshId = (base: string, taken: Set<string>) => {
+    let id = sid(base);
+    for (let n = 1; taken.has(id); n++) id = sid(`${base}#${n}`);
+    taken.add(id);
+    return id;
+  };
+  let recognisedItems = 0;
+  let recognisedTracks = 0;
+
+  const itemIdentity = (rootId: number, item: (typeof passes)[number]['items'][number]) => {
+    const here = itemAt.get(at(rootId, item.itemKey));
+    if (here && !claimedItems.has(here)) {
+      claimedItems.add(here);
+      return { id: here, adopted: false };
+    }
+    // Which gone folder do most of these files come from?
+    const votes = new Map<string, number>();
+    for (const track of item.tracks) {
+      const fp = prints.get(at(rootId, track.relPath))?.fp;
+      const matches =
+        (fp && byFingerprint.get(fp)) || byNameSize.get(`${track.name}|${track.sizeBytes}`) || [];
+      for (const itemId of new Set(matches.map((m) => m.item_id))) {
+        if (liveItemIds.has(itemId) || claimedItems.has(itemId)) continue;
+        votes.set(itemId, (votes.get(itemId) ?? 0) + 1);
+      }
+    }
+    let best: string | null = null;
+    let bestVotes = 0;
+    for (const [itemId, n] of votes) {
+      if (n > bestVotes) [best, bestVotes] = [itemId, n];
+    }
+    if (best) {
+      const size = Math.min(item.tracks.length, tracksPerItem.get(best) ?? 1);
+      if (bestVotes / size >= 0.5) {
+        claimedItems.add(best);
+        recognisedItems++;
+        return { id: best, adopted: true };
+      }
+    }
+    return { id: freshId(`item:${rootId}:${item.itemKey}`, takenItemIds), adopted: false };
+  };
+
+  const trackIdentity = (
+    rootId: number,
+    track: { relPath: string; name: string; sizeBytes: number },
+    itemId: string,
+  ) => {
+    const here = trackAt.get(at(rootId, track.relPath));
+    if (here && !claimedTracks.has(here.id)) {
+      claimedTracks.add(here.id);
+      return here.id;
+    }
+    const fp = prints.get(at(rootId, track.relPath))?.fp;
+    const open = (rows: TrackRow[] | undefined) =>
+      (rows ?? []).filter((r) => !claimedTracks.has(r.id));
+    let candidates = fp ? open(byFingerprint.get(fp)) : [];
+    if (candidates.length === 0)
+      candidates = open(byNameSize.get(`${track.name}|${track.sizeBytes}`));
+    if (candidates.length > 0) {
+      // Prefer the same folder's own file, then the same name.
+      const pick =
+        candidates.find((c) => c.item_id === itemId) ??
+        candidates.find((c) => c.name === track.name) ??
+        candidates[0]!;
+      claimedTracks.add(pick.id);
+      recognisedTracks++;
+      return pick.id;
+    }
+    return freshId(`track:${rootId}:${track.relPath}`, takenTrackIds);
+  };
+
+  // ── 4. Persist, root by root.
+  for (const { root, items } of passes) {
+    const ids = items.map((item) => itemIdentity(root.id, item));
 
     const embedded = new Map<string, { relPath: string; ext: string; size: number }>();
     if (opts.coverCacheDir) {
-      for (const item of items) {
+      for (const [n, item] of items.entries()) {
         if (item.coverRelPath) continue;
-        const itemId = sid(`item:${root.id}:${item.itemKey}`);
+        const itemId = ids[n]!.id;
         const cover = await embeddedCover(opts.coverCacheDir, itemId, root.path, item.tracks);
         if (cover) embedded.set(itemId, cover);
       }
@@ -191,28 +372,54 @@ export async function runScan(
       const upsertItem = db.prepare(
         `INSERT INTO items (id, root_id, item_key, kind, title, creator, collection, breadcrumbs, evidence, missing, added_at, inferred_type, type_reason)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
-         ON CONFLICT(root_id, item_key) DO UPDATE SET
+         ON CONFLICT(id) DO UPDATE SET
+           root_id = excluded.root_id, item_key = excluded.item_key,
            kind = excluded.kind, title = excluded.title, creator = excluded.creator,
            collection = excluded.collection, breadcrumbs = excluded.breadcrumbs,
            evidence = excluded.evidence, missing = 0, excluded = 0,
            inferred_type = excluded.inferred_type, type_reason = excluded.type_reason`,
       );
       const upsertTrack = db.prepare(
-        `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing, inferred_role)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-         ON CONFLICT(root_id, rel_path) DO UPDATE SET
-           item_id = excluded.item_id, ord = excluded.ord, title = excluded.title,
-           size_bytes = excluded.size_bytes, missing = 0, inferred_role = excluded.inferred_role`,
+        `INSERT INTO tracks (id, item_id, root_id, rel_path, name, ext, ord, title, size_bytes, missing, inferred_role, fingerprint, fp_stamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           item_id = excluded.item_id, root_id = excluded.root_id, rel_path = excluded.rel_path,
+           name = excluded.name, ext = excluded.ext, ord = excluded.ord, title = excluded.title,
+           size_bytes = excluded.size_bytes, missing = 0, inferred_role = excluded.inferred_role,
+           fingerprint = excluded.fingerprint, fp_stamp = excluded.fp_stamp`,
       );
       const upsertAsset = db.prepare(
         `INSERT INTO assets (id, item_id, root_id, rel_path, name, ext, kind, size_bytes, missing)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
          ON CONFLICT(item_id, rel_path) DO UPDATE SET
-           kind = excluded.kind, size_bytes = excluded.size_bytes, missing = 0`,
+           root_id = excluded.root_id, kind = excluded.kind, size_bytes = excluded.size_bytes, missing = 0`,
+      );
+      // An asset keeps the id it was first stored under (a remounted library
+      // brings the same relative paths under a new root), so what counts as
+      // seen is the id actually in the table.
+      const assetIdAt = db.prepare('SELECT id FROM assets WHERE item_id = ? AND rel_path = ?');
+      const putAsset = (
+        id: string,
+        itemId: string,
+        rootId: number,
+        relPath: string,
+        name: string,
+        ext: string,
+        kind: 'cover' | 'document',
+        size: number,
+      ) => {
+        upsertAsset.run(id, itemId, rootId, relPath, name, ext, kind, size);
+        const row = assetIdAt.get(itemId, relPath) as { id: string } | undefined;
+        seenAssets.add(row?.id ?? id);
+      };
+      // A file moving away frees its old path; clear it before anything
+      // new may claim that path in the same pass.
+      const vacate = db.prepare(
+        'UPDATE tracks SET rel_path = rel_path || ?, missing = 1 WHERE root_id = ? AND rel_path = ? AND id <> ?',
       );
 
-      for (const item of items) {
-        const itemId = sid(`item:${root.id}:${item.itemKey}`);
+      for (const [n, item] of items.entries()) {
+        const itemId = ids[n]!.id;
         seenItems.add(itemId);
         const guess = inferContentType({
           breadcrumbs: item.breadcrumbs,
@@ -236,8 +443,10 @@ export async function runScan(
           guess.reason,
         );
         for (const track of item.tracks) {
-          const trackId = sid(`track:${root.id}:${track.relPath}`);
+          const trackId = trackIdentity(root.id, track, itemId);
           seenTracks.add(trackId);
+          const print = prints.get(at(root.id, track.relPath));
+          vacate.run(`\u0000moved:${trackId}`, root.id, track.relPath, trackId);
           upsertTrack.run(
             trackId,
             itemId,
@@ -249,20 +458,20 @@ export async function runScan(
             track.title,
             track.sizeBytes,
             inferTrackRole(track.title),
+            print?.fp ?? null,
+            print?.fp ? print.stamp : null,
           );
         }
         if (item.coverRelPath) {
           const name = item.coverRelPath.split('/').at(-1) as string;
           const ext = name.split('.').at(-1)?.toLowerCase() ?? '';
           const assetId = sid(`asset:${root.id}:${itemId}:${item.coverRelPath}`);
-          seenAssets.add(assetId);
-          upsertAsset.run(assetId, itemId, root.id, item.coverRelPath, name, ext, 'cover', 0);
+          putAsset(assetId, itemId, root.id, item.coverRelPath, name, ext, 'cover', 0);
         } else {
           const cover = embedded.get(itemId);
           if (cover) {
             const assetId = sid(`asset:embedded:${itemId}`);
-            seenAssets.add(assetId);
-            upsertAsset.run(
+            putAsset(
               assetId,
               itemId,
               EMBEDDED_ROOT_ID,
@@ -276,8 +485,7 @@ export async function runScan(
         }
         for (const doc of item.documents) {
           const assetId = sid(`asset:${root.id}:${itemId}:${doc.relPath}`);
-          seenAssets.add(assetId);
-          upsertAsset.run(
+          putAsset(
             assetId,
             itemId,
             root.id,
@@ -296,9 +504,17 @@ export async function runScan(
     }
   }
 
+  if (recognisedItems + recognisedTracks > 0) {
+    const n = recognisedItems > 0 ? recognisedItems : recognisedTracks;
+    const what = recognisedItems > 0 ? 'recording' : 'file';
+    warnings.unshift(
+      `Recognised ${n} ${what}${n === 1 ? '' : 's'} in a new place - progress, ticks, order and settings came with ${n === 1 ? 'it' : 'them'}.`,
+    );
+  }
+
   // Mark anything not seen in this pass as missing — only for roots that
   // scanned cleanly, so a temporarily unreadable mount never masks a library.
-  const okRootIds = rootResults.filter((r) => r.ok).map((r) => r.id);
+  const okRootIds = [...okRoots];
   db.exec('BEGIN');
   try {
     for (const rootId of okRootIds) {
@@ -349,6 +565,17 @@ export async function runScan(
         }
       }
     }
+    // A library taken out of ZP_LIBRARY_DIRS was taken out on purpose: its
+    // recordings leave the shelves quietly (excluded, not "missing") and
+    // everything about them is kept - Admin offers to forget it for good.
+    const rootIds = [...configured, EMBEDDED_ROOT_ID];
+    const notIn = `NOT IN (${rootIds.map(() => '?').join(', ')})`;
+    db.prepare(`UPDATE items SET missing = 1, excluded = 1 WHERE root_id ${notIn}`).run(...rootIds);
+    db.prepare(`UPDATE tracks SET missing = 1 WHERE root_id ${notIn}`).run(...rootIds);
+    db.prepare(`UPDATE assets SET missing = 1 WHERE root_id ${notIn}`).run(...rootIds);
+    db.prepare(
+      `UPDATE assets SET missing = 1 WHERE root_id = ? AND item_id IN (SELECT id FROM items WHERE root_id ${notIn})`,
+    ).run(EMBEDDED_ROOT_ID, ...rootIds);
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');
