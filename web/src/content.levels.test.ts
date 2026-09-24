@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { MeditationSummaryDto } from '@zenport/shared';
-import { compareSeries, displayName, groupSeries, leadingNumber } from './content.ts';
+import {
+  compareSeries,
+  displayName,
+  groupSeries,
+  leadingNumber,
+  titleInSeries,
+} from './content.ts';
 
 const item = (collection: string, title: string, level: MeditationSummaryDto['level'] = null) =>
   ({
@@ -43,5 +49,14 @@ describe('walking a creator’s series', () => {
       'Heart Series 2',
       'Deep Series',
     ]);
+  });
+});
+
+describe('a title inside its series', () => {
+  it('drops the series name it repeats, never to nothing', () => {
+    expect(titleInSeries('Calm Harbour - Vol. 2 (2019)', 'Calm Harbour')).toBe('Vol. 2 (2019)');
+    expect(titleInSeries('Calm Harbour', 'Calm Harbour')).toBe('Calm Harbour');
+    expect(titleInSeries('Evening Light', 'Calm Harbour')).toBe('Evening Light');
+    expect(titleInSeries('Day 3', null)).toBe('Day 3');
   });
 });

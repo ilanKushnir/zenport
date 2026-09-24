@@ -25,6 +25,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.34.0',
+    items: [
+      {
+        emoji: '🧩',
+        text: 'Review the library spots recordings that belong together - Vol. 1 to Vol. 5 - and groups them as one series in a tap.',
+      },
+      { emoji: '⏱️', text: "Every recording's length is known from the first scan." },
+      {
+        emoji: '🧘',
+        text: 'An introduction and a meditation in versions (lying down, walking, live) is one meditation, not a pack.',
+      },
+    ],
+  },
+  {
     version: '0.33.1',
     items: [
       {

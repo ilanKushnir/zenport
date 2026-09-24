@@ -57,7 +57,7 @@ export interface ScanStateDto {
 }
 
 export interface ScanProgressDto {
-  phase: 'reading' | 'understanding' | 'artwork' | 'saving';
+  phase: 'reading' | 'understanding' | 'artwork' | 'saving' | 'lengths';
   /** The library being read now, and its place among them. */
   root: string;
   rootIndex: number;
@@ -940,6 +940,22 @@ export interface ReviewTrackDto {
   role: 'lesson' | 'practice';
   scannedRole: 'lesson' | 'practice';
   missing: boolean;
+}
+
+/**
+ * Recordings that look like one set, filed apart - "Vol. 1" to "Vol. 5" side
+ * by side, or several sharing a name - offered as one series.
+ */
+export interface GroupSuggestionDto {
+  /** Stable while the set is the same; dismissing it keeps it dismissed. */
+  key: string;
+  creator: string;
+  /** The series name to give them (the admin can change it). */
+  name: string;
+  /** Numbered ("Vol. 1…5"), or several sharing a name. */
+  why: 'numbered' | 'shared-name';
+  /** In the order they would take in the series. */
+  items: { id: string; title: string; coverId: string | null }[];
 }
 
 export interface ReviewSummaryDto {

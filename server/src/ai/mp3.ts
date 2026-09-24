@@ -24,9 +24,11 @@ const RATES: Record<number, number[]> = {
 
 export class Mp3Error extends Error {}
 
-interface Header {
+export interface Header {
   version: 3 | 2 | 0;
   bitrateIndex: number;
+  /** Bits per second. */
+  bitrate: number;
   sampleRate: number;
   padding: number;
   mono: boolean;
@@ -37,7 +39,7 @@ interface Header {
   crc: boolean;
 }
 
-function parseHeader(b: Buffer, i: number): Header | null {
+export function parseHeader(b: Buffer, i: number): Header | null {
   if (i + 4 > b.length || b[i] !== 0xff || (b[i + 1]! & 0xe0) !== 0xe0) return null;
   const version = (b[i + 1]! >> 3) & 3;
   const layer = (b[i + 1]! >> 1) & 3;
@@ -57,6 +59,7 @@ function parseHeader(b: Buffer, i: number): Header | null {
   return {
     version: version as 3 | 2 | 0,
     bitrateIndex,
+    bitrate: kbps * 1000,
     sampleRate,
     padding,
     mono,

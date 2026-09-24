@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { looksSequential, practiceParts, sequenceNumber } from './structure.js';
+import { looksSequential, oneInVersions, practiceParts, sequenceNumber } from './structure.js';
 
 describe('programme or pack', () => {
   it('reads a place in a sequence', () => {
@@ -24,5 +24,41 @@ describe('programme or pack', () => {
       '2. Meditation (57,26)',
     ]);
     expect(practiceParts(['Welcome', 'Day 1', 'Day 2'])).toHaveLength(2);
+  });
+});
+
+describe('one meditation in versions', () => {
+  const practice = (names: string[]) => practiceParts(names);
+
+  it('an introduction and the same meditation lying down or walking is one meditation', () => {
+    expect(
+      oneInVersions(
+        practice([
+          'SR - 1. Introduction',
+          'SR-Lay Down Version - 2. Meditation',
+          'SR-Non-Lay Down Version - 3. Meditation',
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it('a meditation with its live or music version is one meditation', () => {
+    expect(oneInVersions(['Meditation', 'Meditation (Live Version)'])).toBe(true);
+    expect(oneInVersions(['Meditation', 'Music, Quiet Harbour - Children’s Version'])).toBe(true);
+    expect(oneInVersions(['Version 1', 'Version 2 - Retreat Recording'])).toBe(true);
+  });
+
+  it('breath, meditation and the two combined are one practice', () => {
+    expect(oneInVersions(['Breath', 'Meditation', 'Combined Breath and Meditation'])).toBe(true);
+  });
+
+  it('different meditations stay a set', () => {
+    expect(oneInVersions(['Morning Meditation', 'Evening Meditation'])).toBe(false);
+    expect(oneInVersions(['Day Meditation', 'Night Meditation'])).toBe(false);
+    expect(oneInVersions(['Rain Music', 'Ocean Music', 'Forest Music'])).toBe(false);
+  });
+
+  it('an explanation frames the practice', () => {
+    expect(practiceParts(['Mira explains the practice', 'The Practice'])).toEqual(['The Practice']);
   });
 });

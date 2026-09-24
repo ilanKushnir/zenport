@@ -835,6 +835,14 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (item_id, kind)
   );
   `,
+  // v28: recordings ZenPort suggested grouping into a series, that an admin
+  // said do not belong together - not suggested again.
+  `
+  CREATE TABLE group_dismissals (
+    group_key TEXT PRIMARY KEY,
+    dismissed_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

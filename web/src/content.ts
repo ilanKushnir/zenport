@@ -194,6 +194,19 @@ export function displayName(name: string): string {
   return stripped || last;
 }
 
+/**
+ * A part's title inside its series, without the series' name repeated:
+ * "Calm Pack - Vol. 2 (2014)" in "Calm Pack" is "Vol. 2 (2014)". Never to
+ * nothing - a title that is only the series name stays as it is.
+ */
+export function titleInSeries(title: string, series: string | null): string {
+  if (!series) return title;
+  const name = displayName(series).trim();
+  if (!name || !title.toLowerCase().startsWith(name.toLowerCase())) return title;
+  const rest = title.slice(name.length).replace(/^[\s,:.|/·–—-]+/, '').trim();
+  return rest.length >= 2 ? rest : title;
+}
+
 /** The shelf a nested collection sits on ("Extras / Tips" → "Extras"), or null. */
 export const shelfOf = (collection: string | null): string | null =>
   collection && collection.includes(' / ') ? collection.split(' / ')[0]! : null;

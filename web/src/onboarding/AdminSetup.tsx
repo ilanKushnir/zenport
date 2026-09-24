@@ -351,6 +351,7 @@ const PHASE: Record<string, string> = {
   understanding: 'Understanding what is what',
   artwork: 'Finding the artwork',
   saving: 'Putting it on the shelves',
+  lengths: 'Measuring how long each one is',
 };
 
 export function ScanStep() {

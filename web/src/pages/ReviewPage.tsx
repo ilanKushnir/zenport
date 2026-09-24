@@ -14,6 +14,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   formatClock,
   type ContentType,
+  type GroupSuggestionDto,
   type ReviewDetailDto,
   type ReviewItemDto,
   type ReviewListDto,
@@ -28,7 +29,7 @@ import { TYPE_META } from '../content.ts';
 import { AdminCrumb, AdminOnly } from './AdminPage.tsx';
 import { CreatorsAdmin } from '../components/CreatorsAdmin.tsx';
 
-type Show = 'new' | 'look' | 'ai' | 'edited' | 'hidden' | 'all';
+type Show = 'new' | 'look' | 'ai' | 'sets' | 'edited' | 'hidden' | 'all';
 const TYPES: ContentType[] = ['meditation', 'course', 'talk', 'soundscape'];
 
 const FLAG_LABEL: Record<string, string> = {
@@ -104,6 +105,8 @@ export function ReviewPage() {
 function Review() {
   const list = useApi<ReviewListDto>('/api/admin/review');
   const suggestions = useApi<SuggestionDto[]>('/api/ai/library/suggestions');
+  const sets = useApi<GroupSuggestionDto[]>('/api/admin/groups');
+  const setCount = sets.data?.length ?? 0;
   const fixes = useMemo(() => fixesByItem(suggestions.data), [suggestions.data]);
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
@@ -168,6 +171,16 @@ function Review() {
   const FILTERS: { key: Show; label: string; n: number; hint: string }[] = [
     { key: 'new', label: 'New', n: counts.new, hint: 'Added since you last looked' },
     { key: 'look', label: 'Worth a look', n: counts.look, hint: 'ZenPort was unsure' },
+    ...(setCount > 0 || show === 'sets'
+      ? [
+          {
+            key: 'sets' as const,
+            label: 'Belong together',
+            n: setCount,
+            hint: 'Recordings that look like one set, filed apart',
+          },
+        ]
+      : []),
     ...(counts.ai > 0 || show === 'ai'
       ? [
           {
@@ -201,7 +214,7 @@ function Review() {
         ))}
       </div>
 
-      <div className="review-tools">
+      <div className="review-tools" hidden={show === 'sets'}>
         <label className="folder-search review-search">
           <Icon name="search" size={16} />
           <input
@@ -248,10 +261,34 @@ function Review() {
         </div>
       )}
 
+      {show !== 'sets' && setCount > 0 && (
+        <div className="review-bulk set-banner">
+          <span>
+            <Icon name="library" size={15} />{' '}
+            {setCount === 1
+              ? 'One set of recordings looks like it belongs together.'
+              : `${setCount} sets of recordings look like they belong together.`}
+          </span>
+          <button className="btn btn-sm btn-quiet" onClick={() => pick('sets')}>
+            See them
+          </button>
+        </div>
+      )}
+
+      {show === 'sets' && (
+        <SetCards
+          sets={sets.data ?? []}
+          onDone={() => {
+            sets.reload();
+            list.reload();
+          }}
+        />
+      )}
+
       {list.error && <ErrorNote message={list.error} onRetry={list.reload} />}
       {list.loading && !list.data && <div className="skeleton" style={{ height: 320 }} />}
 
-      {list.data && shown.length === 0 && (
+      {list.data && show !== 'sets' && shown.length === 0 && (
         <EmptyState title={emptyTitle(show, !!needle || type !== 'all')} art="empty-library">
           {show === 'new' || show === 'look' ? (
             <>
@@ -265,25 +302,26 @@ function Review() {
       )}
 
       <div className="review-groups">
-        {groups.map(([creator, rows]) => (
-          <section key={creator} className="review-group" aria-label={creator}>
-            <h2 className="review-group-head">
-              {creator}
-              <span>{rows.length}</span>
-            </h2>
-            <ul className="review-list">
-              {rows.map((i) => (
-                <li key={i.id}>
-                  <ReviewRow
-                    item={i}
-                    fixes={fixes.get(i.id) ?? []}
-                    onOpen={() => setOpen({ id: i.id, queue: shown.map((x) => x.id) })}
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        {show !== 'sets' &&
+          groups.map(([creator, rows]) => (
+            <section key={creator} className="review-group" aria-label={creator}>
+              <h2 className="review-group-head">
+                {creator}
+                <span>{rows.length}</span>
+              </h2>
+              <ul className="review-list">
+                {rows.map((i) => (
+                  <li key={i.id}>
+                    <ReviewRow
+                      item={i}
+                      fixes={fixes.get(i.id) ?? []}
+                      onOpen={() => setOpen({ id: i.id, queue: shown.map((x) => x.id) })}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
       </div>
 
       {open && list.data && (
@@ -1141,5 +1179,111 @@ function LookAt({
         Nothing to change? <strong>Looks right</strong> marks it checked and moves on.
       </p>
     </section>
+  );
+}
+
+/**
+ * Recordings that look like one set, filed apart ("Vol. 1" to "Vol. 5" side
+ * by side): grouped, they become one series - in their numbered order - on
+ * the creator's page, and each stays exactly as it is inside it.
+ */
+function SetCards({ sets, onDone }: { sets: GroupSuggestionDto[]; onDone: () => void }) {
+  if (sets.length === 0) {
+    return (
+      <EmptyState title="Nothing to group" art="empty-library">
+        Every set of recordings is already together.
+      </EmptyState>
+    );
+  }
+  return (
+    <div className="set-cards">
+      <p className="set-intro">
+        These recordings sit apart, each in its own folder, but their names say they are one set.
+        Grouped, they show as one series on the creator&apos;s page, in this order. Nothing in your
+        folders changes, and you can take any of them out again from Review.
+      </p>
+      {sets.map((g) => (
+        <SetCard key={g.key} g={g} onDone={onDone} />
+      ))}
+    </div>
+  );
+}
+
+function SetCard({ g, onDone }: { g: GroupSuggestionDto; onDone: () => void }) {
+  const [name, setName] = useState(g.name);
+  const [busy, setBusy] = useState<'apply' | 'dismiss' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const shown = open ? g.items : g.items.slice(0, 5);
+  const act = async (how: 'apply' | 'dismiss') => {
+    setBusy(how);
+    setError(null);
+    try {
+      if (how === 'apply') {
+        await api.post('/api/admin/groups/apply', { ids: g.items.map((i) => i.id), name });
+      } else {
+        await api.post('/api/admin/groups/dismiss', { key: g.key });
+      }
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not work.');
+      setBusy(null);
+    }
+  };
+  return (
+    <article className="set-card">
+      <header className="set-head">
+        <span className="set-kind">
+          <Icon name="library" size={13} />{' '}
+          {g.why === 'numbered'
+            ? `${g.items.length} numbered recordings`
+            : `${g.items.length} recordings sharing a name`}
+        </span>
+        <span className="sub">{g.creator}</span>
+      </header>
+      <ol className="set-items">
+        {shown.map((i) => (
+          <li key={i.id}>
+            <span className="set-cover">
+              <Cover coverId={i.coverId} title={i.title} creator={g.creator} />
+            </span>
+            <span className="set-title">{i.title}</span>
+          </li>
+        ))}
+      </ol>
+      {g.items.length > 5 && (
+        <button type="button" className="linkish set-more" onClick={() => setOpen((o) => !o)}>
+          {open ? 'Show fewer' : `and ${g.items.length - 5} more`}
+        </button>
+      )}
+      <label className="review-field set-name">
+        <span className="review-label">Series name</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      {error && (
+        <p className="hint" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="set-actions">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={busy !== null || !name.trim()}
+          onClick={() => void act('apply')}
+        >
+          <Icon name="check-circle" size={16} />
+          {busy === 'apply' ? 'Grouping…' : 'Group as one series'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-quiet"
+          disabled={busy !== null}
+          onClick={() => void act('dismiss')}
+        >
+          Not together
+        </button>
+      </div>
+    </article>
   );
 }

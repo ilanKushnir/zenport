@@ -3036,3 +3036,72 @@ describe('Enhance in one go', () => {
     expect(state.steps[0].done).toBe(state.steps[0].total);
   });
 });
+
+describe('Recordings that belong together', () => {
+  it('offers numbered folders filed apart as one series, groups them, or lets them be', async () => {
+    for (const rel of [
+      'Mira Solen/Meditations/Calm Harbour - Vol. 2 (2019)/a.mp3',
+      'Mira Solen/Meditations/Calm Harbour - Vol. 1 (2018)/b.mp3',
+      'Mira Solen/Meditations/Calm Harbour - Vol. 3 (2020)/c.mp3',
+      'Mira Solen/Meditations/Evening Light/d.mp3',
+      'Mira Solen/Meditations/Open Sky - To Rest (2021)/e.mp3',
+      'Mira Solen/Meditations/Open Sky - To Joy (2021)/f.mp3',
+    ]) {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'g'.repeat(300)}`);
+    }
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const groups = async () =>
+      (await app.inject({ method: 'GET', url: '/api/admin/groups', headers: auth() })).json() as {
+        key: string;
+        name: string;
+        why: string;
+        items: { id: string; title: string }[];
+      }[];
+    const found = await groups();
+    // Two sharing a name are not yet a set; three numbered ones are, in their order.
+    expect(found.map((g) => g.name)).toEqual(['Calm Harbour']);
+    expect(found[0]!.why).toBe('numbered');
+    expect(found[0]!.items.map((i) => i.title)).toEqual([
+      'Calm Harbour - Vol. 1 (2018)',
+      'Calm Harbour - Vol. 2 (2019)',
+      'Calm Harbour - Vol. 3 (2020)',
+    ]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/groups/apply',
+      headers: auth(),
+      payload: { ids: found[0]!.items.map((i) => i.id), name: 'Calm Harbour' },
+    });
+    expect(res.statusCode).toBe(200);
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json()
+      .items as { title: string; collection: string | null }[];
+    expect(lib.filter((i) => i.collection === 'Calm Harbour')).toHaveLength(3);
+    // Grouped: no longer offered.
+    expect(await groups()).toEqual([]);
+
+    // A third "Open Sky - To …" makes a set by name; "Not together" is remembered.
+    mkdirSync(path.join(libRoot, 'Mira Solen/Meditations/Open Sky - To Calm (2022)'), {
+      recursive: true,
+    });
+    writeFileSync(
+      path.join(libRoot, 'Mira Solen/Meditations/Open Sky - To Calm (2022)/g.mp3'),
+      'x'.repeat(300),
+    );
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    const named = await groups();
+    expect(named.map((g) => [g.name, g.why, g.items.length])).toEqual([
+      ['Open Sky', 'shared-name', 3],
+    ]);
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/groups/dismiss',
+      headers: auth(),
+      payload: { key: named[0]!.key },
+    });
+    expect(await groups()).toEqual([]);
+  });
+});

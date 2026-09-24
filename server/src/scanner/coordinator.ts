@@ -6,6 +6,7 @@ import path from 'node:path';
 import type { ScanProgressDto } from '@zenport/shared';
 import type { Config } from '../config.js';
 import type { Db } from '../db/index.js';
+import { fillDurations } from './duration.js';
 import { runScan } from './scan.js';
 
 let running: Promise<void> | null = null;
@@ -31,6 +32,24 @@ export function startScan(db: Db, config: Config, onError?: (err: unknown) => vo
           onProgress: (p) => {
             progress = p;
           },
+        });
+        // Then how long each new recording is, from its header.
+        const last = progress as ScanProgressDto | null;
+        await fillDurations(db, config.libraryRoots, (done, total) => {
+          progress = last
+            ? { ...last, phase: 'lengths', done, total }
+            : {
+                phase: 'lengths',
+                root: '',
+                rootIndex: 0,
+                roots: config.libraryRoots.length,
+                files: 0,
+                items: 0,
+                done,
+                total,
+                creators: [],
+                latest: [],
+              };
         });
       } catch (err) {
         onError?.(err);

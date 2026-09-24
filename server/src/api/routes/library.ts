@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { dismissGroup, findGroups } from '../../library/groups.js';
 import type { AppContext } from '../../context.js';
 import { freshSince, itemDetail, libraryDto } from '../../library/queries.js';
 import {
@@ -82,6 +83,42 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
   app.get('/api/admin/review', async (req, reply) => {
     if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
     return reviewList(db, config, req.user!.id);
+  });
+
+  // Recordings that look like one set, filed apart: offered as a series.
+  app.get('/api/admin/groups', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    return findGroups(db, config, req.user!.id);
+  });
+
+  app.post('/api/admin/groups/apply', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const body = z
+      .object({
+        ids: z.array(z.string().min(1).max(64)).min(2).max(300),
+        name: z.string().trim().min(1).max(200),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Choose the recordings and a name.' });
+    let needsScan = false;
+    try {
+      for (const id of body.data.ids) {
+        needsScan = saveReview(db, config, id, { series: body.data.name }).rescan || needsScan;
+      }
+    } catch (err) {
+      if (err instanceof ReviewError) return reply.code(err.status).send({ error: err.message });
+      throw err;
+    }
+    if (needsScan) await rescan();
+    return { ok: true };
+  });
+
+  app.post('/api/admin/groups/dismiss', async (req, reply) => {
+    if (req.user!.role !== 'admin') return reply.code(403).send({ error: 'admin only' });
+    const body = z.object({ key: z.string().min(1).max(64) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'key required' });
+    dismissGroup(db, body.data.key);
+    return { ok: true };
   });
 
   // Just the counts - for Admin's overview and the "scan finished" notice.

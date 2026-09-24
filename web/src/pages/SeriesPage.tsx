@@ -20,6 +20,7 @@ import {
   progressLabel,
   seriesLevel,
   seriesStructure,
+  titleInSeries,
   TYPE_META,
 } from '../content.ts';
 import type { ItemLevel } from '@zenport/shared';
@@ -162,7 +163,7 @@ export function SeriesPage() {
               disabled={starting}
             >
               <Icon name="play" size={17} />
-              {done === 0 ? 'Start' : done >= total ? 'Begin again' : 'Continue'} · {next.title}
+              {done === 0 ? 'Start' : done >= total ? 'Begin again' : 'Continue'} · {titleInSeries(next.title, name)}
             </button>
             {user?.role === 'admin' && (
               <button className="btn btn-ghost" onClick={() => setPicking(true)}>
@@ -236,7 +237,7 @@ export function SeriesPage() {
                     <Cover coverId={i.coverId} title={i.title} creator={i.creator} />
                   </span>
                   <span className="series-meta">
-                    <span className="t">{i.title}</span>
+                    <span className="t">{titleInSeries(i.title, name)}</span>
                     <span className="s">
                       {progressLabel(i.completedCount, i.trackCount, i.type) ??
                         `${i.trackCount} ${i.trackCount === 1 ? TYPE_META[i.type].part : TYPE_META[i.type].parts}`}

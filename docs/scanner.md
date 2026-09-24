@@ -80,11 +80,19 @@ A recording of several parts is one of two things, and a series of several recor
 - **Programme** - meant in order, each part building on the last. The parts' names carry their place: _Day 1…10, Part 1…4, Week 2, Wave III, 6 - Rest_, or a run of consecutive numbers (`shared/src/structure.ts`).
 - **Pack** (a **collection**, for a series) - a set to choose from in any order.
 
-Parts that frame the practice rather than being one - an introduction, instructions, an explanation, a welcome, a close - do not count: an introduction and one meditation is one meditation. The AI can say otherwise (Enhance the library → Levels, which judges structure in the same pass), and an admin has the last word on a recording's page or a series' page.
+Parts that frame the practice rather than being one - an introduction, instructions, an explanation ("… explains …"), a welcome, a close - do not count: an introduction and one meditation is one meditation. So does a short first part (at most 8 minutes, and at most 15% of the longest) before one long one, whatever it is called. One meditation **in versions** is one meditation too: lying down and walking, a live or music version, _Version 1 / Version 2_, or its breath, its meditation and the two combined. Different meditations (morning and evening, day and night) stay a pack. These rules come before the AI's reading; only an admin's choice overrules them. The AI can say otherwise (Enhance the library → Levels, which judges structure in the same pass), and an admin has the last word on a recording's page or a series' page.
 
 Every recording also has a **level** - beginner, intermediate, advanced or every level (`server/src/library/levels.ts`). The strongest word wins: an admin's choice; then the name, which often says it outright (_(ADV)_, _Advanced_, _Basics_, _Beginners_, _Level 2_); then approved web research; then the AI's reading. A series' level is where it starts - its first part's.
 
 A creator's page is walked in that light: the next step (the programme under way, else the first not begun), then programmes easier first and as numbered (_Series 1_ before _Series 2_), then packs and collections, then each shelf (a folder of several collections), then single recordings by kind.
+
+### Recordings that belong together
+
+Each folder with audio is its own recording, so a set filed as sibling folders (_Calm Harbour - Vol. 1_ to _Vol. 5_, _Quiet Walk 01…13_, or three or more _Open Sky - To …_) is read as separate recordings with no series. Review the library → **Belong together** offers each such set, found from the names alone within one creator's folder among recordings in no series. **Group as one series** gives them a series (named as you like), in their numbered order; **Not together** is remembered (`server/src/library/groups.ts`). Nothing in the folders changes, and any recording can be taken out again from Review.
+
+## Lengths
+
+A track's length is read from its file's header as part of each scan (the last phase, _Measuring how long each one is_): MP3 (Xing/Info or VBRI frame, else bitrate), MP4/M4A/M4V/MOV (the `mvhd` movie header), FLAC (STREAMINFO) and WAV. Only a few kilobytes are read per file, only for tracks with no length yet, four at a time, and every path is resolved inside its library first (`server/src/scanner/duration.ts`). Other formats get their length when first played (the player reports it).
 
 ## Folder documents
 

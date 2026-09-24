@@ -5,6 +5,18 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-09-24
+
+### Added
+
+- **Recordings that belong together.** A set filed as sibling folders was read as separate recordings: five "Advanced Workshop - Vol. 1" to "Vol. 5", thirteen numbered "Walking Meditation 01…15", ten "Synchronizing … - To …". Review the library now has **Belong together**. It finds these sets from their names (numbered, or three or more sharing a name) within one creator's folder, and shows each in its numbered order. **Group as one series** makes them one series, named as you like, on the creator's page, programme or pack and level included. **Not together** is remembered. Nothing in your folders changes, and it needs no AI.
+- **Lengths from the start.** Each scan now reads every track's length from its file's header (MP3, MP4/M4V/M4A, FLAC, WAV), a few kilobytes per file. Before, a length was known only once a track had played, so a new library showed none, and the AI's picks and plans could not weigh time. The reading step shows it as its last phase.
+
+### Fixed
+
+- **An introduction and one meditation in versions is one meditation, not a pack.** For example: "Lay Down Version" and "Non-Lay Down Version", a meditation and its live or music version, "Version 1 / Version 2", or breath, meditation and the two combined. Two more kinds of introduction are now recognised: one that "explains", and a short first part before one long one. Different meditations (morning and evening, day and night) stay a pack. These rules come before the AI's reading, and the AI is told the same.
+- Inside a series, parts no longer repeat the series' name: "Vol. 2 (2014)" under "Advanced Workshop Meditations".
+
 ## [0.33.1] — 2026-09-24
 
 ### Fixed

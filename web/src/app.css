@@ -9517,6 +9517,10 @@ html.scroll-locked .main {
   color: var(--text);
 }
 
+.review-tools[hidden] {
+  display: none;
+}
+
 .review-tools {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -9845,6 +9849,104 @@ textarea.review-part-name {
 
 .review-part-was s {
   text-decoration-color: color-mix(in oklab, var(--faint) 70%, transparent);
+}
+
+/* Recordings that look like one set, offered as a series. */
+.set-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+  margin-block-start: var(--s4);
+}
+
+.set-intro {
+  margin: 0;
+  max-inline-size: 70ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.set-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+}
+
+.set-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px var(--s3);
+}
+
+.set-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.set-items {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: set;
+}
+
+.set-items li {
+  display: grid;
+  grid-template-columns: 22px 36px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s2);
+  counter-increment: set;
+}
+
+.set-items li::before {
+  content: counter(set);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+  text-align: end;
+}
+
+.set-cover {
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.set-title {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.set-more {
+  justify-self: start;
+  font-size: 13px;
+}
+
+.set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.set-banner {
+  margin-block-start: var(--s3);
 }
 
 /* Why a recording is in front of you, and what would change. */

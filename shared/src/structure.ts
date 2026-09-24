@@ -59,9 +59,29 @@ export type StructureSource = 'manual' | 'ai' | 'name';
 
 /** A part that frames the practice rather than being one: an introduction, instructions, a close. */
 export const isFramingPart = (name: string): boolean =>
-  /\b(?:intro|introduction|instructions?|instructional|explanation|explained|preparation|prepare|welcome|outro|closing|tutorial|how to use|read first|booklet|overview|q&a)\b/i.test(
+  /\b(?:intro|introduction|instructions?|instructional|explanation|explained|explains?|preparation|prepare|welcome|outro|closing|tutorial|how to use|read first|booklet|overview|q&a)\b/i.test(
     name,
   );
 
 /** The parts that are practice - several of them make a programme or a pack. */
 export const practiceParts = (names: string[]): string[] => names.filter((n) => !isFramingPart(n));
+
+/** A part that is another way of doing the same practice: lying down or not, live, with music. */
+const VARIANT =
+  /\b(?:versions?|lay[\s-]?down|non[\s-]lay|live|music|without (?:music|voice|words)|no (?:music|voice)|silent)\b/i;
+
+/**
+ * Several practice parts that are one meditation all the same: the same
+ * practice in versions ("Lay Down Version" and "Non-Lay Down Version"; a
+ * meditation and its live or music version), or its pieces and their
+ * combination ("Breath", "Meditation", "Combined Breath and Meditation").
+ * A set of different meditations - morning and evening, day and night -
+ * is not.
+ */
+export function oneInVersions(practice: string[]): boolean {
+  if (practice.length < 2) return false;
+  if (practice.some((n) => /\bcombined\b/i.test(n))) return true;
+  if (practice.every((n) => /\bversion\b/i.test(n))) return true;
+  // One plain practice and the rest its versions.
+  return practice.filter((n) => !VARIANT.test(n)).length === 1;
+}

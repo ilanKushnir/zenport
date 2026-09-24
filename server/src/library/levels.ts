@@ -9,7 +9,7 @@
  * 4. the AI's reading (item_levels, source 'ai').
  */
 import type { ItemLevel, LevelSource, Structure, StructureSource } from '@zenport/shared';
-import { looksSequential, practiceParts } from '@zenport/shared';
+import { looksSequential, oneInVersions, practiceParts } from '@zenport/shared';
 import type { Db } from '../db/index.js';
 
 export const LEVELS: ItemLevel[] = ['beginner', 'intermediate', 'advanced', 'all'];
@@ -69,18 +69,35 @@ export function structureOf(
   db: Db,
   itemId: string,
 ): { structure: Structure; structureSource: StructureSource | null } {
-  const titles = (
-    db
-      .prepare('SELECT title FROM tracks WHERE item_id = ? AND missing = 0 ORDER BY ord')
-      .all(itemId) as { title: string }[]
-  ).map((r) => r.title);
+  const tracks = db
+    .prepare(
+      'SELECT title, duration_sec FROM tracks WHERE item_id = ? AND missing = 0 ORDER BY ord',
+    )
+    .all(itemId) as { title: string; duration_sec: number | null }[];
+  const titles = tracks.map((r) => r.title);
   // An introduction and one meditation is one meditation, however it is filed.
-  const practice = practiceParts(titles);
+  let practice = practiceParts(titles);
+  // A short first part before a long one introduces it, whatever it is called
+  // ("1. Meditation", three minutes, before the seventy-minute one).
+  const long = Math.max(0, ...tracks.map((t) => t.duration_sec ?? 0));
+  const first = tracks.find((t) => t.title === practice[0]);
+  if (
+    practice.length === 2 &&
+    first?.duration_sec &&
+    first.duration_sec <= 8 * 60 &&
+    first.duration_sec <= long * 0.15
+  ) {
+    practice = practice.slice(1);
+  }
   if (titles.length <= 1 || practice.length <= 1)
     return { structure: 'single', structureSource: null };
   const set = db
     .prepare('SELECT structure, source FROM item_structures WHERE item_id = ?')
     .get(itemId) as { structure: Structure; source: 'manual' | 'ai' } | undefined;
+  if (set?.source === 'manual' && set.structure !== 'single')
+    return { structure: set.structure, structureSource: 'manual' };
+  // One meditation in versions - lying down or walking, live, with music.
+  if (oneInVersions(practice)) return { structure: 'single', structureSource: null };
   if (set && set.structure !== 'single')
     return { structure: set.structure, structureSource: set.source };
   return { structure: looksSequential(practice) ? 'programme' : 'pack', structureSource: 'name' };
