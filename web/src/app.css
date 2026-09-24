@@ -14553,3 +14553,51 @@ html.scroll-locked .main {
 .enh-about-limit select {
   inline-size: auto;
 }
+
+.lib-opening {
+  margin-inline-start: var(--s2);
+  color: var(--accent);
+  animation: feed-breathe 1.2s ease-in-out infinite;
+}
+
+.lib-folders li.lib-ghost {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: var(--s3) var(--s4);
+  min-block-size: 64px;
+  align-content: center;
+}
+
+.lib-folders .shimmer,
+.enh-feed .shimmer {
+  display: block;
+  inline-size: 55%;
+  block-size: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--text) 8%, transparent),
+    color-mix(in oklab, var(--accent) 22%, transparent),
+    color-mix(in oklab, var(--text) 8%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.lib-folders .shimmer.short {
+  inline-size: 30%;
+}
+
+.lib-folders li.covered {
+  opacity: 0.75;
+}
+
+.lib-folders li.covered .lib-check {
+  border-color: transparent;
+  background: color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+.lib-pick:disabled {
+  cursor: default;
+}

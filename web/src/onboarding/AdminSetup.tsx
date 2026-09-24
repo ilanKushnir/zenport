@@ -11,6 +11,7 @@ import type {
   EnhanceStepKey,
   LibrariesDto,
   LibraryBrowseDto,
+  LibraryCountsDto,
   LibraryDto,
   ScanStateDto,
 } from '@zenport/shared';
@@ -86,54 +87,113 @@ export function LibraryChooser() {
   const libs = useApi<LibrariesDto>('/api/admin/libraries');
   const [rel, setRel] = useState('');
   const [view, setView] = useState<LibraryBrowseDto | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  // What is chosen, as this page knows it: changed at once on a tap, then
+  // confirmed by the server (or put back if it refuses).
+  const [chosen, setChosen] = useState<{ rel: string; label: string }[] | null>(null);
+  const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [naming, setNaming] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const cache = useRef(new Map<string, LibraryBrowseDto>());
   const l = libs.data;
+  const list = chosen ?? l?.chosen ?? [];
 
+  useEffect(() => {
+    if (l && chosen === null) setChosen(l.chosen);
+  }, [l, chosen]);
+
+  // Open a folder: at once from the cache, else a loading state, then counts.
   useEffect(() => {
     if (!l?.base) return;
     let alive = true;
-    setLoading(true);
+    const hit = cache.current.get(rel);
+    if (hit) setView(hit);
+    else setOpening(rel);
     api
       .get<LibraryBrowseDto>(`/api/admin/libraries/browse?rel=${encodeURIComponent(rel)}`)
-      .then((v) => alive && setView(v))
-      .catch(
-        (err: unknown) =>
-          alive && setError(err instanceof Error ? err.message : 'Could not read it.'),
-      )
-      .finally(() => alive && setLoading(false));
+      .then((v) => {
+        if (!alive) return;
+        cache.current.set(rel, v);
+        setView(v);
+        setOpening(null);
+        const known: Record<string, number> = {};
+        for (const f of v.folders) if (f.media !== null) known[f.rel] = f.media;
+        setCounts((c) => ({ ...c, ...known }));
+        if (v.folders.some((f) => f.media === null)) {
+          void api
+            .get<LibraryCountsDto>(`/api/admin/libraries/counts?rel=${encodeURIComponent(rel)}`)
+            .then((r) => alive && setCounts((c) => ({ ...c, ...r.counts })))
+            .catch(() => {});
+        }
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        setOpening(null);
+        setError(err instanceof Error ? err.message : 'Could not read it.');
+      });
     return () => {
       alive = false;
     };
-  }, [l?.base, rel, l?.chosen.length]);
+  }, [l?.base, rel]);
 
-  const toggle = async (f: LibraryBrowseDto['folders'][number]) => {
-    setBusy(f.rel);
+  const isChosen = (r: string) => list.some((c) => c.rel === r);
+  const insideOf = (r: string) => list.find((c) => r.startsWith(`${c.rel}/`));
+  const partly = (r: string) => list.some((c) => c.rel.startsWith(`${r}/`));
+
+  const toggle = async (r: string, folderName: string) => {
+    const before = list;
+    const on = isChosen(r);
+    // As the server does it: a folder and one inside it are never both chosen.
+    const next = on
+      ? before.filter((c) => c.rel !== r)
+      : [
+          ...before.filter((c) => !c.rel.startsWith(`${r}/`) && !r.startsWith(`${c.rel}/`)),
+          { rel: r, label: folderName.charAt(0).toUpperCase() + folderName.slice(1) },
+        ];
+    setChosen(next);
     setError(null);
+    setPending((p) => new Set(p).add(r));
     try {
-      if (f.chosen) await api.del(`/api/admin/libraries?rel=${encodeURIComponent(f.rel)}`);
-      else await api.post('/api/admin/libraries', { rel: f.rel });
+      const res = on
+        ? await api.del<LibrariesDto>(`/api/admin/libraries?rel=${encodeURIComponent(r)}`)
+        : await api.post<LibrariesDto>('/api/admin/libraries', { rel: r });
+      setChosen(res.chosen);
       clearApiCache();
-      libs.reload();
     } catch (err) {
+      setChosen(before);
       setError(err instanceof Error ? err.message : 'That did not go through.');
     } finally {
-      setBusy(null);
+      setPending((p) => {
+        const n = new Set(p);
+        n.delete(r);
+        return n;
+      });
     }
   };
   const rename = async (r: string) => {
-    if (!name.trim()) return setNaming(null);
-    await api.patch('/api/admin/libraries', { rel: r, label: name.trim() }).catch(() => {});
+    const label = name.trim();
     setNaming(null);
-    libs.reload();
+    if (!label) return;
+    setChosen((cur) => (cur ?? []).map((c) => (c.rel === r ? { ...c, label } : c)));
+    await api.patch('/api/admin/libraries', { rel: r, label }).catch(() => {});
   };
 
   const crumbs = rel ? rel.split('/') : [];
+  const loading = opening !== null && !cache.current.has(rel);
   return (
     <div className="lib-chooser">
+      {!l && (
+        <ul className="lib-folders" aria-busy="true" aria-label="Looking for folders">
+          {[0, 1].map((i) => (
+            <li key={i} className="lib-ghost">
+              <span className="shimmer" />
+              <span className="shimmer short" />
+            </li>
+          ))}
+        </ul>
+      )}
       {l && !l.base && l.fixed.length === 0 && (
         <p className="ob-note">
           No folder is mounted yet. Mount your recordings at <code>/library</code> and set{' '}
@@ -160,57 +220,71 @@ export function LibraryChooser() {
                 </button>
               </span>
             ))}
+            {loading && <span className="lib-opening">Opening…</span>}
           </div>
-          {loading && !view ? (
-            <div className="skeleton" style={{ height: 140 }} />
+          {loading ? (
+            <ul className="lib-folders" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="lib-ghost">
+                  <span className="shimmer" />
+                  <span className="shimmer short" />
+                </li>
+              ))}
+            </ul>
           ) : view && view.folders.length === 0 ? (
             <p className="ob-note">No folders in here.</p>
           ) : (
             <ul className="lib-folders">
-              {view?.folders.map((f) => (
-                <li key={f.rel} className={f.chosen ? 'on' : ''}>
-                  <button
-                    type="button"
-                    className="lib-pick"
-                    role="checkbox"
-                    aria-checked={f.chosen}
-                    disabled={busy !== null}
-                    onClick={() => void toggle(f)}
-                  >
-                    <span className="lib-check" aria-hidden="true">
-                      {f.chosen ? <Icon name="check" size={14} /> : null}
-                    </span>
-                    <span className="grow">
-                      <strong>{f.name}</strong>
-                      <span className="sub">
-                        {busy === f.rel
-                          ? f.chosen
-                            ? 'Removing…'
-                            : 'Adding…'
-                          : f.media > 0
-                            ? `${n(f.media)}${view?.capped ? '+' : ''} recording files`
-                            : 'No recordings found'}
-                        {f.partly ? ' · part of it chosen' : ''}
+              {view?.folders.map((f) => {
+                const on = isChosen(f.rel);
+                const inside = insideOf(f.rel);
+                const count = counts[f.rel];
+                return (
+                  <li key={f.rel} className={on ? 'on' : inside ? 'covered' : ''}>
+                    <button
+                      type="button"
+                      className="lib-pick"
+                      role="checkbox"
+                      aria-checked={on || !!inside}
+                      disabled={!!inside}
+                      onClick={() => void toggle(f.rel, f.name)}
+                    >
+                      <span className="lib-check" aria-hidden="true">
+                        {on || inside ? <Icon name="check" size={14} /> : null}
                       </span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={`Look inside ${f.name}`}
-                    title="Choose folders inside it instead"
-                    onClick={() => setRel(f.rel)}
-                  >
-                    <Icon name="chevron-right" size={16} />
-                  </button>
-                </li>
-              ))}
+                      <span className="grow">
+                        <strong>{f.name}</strong>
+                        <span className="sub">
+                          {inside
+                            ? `Read as part of ${inside.label}`
+                            : count === undefined
+                              ? 'Counting…'
+                              : count > 0
+                                ? `${n(count)} recording files`
+                                : 'No recordings found'}
+                          {!on && !inside && partly(f.rel) ? ' · part of it chosen' : ''}
+                          {pending.has(f.rel) ? ' · saving…' : ''}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      aria-label={`Look inside ${f.name}`}
+                      title="Choose folders inside it instead"
+                      onClick={() => setRel(f.rel)}
+                    >
+                      <Icon name="chevron-right" size={16} />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
       )}
 
-      {l && (l.chosen.length > 0 || l.fixed.length > 0) && (
+      {l && (list.length > 0 || l.fixed.length > 0) && (
         <div className="lib-chosen">
           <span className="guide-label">Your libraries</span>
           <ul>
@@ -223,7 +297,7 @@ export function LibraryChooser() {
                 </span>
               </li>
             ))}
-            {l.chosen.map((c) => (
+            {list.map((c) => (
               <li key={c.rel}>
                 <Icon name="library" size={15} />
                 {naming === c.rel ? (

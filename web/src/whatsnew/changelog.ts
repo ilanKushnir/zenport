@@ -25,6 +25,12 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.32.1',
+    items: [
+      { emoji: '⚡', text: 'Choosing libraries responds at once, even on a slow network share.' },
+    ],
+  },
+  {
     version: '0.32.0',
     items: [
       {

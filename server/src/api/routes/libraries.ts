@@ -10,6 +10,7 @@ import {
   SourceError,
   addLibrary,
   browse,
+  countFolders,
   listLibraries,
   removeLibrary,
   renameLibrary,
@@ -28,7 +29,16 @@ export function registerLibrarySourceRoutes(app: FastifyInstance, ctx: AppContex
     if (err instanceof SourceError) return reply.code(400).send({ error: err.message });
     throw err;
   };
-  const scan = () => void startScan(db, config, (err) => app.log.error(err, 'scan failed'));
+  // Several ticks in a row make one scan, a moment after the last.
+  let timer: NodeJS.Timeout | null = null;
+  const scan = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      void startScan(db, config, (err) => app.log.error(err, 'scan failed'));
+    }, 1500);
+    timer.unref?.();
+  };
 
   app.get('/api/admin/libraries', async (req, reply) => {
     if (!admin(req, reply)) return;
@@ -40,6 +50,16 @@ export function registerLibrarySourceRoutes(app: FastifyInstance, ctx: AppContex
     const rel = String((req.query as { rel?: string }).rel ?? '');
     try {
       return await browse(db, config, rel);
+    } catch (err) {
+      return fail(err, reply);
+    }
+  });
+
+  app.get('/api/admin/libraries/counts', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const rel = String((req.query as { rel?: string }).rel ?? '');
+    try {
+      return await countFolders(config, rel);
     } catch (err) {
       return fail(err, reply);
     }

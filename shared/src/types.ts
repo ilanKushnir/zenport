@@ -1312,7 +1312,15 @@ export interface LibrariesDto {
 
 export interface LibraryBrowseDto {
   rel: string;
-  folders: { name: string; rel: string; media: number; chosen: boolean; partly: boolean }[];
+  /** media is null until counted (see LibraryCountsDto). */
+  folders: { name: string; rel: string; media: number | null; chosen: boolean; partly: boolean }[];
   /** Counting stopped early: counts are "at least". */
+  capped: boolean;
+}
+
+export interface LibraryCountsDto {
+  rel: string;
+  /** Recording files under each folder, by its relative path. */
+  counts: Record<string, number>;
   capped: boolean;
 }

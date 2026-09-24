@@ -102,11 +102,11 @@ async function countMedia(abs: string, budget: { files: number; until: number })
 
 export interface BrowseResult {
   rel: string;
-  folders: { name: string; rel: string; media: number; chosen: boolean; partly: boolean }[];
-  /** Counting stopped early: counts are "at least". */
+  folders: { name: string; rel: string; media: number | null; chosen: boolean; partly: boolean }[];
   capped: boolean;
 }
 
+/** The folders in a folder - names only, at once (counting is separate and slower). */
 export async function browse(db: Db, config: Config, rel: string): Promise<BrowseResult> {
   const { abs, clean } = await inside(config, rel);
   const entries = (await fs.readdir(abs, { withFileTypes: true }))
@@ -114,19 +114,57 @@ export async function browse(db: Db, config: Config, rel: string): Promise<Brows
     .map((e) => e.name)
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   const chosen = new Set(choices(db).map((c) => c.rel_path));
-  const budget = { files: 20_000, until: Date.now() + 4000 };
-  const folders = [];
-  for (const name of entries) {
-    const r = clean ? `${clean}/${name}` : name;
-    folders.push({
-      name,
-      rel: r,
-      media: await countMedia(path.join(abs, name), budget),
-      chosen: chosen.has(r),
-      partly: [...chosen].some((c) => c.startsWith(`${r}/`)),
-    });
-  }
-  return { rel: clean, folders, capped: budget.files <= 0 || Date.now() > budget.until };
+  return {
+    rel: clean,
+    folders: entries.map((name) => {
+      const r = clean ? `${clean}/${name}` : name;
+      const hit = counted.get(path.join(abs, name));
+      return {
+        name,
+        rel: r,
+        media: hit && Date.now() - hit.at < COUNT_TTL ? hit.n : null,
+        chosen: chosen.has(r),
+        partly: [...chosen].some((c) => c.startsWith(`${r}/`)),
+      };
+    }),
+    capped: false,
+  };
+}
+
+// Counting recordings on a network share is slow: each folder's count is
+// kept a while, so looking again (or going back) costs nothing.
+const COUNT_TTL = 15 * 60_000;
+const counted = new Map<string, { n: number; capped: boolean; at: number }>();
+
+/** How many recording files each folder in a folder holds (cached). */
+export async function countFolders(
+  config: Config,
+  rel: string,
+): Promise<{ rel: string; counts: Record<string, number>; capped: boolean }> {
+  const { abs, clean } = await inside(config, rel);
+  const names = (await fs.readdir(abs, { withFileTypes: true }))
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !isJunkName(e.name))
+    .map((e) => e.name);
+  const counts: Record<string, number> = {};
+  let capped = false;
+  await Promise.all(
+    names.map(async (name) => {
+      const key = path.join(abs, name);
+      const hit = counted.get(key);
+      if (hit && Date.now() - hit.at < COUNT_TTL) {
+        counts[clean ? `${clean}/${name}` : name] = hit.n;
+        capped ||= hit.capped;
+        return;
+      }
+      const budget = { files: 20_000, until: Date.now() + 8000 };
+      const n = await countMedia(key, budget);
+      const over = budget.files <= 0 || Date.now() > budget.until;
+      counted.set(key, { n, capped: over, at: Date.now() });
+      counts[clean ? `${clean}/${name}` : name] = n;
+      capped ||= over;
+    }),
+  );
+  return { rel: clean, counts, capped };
 }
 
 export async function addLibrary(

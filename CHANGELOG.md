@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.32.1] — 2026-09-24
+
+### Fixed
+
+- **Choosing libraries is instant.** A tick shows the moment you tap, and the server catches up behind it (or the tick is put back, with a note, if it refuses). Folder names appear at once, while their recording counts fill in ("Counting…") from a separate, cached call. Before, every view recounted the whole share. Opening a folder shows a loading state right away, and folders already seen open instantly. Folders inside a chosen library show as read with it. Ticks are worked out from the libraries actually chosen, so they never go stale (choosing an inner folder replaces its parent, and the parent's tick now clears). Several quick changes make one scan, a moment after the last.
+
 ## [0.32.0] — 2026-09-24
 
 ### Added

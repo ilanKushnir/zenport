@@ -2917,10 +2917,16 @@ describe('Choosing libraries', () => {
       const top = (
         await own.inject({ method: 'GET', url: '/api/admin/libraries/browse', headers: h })
       ).json();
-      expect(top.folders.map((f: { name: string; media: number }) => [f.name, f.media])).toEqual([
-        ['Podcasts', 1],
-        ['Spiritual', 2],
-      ]);
+      // Names at once; counts from their own (cached) call.
+      expect(top.folders.map((f: { name: string }) => f.name)).toEqual(['Podcasts', 'Spiritual']);
+      const counts = (
+        await own.inject({ method: 'GET', url: '/api/admin/libraries/counts', headers: h })
+      ).json();
+      expect(counts.counts).toEqual({ Podcasts: 1, Spiritual: 2 });
+      const again = (
+        await own.inject({ method: 'GET', url: '/api/admin/libraries/browse', headers: h })
+      ).json();
+      expect(again.folders.map((f: { media: number }) => f.media)).toEqual([1, 2]);
       expect(
         (
           await own.inject({
@@ -2941,7 +2947,9 @@ describe('Choosing libraries', () => {
       ).json();
       expect(added.chosen).toEqual([{ rel: 'Spiritual', label: 'My Library' }]);
       expect(cfg.libraryRoots.map((r) => r.label)).toEqual(['My Library']);
-      for (let i = 0; i < 100 && isScanning(); i++) await new Promise((r) => setTimeout(r, 20));
+      // The scan follows a moment after the last change.
+      await new Promise((r) => setTimeout(r, 1700));
+      for (let i = 0; i < 200 && isScanning(); i++) await new Promise((r) => setTimeout(r, 20));
       const lib = (await own.inject({ method: 'GET', url: '/api/library', headers: h })).json();
       expect(lib.items.map((i: { title: string }) => i.title)).toEqual(['Evening']);
 
@@ -2963,7 +2971,8 @@ describe('Choosing libraries', () => {
         headers: h,
       });
       expect(cfg.libraryRoots).toEqual([]);
-      for (let i = 0; i < 100 && isScanning(); i++) await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 1700));
+      for (let i = 0; i < 200 && isScanning(); i++) await new Promise((r) => setTimeout(r, 20));
     } finally {
       await own.close();
       rmSync(base, { recursive: true, force: true });
