@@ -1,4 +1,10 @@
-import type { OccurrenceStatus, PlanOccurrenceDto, PlanStatus } from '@zenport/shared';
+import {
+  shiftedDate,
+  type OccurrenceStatus,
+  type PlanOccurrenceDto,
+  type PlanShift,
+  type PlanStatus,
+} from '@zenport/shared';
 
 export interface PlanForExpansion {
   id: number;
@@ -8,6 +14,8 @@ export interface PlanForExpansion {
   endDate: string | null;
   daysOfWeek: number[];
   meditationIds: string[];
+  /** Pushes, applied in order to the dates the cadence produces. */
+  shifts?: PlanShift[];
 }
 
 export interface PlanEntryRow {
@@ -44,9 +52,14 @@ export function expandOccurrences(
   const horizonEnd = addDays(today, horizonDays);
   const end = plan.endDate && plan.endDate < horizonEnd ? plan.endDate : horizonEnd;
 
+  // Pushes only move sessions later, so nothing beyond the horizon comes back into it.
+  const shifts = plan.shifts ?? [];
   const dates = new Set<string>();
   for (let d = plan.startDate; d <= end; d = addDays(d, 1)) {
-    if (plan.daysOfWeek.length === 0 || plan.daysOfWeek.includes(dow(d))) dates.add(d);
+    if (plan.daysOfWeek.length === 0 || plan.daysOfWeek.includes(dow(d))) {
+      const at = shiftedDate(d, shifts);
+      if (at <= horizonEnd) dates.add(at);
+    }
   }
   // Entries can exist off-cadence (reschedule targets, manual completions).
   for (const e of entries) dates.add(e.date);

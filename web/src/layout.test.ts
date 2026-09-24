@@ -117,4 +117,10 @@ describe('layout invariants', () => {
     }
     expect(bad).toEqual([]);
   });
+
+  it('date and time fields can shrink with their column (iOS draws them wider)', () => {
+    expect(css).toMatch(
+      /input\[type='date'\],\s*input\[type='time'\][^{]*\{[^}]*appearance:\s*none[^}]*min-inline-size:\s*0/,
+    );
+  });
 });

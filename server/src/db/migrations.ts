@@ -489,6 +489,13 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+
+  // v9: "push the rest" - a plan's later sessions slid by some days from a
+  // date on. Kept as an ordered list of {from, days} applied in turn to the
+  // dates the cadence produces, so history before each push never moves.
+  `
+  ALTER TABLE plans ADD COLUMN shifts TEXT NOT NULL DEFAULT '[]';
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

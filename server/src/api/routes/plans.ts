@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { PlanDto, PlanFocus, PlanOccurrenceDto } from '@zenport/shared';
+import type { PlanDto, PlanFocus, PlanOccurrenceDto, PlanShift } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { dayKey } from '../../stats/compute.js';
 import {
@@ -45,6 +45,16 @@ interface PlanRow {
   focus: string;
   path_name: string | null;
   path_step: number | null;
+  shifts: string;
+}
+
+function parseShifts(raw: string | null | undefined): PlanShift[] {
+  try {
+    const v = JSON.parse(raw ?? '[]') as PlanShift[];
+    return Array.isArray(v) ? v.filter((s) => DATE.test(s.from) && Number.isInteger(s.days)) : [];
+  } catch {
+    return [];
+  }
 }
 
 function toDto(row: PlanRow): PlanDto {
@@ -62,6 +72,7 @@ function toDto(row: PlanRow): PlanDto {
     focus: row.focus === 'learning' ? 'learning' : 'practice',
     meditationIds: JSON.parse(row.meditation_ids),
     path: row.path_name ? { name: row.path_name, step: row.path_step ?? 1 } : null,
+    shifts: parseShifts(row.shifts),
     createdAt: row.created_at,
   };
 }
@@ -170,6 +181,7 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
         endDate: row.end_date,
         daysOfWeek: JSON.parse(row.days_of_week),
         meditationIds: JSON.parse(row.meditation_ids),
+        shifts: parseShifts(row.shifts),
       };
       const entries = (
         db.prepare('SELECT * FROM plan_entries WHERE plan_id = ?').all(row.id) as {
@@ -223,8 +235,23 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
   app.post('/api/plans/:id/reschedule', async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     if (!ownedPlan(id, req.user!.id)) return reply.code(404).send({ error: 'plan not found' });
-    const body = entryAction.extend({ to: z.string().regex(DATE) }).safeParse(req.body);
+    const body = entryAction
+      .extend({ to: z.string().regex(DATE), push: z.boolean().default(false) })
+      .safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'date and to required' });
+    if (body.data.push) {
+      // Push the rest: this session and every later one slide by the same
+      // number of days. Only forward, and never into the past.
+      const days = Math.round(
+        (Date.parse(`${body.data.to}T00:00:00Z`) - Date.parse(`${body.data.date}T00:00:00Z`)) /
+          86_400_000,
+      );
+      if (days <= 0) return reply.code(400).send({ error: 'pushing moves sessions later' });
+      const row = ownedPlan(id, req.user!.id)!;
+      const shifts = [...parseShifts(row.shifts), { from: body.data.date, days }];
+      db.prepare('UPDATE plans SET shifts = ? WHERE id = ?').run(JSON.stringify(shifts), id);
+      return { ok: true };
+    }
     const existing = db
       .prepare('SELECT status FROM plan_entries WHERE plan_id = ? AND date = ?')
       .get(id, body.data.date) as { status: string | null } | undefined;

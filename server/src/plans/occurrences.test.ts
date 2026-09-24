@@ -69,6 +69,39 @@ describe('expandOccurrences', () => {
     expect(occ.find((o) => o.date === '2026-09-21')?.status).not.toBe('missed');
   });
 
+  it('pushing the rest slides this and every later session, leaving earlier ones', () => {
+    // Mon/Thu; push Thursday the 24th two days later (to Saturday).
+    const occ = expand(
+      { daysOfWeek: [1, 4], shifts: [{ from: '2026-09-24', days: 2 }] },
+      [],
+      '2026-09-22',
+      14,
+    );
+    expect(occ.map((o) => o.date)).toEqual([
+      '2026-09-14',
+      '2026-09-17',
+      '2026-09-21',
+      '2026-09-26',
+      '2026-09-30',
+      '2026-10-03',
+    ]);
+  });
+
+  it('a pushed finite plan runs past its original end by the push', () => {
+    const occ = expand(
+      { endDate: '2026-09-25', shifts: [{ from: '2026-09-23', days: 3 }] },
+      [],
+      '2026-09-22',
+      14,
+    );
+    expect(occ.map((o) => o.date).slice(-4)).toEqual([
+      '2026-09-22',
+      '2026-09-26',
+      '2026-09-27',
+      '2026-09-28',
+    ]);
+  });
+
   it('honors a finite end date', () => {
     const occ = expand({ endDate: '2026-09-16' });
     expect(occ.at(-1)?.date).toBe('2026-09-16');

@@ -242,7 +242,27 @@ export interface PlanDto {
   meditationIds: string[];
   /** Plans made together as one path (by the AI planner) share a name; step orders them. */
   path: { name: string; step: number } | null;
+  /** Pushes: from each date on (in turn), sessions slide by that many days. */
+  shifts: PlanShift[];
   createdAt: string;
+}
+
+export interface PlanShift {
+  from: string; // YYYY-MM-DD
+  days: number;
+}
+
+/** Where a date the cadence produced lands after the plan's pushes. */
+export function shiftedDate(date: string, shifts: readonly PlanShift[]): string {
+  let d = date;
+  for (const s of shifts) {
+    if (d >= s.from) {
+      d = new Date(new Date(`${d}T00:00:00Z`).getTime() + s.days * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+    }
+  }
+  return d;
 }
 
 export type OccurrenceStatus = 'upcoming' | 'today' | 'completed' | 'skipped' | 'missed';

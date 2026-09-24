@@ -7412,3 +7412,300 @@ span.role-chip {
 .card-progress ~ .card-times {
   inset-block-end: 20px;
 }
+
+/* ===================================================================
+ * Plan editor: a title, a summary, then one grouped list of rows
+ * =================================================================== */
+
+.plan-title {
+  display: grid;
+  gap: 2px;
+  margin-block: var(--s4) var(--s3);
+}
+
+.plan-title input {
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  min-height: 0;
+  border-radius: 0;
+}
+
+.plan-name {
+  font-family: var(--font-display, inherit);
+  font-size: 24px !important;
+  line-height: 1.25;
+}
+
+.plan-intention {
+  font-size: 15px !important;
+  color: var(--muted) !important;
+  font-style: italic;
+}
+
+.plan-title input:focus-visible {
+  outline: none;
+  box-shadow: 0 1px 0 var(--accent);
+}
+
+.prows {
+  display: grid;
+  margin-block: var(--s3);
+  border-radius: 18px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+.prow + .prow,
+.prows > * + * {
+  border-block-start: 1px solid var(--hairline);
+}
+
+.prow-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  inline-size: 100%;
+  min-block-size: 52px;
+  padding: 8px 14px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.prow-ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 9px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.prow-label {
+  flex: none;
+}
+
+.prow-value {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: end;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.prow-caret {
+  display: inline-grid;
+  flex: none;
+  color: var(--faint);
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.prow.open .prow-caret {
+  transform: rotate(180deg);
+}
+
+.prow.open {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.prow-body {
+  display: grid;
+  gap: var(--s3);
+  padding: 2px 14px 16px;
+  animation: prow-in var(--t-fast) var(--ease);
+}
+
+@keyframes prow-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.prow-body .chip-row {
+  margin: 0;
+}
+
+.prow-body .day-picker {
+  margin: 0;
+}
+
+.prow-field {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.prow-field > span {
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+.prow-covers {
+  display: flex;
+  flex: none;
+}
+
+.prow-cover {
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.prow-cover + .prow-cover {
+  margin-inline-start: -8px;
+}
+
+.chip-sub {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-save {
+  inline-size: 100%;
+  min-block-size: 50px;
+  margin-block-start: var(--s2);
+  font-size: 16px;
+}
+
+.plan-manage {
+  margin-block-start: var(--s5);
+}
+
+.prow-action {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  inline-size: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.prow-action {
+  align-items: flex-start;
+}
+
+.prow-action .nav-ic {
+  color: var(--muted);
+  flex: none;
+  margin-block-start: 2px;
+}
+
+.prow-action .grow {
+  display: grid;
+  gap: 2px;
+}
+
+.prow-action .sub {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--faint);
+}
+
+.prow-action.danger,
+.prow-action.danger .nav-ic {
+  color: var(--danger, #e08e8e);
+}
+
+.prow-confirm {
+  display: grid;
+  gap: var(--s2);
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.prow-confirm .rf-actions {
+  margin: 0;
+}
+
+@media (hover: hover) {
+  .prow-head:hover,
+  .prow-action:hover {
+    background: rgba(255, 255, 255, 0.035);
+  }
+}
+
+/* Move: just this session, or push the rest of the plan with it. */
+.move-modes {
+  display: grid;
+  gap: 6px;
+  margin-block-end: var(--s4);
+}
+
+.move-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.move-mode .grow {
+  display: grid;
+  gap: 2px;
+}
+
+.move-mode.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.move-mode:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.move-t {
+  font-weight: 600;
+}
+
+.move-h {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.move-dot {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  margin-block-start: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.move-mode.on .move-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--bg);
+}
+
+.prows > .prow-action + .prow-action,
+.prows > .prow-action + .prow-confirm {
+  border-block-start: 1px solid var(--hairline);
+}

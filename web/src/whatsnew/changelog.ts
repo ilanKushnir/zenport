@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.0',
+    items: [
+      {
+        emoji: '📅',
+        text: 'Moving a session can push the rest of the plan along with it.',
+      },
+      {
+        emoji: '🧘',
+        text: 'A calmer plan editor - every option tucked into a row until you need it.',
+      },
+    ],
+  },
+  {
     version: '0.10.0',
     items: [
       {

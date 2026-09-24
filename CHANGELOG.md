@@ -5,6 +5,20 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-09-24
+
+### Added
+
+- **Move a session, or push the rest of the plan with it.** Moving a planned sit or lesson to a later day now asks: *just this one*, or *push the rest too* - this and every later session slide by the same number of days, and the sheet says when the plan will then end. Earlier sessions and history never move. (Moving earlier is always a single move.)
+
+### Changed
+
+- **The plan editor is calm again.** Practice or learning, then the name and intention as a title, a one-line summary of the rhythm, and one grouped list - Days, Starts, Length, Each sit, Time, Recordings, Notes - each showing its value and opening its choices only when tapped, one at a time. Quick picks sit beside the exact controls (Today · Tomorrow · Next Monday, Morning · Midday · Evening, 2 weeks … 3 months). Save is one full-width button; Pause, End and Delete move to a quiet list below, and Delete asks first.
+
+### Fixed
+
+- **Date and time fields overflowed their column on an iPhone** - the start date ran into the length options and the time into the notes. iOS draws these as native controls with a fixed width; they now size like any other field everywhere in the app, and a stylesheet test keeps it that way.
+
 ## [0.10.0] — 2026-09-24
 
 ### Added

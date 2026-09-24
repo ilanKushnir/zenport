@@ -24,7 +24,7 @@ import type {
   PlanDto,
   PlanOccurrenceDto,
 } from '@zenport/shared';
-import { formatDuration } from '@zenport/shared';
+import { formatDuration, shiftedDate } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
@@ -331,7 +331,7 @@ export function PlansPage() {
                       </div>
                       <div className="sub">
                         {cadenceLabel(p)} · {p.startDate}
-                        {p.endDate ? ` → ${p.endDate}` : ' onward'}
+                        {p.endDate ? ` → ${shiftedDate(p.endDate, p.shifts)}` : ' onward'}
                       </div>
                     </div>
                     <button className="btn btn-sm btn-ghost" onClick={() => setEditing(p)}>
@@ -368,6 +368,7 @@ export function PlansPage() {
       {rescheduling && (
         <RescheduleSheet
           occ={rescheduling}
+          plan={(plans.data ?? []).find((p) => p.id === rescheduling.planId) ?? null}
           today={today}
           onClose={() => setRescheduling(null)}
           onSaved={() => {
@@ -417,7 +418,11 @@ function PathBlock({
   onEdit: (p: PlanDto) => void;
 }) {
   const state = (p: PlanDto) =>
-    p.endDate && p.endDate < today ? 'done' : p.startDate > today ? 'ahead' : 'now';
+    p.endDate && shiftedDate(p.endDate, p.shifts) < today
+      ? 'done'
+      : p.startDate > today
+        ? 'ahead'
+        : 'now';
   const current = stages.filter((p) => state(p) === 'now');
   const ahead = stages.filter((p) => state(p) === 'ahead');
   const fmt = (d: string) =>
@@ -455,7 +460,8 @@ function PathBlock({
                 <div>{p.name.replace(`${name} · `, '')}</div>
                 <div className="sub">
                   Starts {fmt(p.startDate)}
-                  {p.endDate ? ` · until ${fmt(p.endDate)}` : ''} · {cadenceLabel(p)}
+                  {p.endDate ? ` · until ${fmt(shiftedDate(p.endDate, p.shifts))}` : ''} ·{' '}
+                  {cadenceLabel(p)}
                 </div>
               </div>
               <button className="btn btn-sm btn-quiet" onClick={() => onEdit(p)}>
@@ -538,10 +544,13 @@ function PlanCard({
         {plan.endDate && (
           <span className="plan-card__pill">
             until{' '}
-            {new Date(`${plan.endDate}T00:00:00`).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            })}
+            {new Date(`${shiftedDate(plan.endDate, plan.shifts)}T00:00:00`).toLocaleDateString(
+              undefined,
+              {
+                month: 'short',
+                day: 'numeric',
+              },
+            )}
           </span>
         )}
       </div>
@@ -712,11 +721,12 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-const TARGETS = [5, 10, 15, 20, 30, 45];
+const TARGETS = [5, 10, 15, 20, 30, 45, 60, 90];
 const LENGTHS: { label: string; weeks: number | null }[] = [
   { label: '2 weeks', weeks: 2 },
-  { label: '30 days', weeks: 4 },
+  { label: '4 weeks', weeks: 4 },
   { label: '6 weeks', weeks: 6 },
+  { label: '3 months', weeks: 13 },
   { label: 'Open-ended', weeks: null },
 ];
 
@@ -752,7 +762,6 @@ function PlanSheet({
   const [medQuery, setMedQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showMore, setShowMore] = useState(Boolean(plan?.notes || plan?.preferredTime));
 
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
@@ -846,139 +855,179 @@ function PlanSheet({
     onSaved();
   };
 
+  const fmtDay = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+  const daysValue =
+    days.length === 0 || days.length === 7
+      ? 'Every day'
+      : days.join() === '1,2,3,4,5'
+        ? 'Weekdays'
+        : days.join() === '0,6'
+          ? 'Weekends'
+          : days.map((d) => DOW[d]).join(' · ');
+  const lengthWeeks = endDate ? Math.round((dayDiff(endDate, startDate) + 1) / 7) : null;
+  const lengthValue = !endDate
+    ? 'Open-ended'
+    : `${lengthWeeks && lengthWeeks >= 1 ? `${lengthWeeks} week${lengthWeeks === 1 ? '' : 's'}` : `${dayDiff(endDate, startDate) + 1} days`} · until ${fmtDay(endDate)}`;
+  const chosen = meds
+    .map((id) => items.find((i) => i.id === id))
+    .filter((i): i is MeditationSummaryDto => !!i);
+  const [open, setOpen] = useState<RowKey | null>(null);
+  const toggle = (k: RowKey) => setOpen((o) => (o === k ? null : k));
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   return (
     <Sheet title={plan ? 'Edit plan' : 'New plan'} onClose={onClose}>
-      <div className="field">
-        <label>What is this plan for?</label>
-        <div className="seg focus-seg" role="radiogroup" aria-label="Plan focus">
-          {(['practice', 'learning'] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              role="radio"
-              aria-checked={focus === f}
-              className={`seg-opt${focus === f ? ' on' : ''}`}
-              onClick={() => {
-                if (f === focus) return;
-                setFocus(f);
-                // Items of the other kind do not belong in this plan.
-                setMeds((prev) =>
-                  prev.filter((id) => {
-                    const it = items.find((x) => x.id === id);
-                    return it ? isPracticeType(it.type) === (f === 'practice') : false;
-                  }),
-                );
-              }}
-            >
-              <Icon name={f === 'learning' ? 'book' : 'lotus'} size={15} />
-              {f === 'learning' ? 'Learning' : 'Practice'}
+      <div className="seg focus-seg" role="radiogroup" aria-label="Plan focus">
+        {(['practice', 'learning'] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            role="radio"
+            aria-checked={focus === f}
+            className={`seg-opt${focus === f ? ' on' : ''}`}
+            onClick={() => {
+              if (f === focus) return;
+              setFocus(f);
+              // Items of the other kind do not belong in this plan.
+              setMeds((prev) =>
+                prev.filter((id) => {
+                  const it = items.find((x) => x.id === id);
+                  return it ? isPracticeType(it.type) === (f === 'practice') : false;
+                }),
+              );
+            }}
+          >
+            <Icon name={f === 'learning' ? 'book' : 'lotus'} size={15} />
+            {f === 'learning' ? 'Learning' : 'Practice'}
+          </button>
+        ))}
+      </div>
+
+      <div className="plan-title">
+        <input
+          id="pl-name"
+          className="plan-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={learning ? 'Name this study plan' : 'Name this plan'}
+          aria-label="Name"
+        />
+        <input
+          id="pl-int"
+          className="plan-intention"
+          value={intention}
+          onChange={(e) => setIntention(e.target.value)}
+          placeholder="An intention, shown while you practise (optional)"
+          aria-label="Intention"
+        />
+      </div>
+
+      {!plan && (
+        <div className="template-row" aria-label="Start from a shape">
+          {TEMPLATES.map((t) => (
+            <button key={t.key} type="button" className="template" onClick={() => applyTemplate(t)}>
+              <span className="template__label">{t.label}</span>
+              <span className="template__note">{t.note}</span>
             </button>
           ))}
-        </div>
-        <p className="hint" style={{ marginTop: 6 }}>
-          {learning
-            ? 'Courses and talks, followed in the order you pick them.'
-            : 'Meditations and soundscapes - or just the habit, with nothing chosen.'}
-        </p>
-      </div>
-      {!plan && (
-        <div className="field">
-          <label>Start from a shape</label>
-          <div className="template-row">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                className="template"
-                onClick={() => applyTemplate(t)}
-              >
-                <span className="template__label">{t.label}</span>
-                <span className="template__note">{t.note}</span>
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
-      <div className="field">
-        <label htmlFor="pl-name">Name</label>
-        <input
-          id="pl-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Morning stillness"
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="pl-int">Intention - shown during focused practice</label>
-        <input
-          id="pl-int"
-          value={intention}
-          onChange={(e) => setIntention(e.target.value)}
-          placeholder="Meet the morning before the morning meets me"
-        />
-      </div>
+      <p className="plan-preview" aria-live="polite">
+        <Icon name="plans" size={15} /> {preview}
+      </p>
 
-      <div className="field">
-        <span className="visually-hidden" id="pl-days-label">
-          Practice days
-        </span>
-        <label aria-hidden="true">Days</label>
-        <div className="day-picker" role="group" aria-labelledby="pl-days-label">
-          {DOW.map((d, i) => (
-            <button
-              key={d}
-              type="button"
-              className="day-chip"
-              aria-pressed={days.includes(i)}
-              onClick={() => toggleDay(i)}
-            >
-              <span className="day-chip__l">{DOW_LETTER[i]}</span>
-              <span className="day-chip__n">{d}</span>
-            </button>
-          ))}
-        </div>
-        <div className="chip-row" style={{ marginTop: 8 }}>
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={days.length === 0}
-            onClick={() => setDays([])}
-          >
-            Every day
-          </button>
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={days.join() === '1,2,3,4,5'}
-            onClick={() => setDays([1, 2, 3, 4, 5])}
-          >
-            Weekdays
-          </button>
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={days.join() === '0,6'}
-            onClick={() => setDays([0, 6])}
-          >
-            Weekends
-          </button>
-        </div>
-      </div>
+      <div className="prows">
+        <PlanRow k="days" icon="sun" label="Days" value={daysValue} open={open} onToggle={toggle}>
+          <div className="day-picker" role="group" aria-label="Practice days">
+            {DOW.map((d, i) => (
+              <button
+                key={d}
+                type="button"
+                className="day-chip"
+                aria-pressed={days.includes(i)}
+                onClick={() => toggleDay(i)}
+              >
+                <span className="day-chip__l">{DOW_LETTER[i]}</span>
+                <span className="day-chip__n">{d}</span>
+              </button>
+            ))}
+          </div>
+          <div className="chip-row">
+            {(
+              [
+                ['Every day', []],
+                ['Weekdays', [1, 2, 3, 4, 5]],
+                ['Weekends', [0, 6]],
+              ] as const
+            ).map(([label, set]) => (
+              <button
+                key={label}
+                type="button"
+                className="chip"
+                aria-pressed={days.join() === set.join()}
+                onClick={() => setDays([...set])}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </PlanRow>
 
-      <div className="field-row">
-        <div className="field">
-          <label htmlFor="pl-start">Starts</label>
-          <input
-            id="pl-start"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="pl-end">For</label>
-          <div className="chip-row" id="pl-end">
+        <PlanRow
+          k="start"
+          icon="plans"
+          label="Starts"
+          value={startDate === today ? 'Today' : fmtDay(startDate)}
+          open={open}
+          onToggle={toggle}
+        >
+          <div className="chip-row">
+            {[
+              ['Today', today],
+              ['Tomorrow', addDays(today, 1)],
+              ['Next Monday', addDays(today, (8 - new Date().getDay()) % 7 || 7)],
+            ].map(([label, d]) => (
+              <button
+                key={label}
+                type="button"
+                className="chip"
+                aria-pressed={startDate === d}
+                onClick={() => {
+                  // Keep the length when the start moves.
+                  if (endDate) setEndDate(addDays(d!, dayDiff(endDate, startDate)));
+                  setStartDate(d!);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="prow-field">
+            <span>Or pick a date</span>
+            <input
+              id="pl-start"
+              type="date"
+              value={startDate}
+              onChange={(e) => e.target.value && setStartDate(e.target.value)}
+            />
+          </label>
+        </PlanRow>
+
+        <PlanRow
+          k="length"
+          icon="history"
+          label="Length"
+          value={lengthValue}
+          open={open}
+          onToggle={toggle}
+        >
+          <div className="chip-row">
             {LENGTHS.map((l) => {
               const end = l.weeks ? addDays(startDate, l.weeks * 7 - 1) : '';
               return (
@@ -994,181 +1043,346 @@ function PlanSheet({
               );
             })}
           </div>
-        </div>
-      </div>
+          <label className="prow-field">
+            <span>Or end on</span>
+            <input
+              id="pl-end"
+              type="date"
+              value={endDate}
+              min={startDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </label>
+        </PlanRow>
 
-      <div className="field">
-        <label>Target per sit</label>
-        <div className="chip-row">
-          {TARGETS.map((m) => (
+        <PlanRow
+          k="target"
+          icon="timer"
+          label={learning ? 'Each session' : 'Each sit'}
+          value={target ? `${target} min` : 'No target'}
+          open={open}
+          onToggle={toggle}
+        >
+          <div className="chip-row">
+            {TARGETS.map((m) => (
+              <button
+                key={m}
+                type="button"
+                className="chip"
+                aria-pressed={target === m}
+                onClick={() => setTarget(m)}
+              >
+                {m < 60 ? `${m} min` : m === 60 ? '1 hour' : `${m / 60} h`}
+              </button>
+            ))}
             <button
-              key={m}
               type="button"
               className="chip"
-              aria-pressed={target === m}
-              onClick={() => setTarget(target === m ? null : m)}
+              aria-pressed={target === null}
+              onClick={() => setTarget(null)}
             >
-              {m}m
+              No target
             </button>
-          ))}
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={target === null}
-            onClick={() => setTarget(null)}
-          >
-            No target
-          </button>
-        </div>
-      </div>
+          </div>
+        </PlanRow>
 
-      <p className="plan-preview" aria-live="polite">
-        <Icon name="plans" size={15} /> {preview}
-        {endDate ? (
-          <span className="plan-preview__dates">
-            {' '}
-            · ends{' '}
-            {new Date(`${endDate}T00:00:00`).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </span>
-        ) : null}
-      </p>
-
-      <div className="field">
-        <label htmlFor="pl-meds-q">
-          {learning
-            ? 'What to follow, in order'
-            : 'Recordings in this plan - optional, a plan can just hold the habit'}
-        </label>
-        {items.length > 6 && (
-          <input
-            id="pl-meds-q"
-            type="search"
-            value={medQuery}
-            onChange={(e) => setMedQuery(e.target.value)}
-            placeholder="Search your library…"
-            style={{ marginBottom: 8 }}
-          />
-        )}
-        <div className="med-picker">
-          {filteredItems.slice(0, 40).map((i) => {
-            const on = meds.includes(i.id);
-            return (
+        <PlanRow
+          k="time"
+          icon="bell"
+          label="Time"
+          value={time || 'Any time'}
+          open={open}
+          onToggle={toggle}
+        >
+          <div className="chip-row">
+            {[
+              ['Morning', '07:00'],
+              ['Midday', '12:30'],
+              ['Evening', '20:00'],
+              ['Any time', ''],
+            ].map(([label, t]) => (
               <button
-                key={i.id}
+                key={label}
                 type="button"
-                className="med-pick"
-                aria-pressed={on}
-                onClick={() => toggleMed(i.id)}
+                className="chip"
+                aria-pressed={time === t}
+                onClick={() => setTime(t!)}
               >
-                <Cover coverId={i.coverId} title={i.title} creator={i.creator} />
-                <span className="med-pick__t">{i.title}</span>
-                <span className="med-pick__c">
-                  {TYPE_META[i.type].label} · {i.creator}
-                  {i.totalDurationSec ? ` · ${formatDuration(i.totalDurationSec)}` : ''}
-                </span>
-                {on && (
-                  <span className="med-pick__check" aria-hidden="true">
-                    {learning ? meds.indexOf(i.id) + 1 : <Icon name="check" size={13} />}
-                  </span>
-                )}
+                {label}
+                {t ? <span className="chip-sub"> {t}</span> : null}
               </button>
-            );
-          })}
-          {filteredItems.length === 0 && (
-            <p style={{ color: 'var(--faint)', fontSize: 13 }}>Nothing in your library matches.</p>
-          )}
-        </div>
-      </div>
-
-      <button type="button" className="btn btn-sm btn-quiet" onClick={() => setShowMore((v) => !v)}>
-        {showMore ? 'Fewer options' : 'More options'}
-      </button>
-      {showMore && (
-        <div className="field-row" style={{ marginTop: 12 }}>
-          <div className="field">
-            <label htmlFor="pl-time">Preferred time</label>
+            ))}
+          </div>
+          <label className="prow-field">
+            <span>Or exactly</span>
             <input
               id="pl-time"
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
             />
-          </div>
-          <div className="field">
-            <label htmlFor="pl-notes">Notes</label>
-            <textarea
-              id="pl-notes"
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+          </label>
+        </PlanRow>
+
+        <PlanRow
+          k="items"
+          icon={learning ? 'book' : 'lotus'}
+          label={learning ? 'What to follow' : 'Recordings'}
+          value={
+            chosen.length === 0
+              ? learning
+                ? 'Choose'
+                : 'Any - just the habit'
+              : `${chosen.length} chosen`
+          }
+          preview={
+            chosen.length > 0 ? (
+              <span className="prow-covers" aria-hidden="true">
+                {chosen.slice(0, 3).map((c) => (
+                  <span key={c.id} className="prow-cover">
+                    <Cover coverId={c.coverId} title={c.title} creator={c.creator} />
+                  </span>
+                ))}
+              </span>
+            ) : null
+          }
+          open={open}
+          onToggle={toggle}
+        >
+          <p className="hint" style={{ marginTop: 0 }}>
+            {learning
+              ? 'Followed in the order you pick them.'
+              : 'Optional - a plan can simply hold the habit.'}
+          </p>
+          {items.length > 6 && (
+            <input
+              id="pl-meds-q"
+              type="search"
+              value={medQuery}
+              onChange={(e) => setMedQuery(e.target.value)}
+              placeholder="Search your library…"
+              aria-label="Search your library"
             />
+          )}
+          <div className="med-picker">
+            {filteredItems.slice(0, 40).map((i) => {
+              const on = meds.includes(i.id);
+              return (
+                <button
+                  key={i.id}
+                  type="button"
+                  className="med-pick"
+                  aria-pressed={on}
+                  onClick={() => toggleMed(i.id)}
+                >
+                  <Cover coverId={i.coverId} title={i.title} creator={i.creator} />
+                  <span className="med-pick__t">{i.title}</span>
+                  <span className="med-pick__c">
+                    {TYPE_META[i.type].label} · {i.creator}
+                    {i.totalDurationSec ? ` · ${formatDuration(i.totalDurationSec)}` : ''}
+                  </span>
+                  {on && (
+                    <span className="med-pick__check" aria-hidden="true">
+                      {learning ? meds.indexOf(i.id) + 1 : <Icon name="check" size={13} />}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            {filteredItems.length === 0 && (
+              <p style={{ color: 'var(--faint)', fontSize: 13 }}>
+                Nothing in your library matches.
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        </PlanRow>
+
+        <PlanRow
+          k="notes"
+          icon="journal"
+          label="Notes"
+          value={notes.trim() ? notes.trim().split('\n')[0]! : 'None'}
+          open={open}
+          onToggle={toggle}
+        >
+          <textarea
+            id="pl-notes"
+            rows={4}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anything you want to remember about this plan"
+            aria-label="Notes"
+          />
+        </PlanRow>
+      </div>
 
       {error && <p className="error-note">{error}</p>}
-      <div className="form-actions" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {plan && plan.status === 'active' && (
-            <button className="btn btn-ghost" onClick={() => void setStatus('paused')}>
-              Pause
+      <button className="btn btn-primary plan-save" disabled={busy} onClick={() => void save()}>
+        {busy ? 'Saving…' : plan ? 'Save changes' : 'Create plan'}
+      </button>
+
+      {plan && (
+        <div className="prows plan-manage">
+          {plan.status === 'active' && (
+            <button type="button" className="prow-action" onClick={() => void setStatus('paused')}>
+              <Icon name="pause" size={17} />
+              <span className="grow">
+                Pause
+                <span className="sub">Stop scheduling until you resume. Nothing is lost.</span>
+              </span>
             </button>
           )}
-          {plan && plan.status === 'paused' && (
-            <button className="btn btn-ghost" onClick={() => void setStatus('active')}>
-              Resume
+          {plan.status === 'paused' && (
+            <button type="button" className="prow-action" onClick={() => void setStatus('active')}>
+              <Icon name="play" size={17} />
+              <span className="grow">Resume</span>
             </button>
           )}
-          {plan && plan.status !== 'ended' && (
-            <button className="btn btn-ghost" onClick={() => void setStatus('ended')}>
-              End plan
+          {plan.status !== 'ended' && (
+            <button type="button" className="prow-action" onClick={() => void setStatus('ended')}>
+              <Icon name="check-circle" size={17} />
+              <span className="grow">
+                End the plan
+                <span className="sub">Close it as done; its days stay in your history.</span>
+              </span>
             </button>
           )}
-          {plan && (
-            <button className="btn btn-danger" onClick={() => void remove()}>
-              Delete
+          {confirmDelete ? (
+            <div className="prow-confirm">
+              <span>Delete “{plan.name}”? Completed sessions stay in your history.</span>
+              <div className="rf-actions">
+                <button className="btn btn-sm btn-quiet" onClick={() => setConfirmDelete(false)}>
+                  Keep
+                </button>
+                <button className="btn btn-sm btn-danger" onClick={() => void remove()}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="prow-action danger"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Icon name="trash" size={17} />
+              <span className="grow">Delete the plan</span>
             </button>
           )}
         </div>
-        <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
-          {busy ? 'Saving…' : plan ? 'Save changes' : 'Create plan'}
-        </button>
-      </div>
+      )}
     </Sheet>
+  );
+}
+
+type RowKey = 'days' | 'start' | 'length' | 'target' | 'time' | 'items' | 'notes';
+
+/**
+ * One line of the plan: what it is and its current value; tap to open the
+ * choices beneath it. One row open at a time keeps the sheet short.
+ */
+function PlanRow({
+  k,
+  icon,
+  label,
+  value,
+  preview,
+  open,
+  onToggle,
+  children,
+}: {
+  k: RowKey;
+  icon: string;
+  label: string;
+  value: string;
+  preview?: ReactNode;
+  open: RowKey | null;
+  onToggle: (k: RowKey) => void;
+  children: ReactNode;
+}) {
+  const isOpen = open === k;
+  return (
+    <div className={`prow${isOpen ? ' open' : ''}`}>
+      <button
+        type="button"
+        className="prow-head"
+        aria-expanded={isOpen}
+        aria-controls={`prow-${k}`}
+        onClick={() => onToggle(k)}
+      >
+        <span className="prow-ic">
+          <Icon name={icon} size={16} />
+        </span>
+        <span className="prow-label">{label}</span>
+        {preview}
+        <span className="prow-value">{value}</span>
+        <span className="prow-caret" aria-hidden="true">
+          <Icon name="chevron-down" size={15} />
+        </span>
+      </button>
+      {isOpen && (
+        <div className="prow-body" id={`prow-${k}`}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
 function RescheduleSheet({
   occ,
+  plan,
   today,
   onClose,
   onSaved,
 }: {
   occ: PlanOccurrenceDto;
+  plan: PlanDto | null;
   today: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [to, setTo] = useState(occ.date);
+  const [push, setPush] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const days = dayDiff(to, occ.date);
+  // Pushing only goes forward; an earlier day is always a single move.
+  const canPush = days > 0;
+  const pushing = push && canPush;
   const move = async () => {
     setBusy(true);
-    await api.post(`/api/plans/${occ.planId}/reschedule`, { date: occ.date, to }).catch(() => {});
-    onSaved();
+    setError(null);
+    try {
+      await api.post(`/api/plans/${occ.planId}/reschedule`, {
+        date: occ.date,
+        to,
+        push: pushing,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'could not move it');
+      setBusy(false);
+    }
   };
   const quick = [
     { label: 'Tomorrow', date: addDays(today, 1) },
     { label: 'In 2 days', date: addDays(today, 2) },
     { label: 'Next week', date: addDays(occ.date, 7) },
   ].filter((q) => q.date !== occ.date);
+  const fmt = (d: string) =>
+    new Date(`${d}T00:00:00`).toLocaleDateString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+  const end = plan?.endDate ? shiftedDate(plan.endDate, plan.shifts) : null;
+  const dayWord = `${days} day${days === 1 ? '' : 's'}`;
   return (
     <Sheet title={`Move ${occ.planName}`} onClose={onClose}>
-      <p style={{ color: 'var(--muted)', marginBottom: 12 }}>
-        Move the {humanDate(occ.date, today).top.toLowerCase()} practice to another day. The plan
-        keeps its rhythm; only this one moves.
+      <p className="sit-sheet-lede">
+        {humanDate(occ.date, today).top}&apos;s {occ.focus === 'learning' ? 'session' : 'sit'} -
+        where should it go?
       </p>
       <div className="chip-row" style={{ marginBottom: 12 }}>
         {quick.map((q) => (
@@ -1182,11 +1396,56 @@ function RescheduleSheet({
           </button>
         ))}
       </div>
-      <div className="field">
-        <label htmlFor="rs-to">Or pick a date</label>
-        <input id="rs-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-      </div>
-      <div className="form-actions">
+      <label className="prow-field" style={{ marginBottom: 16 }}>
+        <span>Or pick a date</span>
+        <input
+          id="rs-to"
+          type="date"
+          value={to}
+          onChange={(e) => e.target.value && setTo(e.target.value)}
+        />
+      </label>
+
+      {to !== occ.date && (
+        <div className="move-modes" role="radiogroup" aria-label="What moves">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!pushing}
+            className={`move-mode${!pushing ? ' on' : ''}`}
+            onClick={() => setPush(false)}
+          >
+            <span className="move-dot" aria-hidden="true" />
+            <span className="grow">
+              <span className="move-t">Just this one</span>
+              <span className="move-h">Moves to {fmt(to)}. Everything else stays on its day.</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={pushing}
+            disabled={!canPush}
+            className={`move-mode${pushing ? ' on' : ''}`}
+            onClick={() => setPush(true)}
+          >
+            <span className="move-dot" aria-hidden="true" />
+            <span className="grow">
+              <span className="move-t">Push the rest too</span>
+              <span className="move-h">
+                {canPush
+                  ? `This and every later ${occ.focus === 'learning' ? 'session' : 'sit'} move ${dayWord} later${
+                      end ? ` - the plan then ends ${fmt(addDays(end, days))}` : ''
+                    }.`
+                  : 'Only when moving it later.'}
+              </span>
+            </span>
+          </button>
+        </div>
+      )}
+
+      {error && <p className="error-note">{error}</p>}
+      <div className="rf-actions">
         <button className="btn btn-quiet" onClick={onClose}>
           Cancel
         </button>
@@ -1195,7 +1454,7 @@ function RescheduleSheet({
           disabled={busy || to === occ.date}
           onClick={() => void move()}
         >
-          Move it
+          {pushing ? `Push ${dayWord}` : 'Move it'}
         </button>
       </div>
     </Sheet>
