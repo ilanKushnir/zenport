@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.1] — 2026-09-24
+
+### Changed
+
+- On a phone the action tiles under the main button sit together and centred, each no wider than it needs. Two tiles no longer spread to opposite sides of the screen; four or five still share the width of a small phone.
+
 ## [0.18.0] — 2026-09-24
 
 ### Changed
