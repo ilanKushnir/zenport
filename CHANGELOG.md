@@ -5,6 +5,13 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.17.1] — 2026-09-24
+
+### Fixed
+
+- **Intro placement reads more numbering styles.** A part numbered `#4`, `2.` (as in `IM - 2. Title`) or `S01E12` counts as numbered in the sequence and keeps its place. 0.17.0 moved some such parts, for example "#4 - Introduction to Focus 15".
+- An intro whose name carries the collection's number ("Heart Series 2 Intro-video") now leads parts named only by an upload number (`audio-2338.mp3`). Series, season, volume and book name the collection, and a number carried by only one part is not a sequence. Checked against every multi-part recording in the library: 8 of 136 change order, all intros moving first.
+
 ## [0.17.0] — 2026-09-24
 
 ### Added

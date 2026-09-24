@@ -25,7 +25,7 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: '0.17.0',
+    version: '0.17.1',
     items: [
       { emoji: '🎬', text: 'Intros and framing videos now come first in a series, not last.' },
       {

@@ -66,4 +66,34 @@ describe('orderTracks', () => {
       'Letting go.mp4',
     ]);
   });
+
+  it('leads with an intro whose name carries the series number, among upload-numbered files', () => {
+    const parts = Array.from({ length: 10 }, (_, i) => `audio-${2338 + i}.mp3`);
+    const got = order(...parts, 'Heart Series 2 Intro-video.mp4');
+    expect(got[0]).toBe('Heart Series 2 Intro-video.mp4');
+    expect(got.slice(1)).toEqual(parts);
+  });
+
+  it('still reads an episode number inside a season', () => {
+    expect(
+      order('Season 1 Episode 2.mp4', 'Season 1 Episode 1.mp4', 'Season 1 Trailer.mp4'),
+    ).toEqual(['Season 1 Trailer.mp4', 'Season 1 Episode 1.mp4', 'Season 1 Episode 2.mp4']);
+  });
+
+  it('reads #4, "2." and S01E12 numbering as a sequence and leaves those parts where they are', () => {
+    const wave = [
+      'Exploring #1 - Advanced.flac',
+      'Exploring #2 - Patterning.flac',
+      'Exploring #4 - Introduction to Focus 15.flac',
+    ];
+    expect(order(...wave)).toEqual(wave);
+    const box = ['IM - 0. Bonus Material.mp3', 'IM - 1. Our Mission.mp3', 'IM - 2. Beyond.mp3'];
+    expect(order(...box)).toEqual(box);
+    const course = [
+      'S01E1 - What is change.mp4',
+      'S01E2 - Intro to practice.mp4',
+      'S01E3 - Final words.mp4',
+    ];
+    expect(order(...course)).toEqual(course);
+  });
 });

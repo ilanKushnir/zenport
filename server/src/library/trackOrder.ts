@@ -14,8 +14,10 @@
  * reads as a closing or a bonus. Everything else keeps its natural order.
  *
  * "Numbered in the sequence" means a number that tells the parts apart: a
- * leading "03 -", or "Day 3", "Lesson 3", "Part 3"... - but not a number every
- * numbered part shares, such as the "Part 1" in "Discovery Part 1 Day 3".
+ * leading "03 -", or "Day 3", "Lesson 3", "Part 3"... - carried by at least two
+ * parts, and not one every numbered part shares, such as the "Part 1" in
+ * "Discovery Part 1 Day 3". Files named only by an upload number
+ * ("audio-2338") have no sequence to keep, so their intro still leads.
  */
 import { isVideoExt } from '@zenport/shared';
 
@@ -23,9 +25,11 @@ const INTRO =
   /\b(intro|introduction|introductory|welcome|overview|orientation|preface|prologue|foreword|trailer|start here|begin here|getting started|read ?me first)\b/i;
 const OUTRO =
   /\b(outro|closing|conclusion|epilogue|afterword|final words|farewell|wrap[- ]?up|bonus|extras?)\b/i;
+// Words a number orders parts by. Not series, season, volume or book: those
+// name the collection ("Heart Series 2 Intro"), not a place in it.
 const SEQ_WORDS =
-  'day|lesson|session|episode|ep|chapter|ch|week|track|class|module|part|pt|step|meditation|practice|talk|video|unit|level|stage|section|vol|volume|book|season|series';
-const ALIAS: Record<string, string> = { ep: 'episode', pt: 'part', ch: 'chapter', vol: 'volume' };
+  'day|lesson|session|episode|ep|chapter|ch|week|track|class|module|part|pt|step|meditation|practice|talk|video|unit|level|stage|section';
+const ALIAS: Record<string, string> = { ep: 'episode', pt: 'part', ch: 'chapter' };
 const SEQ = new RegExp(`\\b(${SEQ_WORDS})[\\s._-]*(\\d+)`, 'gi');
 
 function stem(name: string): string {
@@ -39,14 +43,16 @@ function sequenceMarks(name: string): Set<string> {
   const marks = new Set<string>();
   const lead = /^\s*(\d+)/.exec(s);
   if (lead) marks.add(`#:${Number(lead[1])}`);
+  // "#4 - Introduction", "IM - 2. Beyond", "S01E12 - What is change".
+  for (const m of s.matchAll(/#\s*(\d+)/g)) marks.add(`#:${Number(m[1])}`);
+  for (const m of s.matchAll(/(?:^|[\s_-])(\d{1,3})[.)](?=\s)/g)) marks.add(`#:${Number(m[1])}`);
+  for (const m of s.matchAll(/\bS(\d{1,2})\s*E(\d{1,3})\b/gi)) {
+    marks.add(`season:${Number(m[1])}`);
+    marks.add(`episode:${Number(m[2])}`);
+  }
   for (const m of s.matchAll(SEQ)) {
     const word = m[1]!.toLowerCase();
     marks.add(`${ALIAS[word] ?? word}:${Number(m[2])}`);
-  }
-  // A bare number anywhere ("Morning 3") still orders a part among its set.
-  if (marks.size === 0) {
-    for (const m of s.matchAll(/(?:^|[\s._-])(\d{1,3})(?=$|[\s._-])/g))
-      marks.add(`n:${Number(m[1])}`);
   }
   return marks;
 }
@@ -69,7 +75,10 @@ export function orderTracks<T extends { name: string; ext: string }>(
       ? [...numbered[0]!].filter((mark) => numbered.every((m) => m.has(mark)))
       : [],
   );
-  const inSequence = marks.map((m) => [...m].some((mark) => !shared.has(mark)));
+  // One numbered part is no sequence: that number is part of its name.
+  const inSequence = marks.map(
+    (m) => numbered.length > 1 && [...m].some((mark) => !shared.has(mark)),
+  );
   const anyInSequence = inSequence.some(Boolean);
   const anyAudio = sorted.some((t) => !isVideoExt(t.ext));
 
