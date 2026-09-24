@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.35.2] — 2026-09-25
+
+### Fixed
+
+- **A course of several modules sits with the courses on a creator's page, not among the programmes.** Single recordings went under Programmes or Packs only if they were practice. A series went there by its order alone, so a course of weekly modules (read as "in order") landed under Programmes and counted as one. Series of courses or talks now sit with their kind (Courses, Talks and videos), ahead of the single ones. Programmes and Packs hold practice only.
+
 ## [0.35.1] — 2026-09-24
 
 ### Changed

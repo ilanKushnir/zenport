@@ -60,6 +60,13 @@ const KIND_TITLE: Record<ContentType, string> = {
   soundscape: 'Soundscapes',
 };
 
+/** What most of a series is: a course of courses, a set of meditations. */
+function mainType(items: MeditationSummaryDto[]): ContentType {
+  const n = new Map<ContentType, number>();
+  for (const i of items) n.set(i.type, (n.get(i.type) ?? 0) + 1);
+  return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'meditation';
+}
+
 export function CreatorPage() {
   const { name = '' } = useParams();
   const creatorName = decodeURIComponent(name);
@@ -96,11 +103,16 @@ export function CreatorPage() {
     const packs: Entry[] = [];
     const shelves = new Map<string, Entry[]>();
     const toShelf = (k: string, e: Entry) => shelves.set(k, [...(shelves.get(k) ?? []), e]);
+    // Series of courses or talks are learning, not practice: they sit with
+    // their kind ("Courses"), not among the programmes and packs.
+    const kindSeries = new Map<ContentType, Entry[]>();
     for (const s of series) {
       if (!keep(seriesLevel(s.items))) continue;
       const e: Entry = { kind: 'series', series: s, structure: seriesStructure(s, overrides) };
+      const kind = mainType(s.items);
       const sh = shelfOf(s.name);
       if (sh) toShelf(sh, e);
+      else if (!isPracticeType(kind)) kindSeries.set(kind, [...(kindSeries.get(kind) ?? []), e]);
       else if (e.structure === 'programme') programmes.push(e);
       else packs.push(e);
     }
@@ -123,8 +135,14 @@ export function CreatorPage() {
     for (const v of shelves.values()) v.sort(compareEntries);
     const byKind = KIND_ORDER.map((k) => ({
       kind: k,
-      items: loose.filter((i) => i.type === k).sort(compareItems),
-    })).filter((g) => g.items.length > 0);
+      entries: [
+        ...(kindSeries.get(k) ?? []).sort(compareEntries),
+        ...loose
+          .filter((i) => i.type === k)
+          .sort(compareItems)
+          .map((i) => ({ kind: 'item' as const, item: i })),
+      ],
+    })).filter((g) => g.entries.length > 0);
     return {
       programmes,
       packs,
@@ -336,7 +354,7 @@ export function CreatorPage() {
               key={g.kind}
               title={KIND_TITLE[g.kind]}
               icon={TYPE_META[g.kind].icon}
-              entries={g.items.map((i) => ({ kind: 'item' as const, item: i }))}
+              entries={g.entries}
               mode={mode}
             />
           ))}
