@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.14.2',
+    items: [
+      {
+        emoji: '🎛️',
+        text: 'Every button shares one shape, and pages that fit the screen no longer scroll.',
+      },
+    ],
+  },
+  {
     version: '0.14.1',
     items: [{ emoji: '🌫️', text: 'Content fades softly behind the tab bar on a phone.' }],
   },

@@ -228,6 +228,7 @@ function Shell({ children }: { children: ReactNode }) {
       {/* Content dissolves as it nears the tab bar instead of showing through
           the gap between the bar and the bottom of the screen. */}
       <div className="tab-fade" aria-hidden="true" />
+      <div className="top-fade" aria-hidden="true" />
       <nav className="mobile-tabs" aria-label="Main">
         {MOBILE_NAV.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end}>

@@ -5,6 +5,14 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.14.2] — 2026-09-24
+
+### Changed
+
+- **One button shape across the app.** Every button takes its corners from three shared sizes - large 16px, regular 13px, small 11px - the shape of *Save changes*. Breathe's *Begin* is now that button exactly (the same fill, height, weight, top highlight and glow) instead of a pill; *End practice* / *Done for now* and the sit's *End* are outlined buttons with matching corners and readable text; small actions follow. Chips and tags stay pills - they are a different kind of control.
+- **Pages that fit do not scroll.** A phone page kept 96px of empty room below its content for the mini player whether it was showing or not, so pages that fitted - Friends with nobody yet, Folders - still scrolled. The room is now only the tab bar's, plus the mini player's while it is up. Breathe's circle shrinks on a short screen so *Begin* stays in view without scrolling. Checked on every page at 844 and 664pt tall.
+- In the installed app, content scrolled up no longer sits behind the clock and battery - the status bar area gets the same quiet fade as the tab bar.
+
 ## [0.14.1] — 2026-09-24
 
 ### Changed

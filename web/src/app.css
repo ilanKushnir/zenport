@@ -242,7 +242,7 @@
 }
 
 .main {
-  padding: var(--s8) var(--s8) 140px;
+  padding: var(--s8) var(--s8) var(--s8);
   max-width: 1080px;
   width: 100%;
   margin-inline: auto;
@@ -263,7 +263,9 @@
   }
 
   .main {
-    padding: calc(var(--s5) + env(safe-area-inset-top)) var(--s4) calc(var(--tabbar-h) + 96px);
+    /* Room below the content for the tab bar only - a page that fits the
+       screen does not scroll. The mini player adds its own room while shown. */
+    padding: calc(var(--s5) + env(safe-area-inset-top)) var(--s4) calc(var(--tabbar-h) + 20px);
   }
 
   /* A floating glass bar: lifted off the page, inset from the edges and the
@@ -388,6 +390,14 @@
 
 /* ===== Buttons ===== */
 
+/* One shape for every button: large actions 16px, regular 13px, small 11px.
+   Chips and tags stay pills - they are a different kind of control. */
+:root {
+  --btn-r-lg: 16px;
+  --btn-r: 13px;
+  --btn-r-sm: 11px;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -395,7 +405,7 @@
   gap: var(--s2);
   padding: 9px var(--s4);
   min-height: 42px;
-  border-radius: 13px;
+  border-radius: var(--btn-r);
   font-size: 14.5px;
   font-weight: 550;
   border: 1px solid transparent;
@@ -473,7 +483,7 @@
   min-height: 34px;
   padding: 5px var(--s3);
   font-size: 13.5px;
-  border-radius: 11px;
+  border-radius: var(--btn-r-sm);
 }
 
 .icon-btn {
@@ -1719,14 +1729,15 @@
 }
 
 .fp-end {
-  min-height: 40px;
+  min-height: 42px;
   padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--btn-r);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   background: none;
-  color: var(--muted);
+  color: var(--text);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
+  font-weight: 550;
   cursor: pointer;
 }
 
@@ -1977,7 +1988,7 @@
   gap: 6px;
   margin-block-start: var(--s3);
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--btn-r-sm);
   border: 1px solid var(--hairline);
   background: none;
   color: var(--muted);
@@ -3764,7 +3775,10 @@
 
 .halo {
   position: relative;
-  inline-size: min(340px, 82vw);
+  /* Never taller than the screen can spare: on a short screen the circle
+     shrinks rather than pushing Begin below the fold. */
+  inline-size: min(340px, 82vw, calc(100svh - var(--tabbar-h, 0px) - 400px));
+  min-inline-size: 180px;
   aspect-ratio: 1;
   margin-block: var(--s2) var(--s6);
 }
@@ -3992,17 +4006,20 @@
   justify-content: center;
   gap: var(--s2);
   inline-size: 100%;
-  min-height: 54px;
+  min-height: 52px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--btn-r-lg);
   color: var(--ink-on-accent);
   background: var(--accent-fill);
   background-image: var(--accent-fill-grad);
   background-origin: border-box;
-  box-shadow: 0 14px 34px color-mix(in oklab, var(--accent) 32%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 26px -12px var(--accent-glow);
   font: inherit;
-  font-size: 16.5px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition: transform var(--t-fast) var(--ease);
 }
@@ -4037,12 +4054,13 @@
   justify-self: end;
   min-height: 40px;
   padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--hairline);
+  border-radius: var(--btn-r);
+  border: 1px solid var(--border);
   background: none;
-  color: var(--muted);
+  color: var(--text);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
+  font-weight: 550;
   cursor: pointer;
 }
 
@@ -4198,7 +4216,7 @@
   min-height: 52px;
   padding-inline: var(--s6);
   font-size: 16px;
-  border-radius: 16px;
+  border-radius: var(--btn-r-lg);
 }
 
 /* A live sit hides the surrounding furniture, and quiets the aurora. */
@@ -7785,7 +7803,7 @@ span.role-chip {
 .plan-save {
   inline-size: 100%;
   min-block-size: 52px;
-  border-radius: 16px;
+  border-radius: var(--btn-r-lg);
   margin-block-start: var(--s2);
   font-size: 16px;
 }
@@ -8496,6 +8514,54 @@ span.role-chip {
       color-mix(in oklab, var(--bg) 82%, transparent) calc(var(--fade-solid) + 16px),
       color-mix(in oklab, var(--bg) 45%, transparent) calc(var(--fade-solid) + 38px),
       color-mix(in oklab, var(--bg) 12%, transparent) calc(var(--fade-solid) + 56px),
+      transparent 100%
+    );
+  }
+}
+
+/* The one big action on a sign-in or join card is a large button. */
+.auth-card .form-actions .btn-primary {
+  min-height: 52px;
+  border-radius: var(--btn-r-lg);
+  font-size: 16px;
+}
+
+/* While the mini player is up, the page keeps room so its end is never hidden. */
+.shell:has(.mini) .main {
+  padding-block-end: 140px;
+}
+
+@media (max-width: 900px) {
+  .shell:has(.mini) .main {
+    padding-block-end: calc(var(--tabbar-h) + 96px);
+  }
+}
+
+/* The last thing on a page adds no extra room beneath it. */
+.main > :last-child {
+  margin-block-end: 0;
+}
+
+/* Under the status bar of an installed app (clock, battery): the same quiet
+   treatment as under the tab bar, so scrolled content never sits behind it.
+   The inset is zero in a browser tab, where the strip then takes no room. */
+.top-fade {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .top-fade {
+    display: block;
+    position: fixed;
+    inset-inline: 0;
+    inset-block-start: 0;
+    block-size: calc(env(safe-area-inset-top) + 14px);
+    z-index: 39;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      var(--bg) 0,
+      var(--bg) env(safe-area-inset-top),
       transparent 100%
     );
   }
