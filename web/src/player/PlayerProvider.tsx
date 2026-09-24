@@ -46,6 +46,8 @@ interface PlayerApi {
   learning: boolean;
   /** Tracks of the current item this account has finished, kept live. */
   completedIds: ReadonlySet<string>;
+  /** Tick a part done or not done by hand; kept in step with any open page. */
+  setTrackDone: (trackId: string, done: boolean) => Promise<void>;
   videoEl: HTMLVideoElement | null;
   /** Audio wanted but not arriving yet (loading, or recovering from a dropout). */
   buffering: boolean;
@@ -126,7 +128,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const pendingSeekRef = useRef<number | null>(null);
   /** A sit started with no connection: recorded on the device instead. */
   const offlineRef = useRef<{ itemId: string; startedAt: string } | null>(null);
-  const markDone = useCallback((trackId: string) => {
+  // Lessons ticked not done by hand while the item is in the player: playing
+  // on past 95% must not quietly tick them again. Played to the very end, they
+  // count once more.
+  const untickedRef = useRef<Set<string>>(new Set());
+  const markDone = useCallback((trackId: string, opts?: { auto?: boolean }) => {
+    if (opts?.auto && untickedRef.current.has(trackId)) return;
     placesRef.current.delete(trackId);
     if (completedRef.current.has(trackId)) return;
     completedRef.current.add(trackId);
@@ -135,6 +142,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       .put(`/api/tracks/${trackId}/completed`, { completed: true })
       .then(() => window.dispatchEvent(new Event('zenport:progress')))
       .catch(() => {});
+  }, []);
+  /** Tick a part done or not done by hand - from the player or the item's page. */
+  const setTrackDone = useCallback(async (trackId: string, done: boolean) => {
+    const inHand = itemRef.current?.tracks.some((t) => t.id === trackId) ?? false;
+    if (inHand) {
+      if (done) {
+        untickedRef.current.delete(trackId);
+        completedRef.current.add(trackId);
+        placesRef.current.delete(trackId);
+      } else {
+        untickedRef.current.add(trackId);
+        completedRef.current.delete(trackId);
+      }
+      setCompletedIds(new Set(completedRef.current));
+    }
+    try {
+      await api.put(`/api/tracks/${trackId}/completed`, { completed: done });
+    } finally {
+      window.dispatchEvent(new Event('zenport:progress'));
+    }
   }, []);
   const [item, setItem] = useState<MeditationDetailDto | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -389,6 +416,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (sessionRef.current) finishInternal('abandoned', 'switched meditation');
       setItem(it);
       completedRef.current = new Set(it.tracks.filter((t) => t.completed).map((t) => t.id));
+      untickedRef.current = new Set();
       placesRef.current = new Map(
         it.tracks.filter((t) => t.positionSec !== null).map((t) => [t.id, t.positionSec!]),
       );
@@ -618,7 +646,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           el.duration > 20 &&
           el.currentTime / el.duration >= 0.95
         ) {
-          markDone(cur.id);
+          markDone(cur.id, { auto: true });
         }
       };
       const onLoaded = () => {
@@ -639,7 +667,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const idx = trackIndexRef.current;
         // Played to the end: a finished lesson (or track), for this account.
         const doneTrack = it.tracks[idx];
-        if (doneTrack) markDone(doneTrack.id);
+        if (doneTrack) {
+          untickedRef.current.delete(doneTrack.id);
+          markDone(doneTrack.id);
+        }
         if (idx < it.tracks.length - 1) {
           if (!autoplayRef.current) {
             // "Continue to the next track" is off: stop here rather than rolling
@@ -886,6 +917,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isVideo,
       learning,
       completedIds,
+      setTrackDone,
       videoEl: videoElRef.current,
       buffering,
       position,
@@ -920,6 +952,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isVideo,
       learning,
       completedIds,
+      setTrackDone,
       buffering,
       position,
       duration,

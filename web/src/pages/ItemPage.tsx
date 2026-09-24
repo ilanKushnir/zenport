@@ -5,6 +5,7 @@ import { PRACTICE_RESUME_MINUTES, formatClock, formatDuration } from '@zenport/s
 import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
+import { DoneTick } from '../components/DoneTick.tsx';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
@@ -59,8 +60,9 @@ export function ItemPage() {
     await api.put(`/api/tracks/${trackId}/role`, { role }).catch(() => {});
     detail.reload();
   };
+  // Through the player, so a lesson that is playing right now shows the change too.
   const toggleDone = async (trackId: string, completed: boolean) => {
-    await api.put(`/api/tracks/${trackId}/completed`, { completed }).catch(() => {});
+    await player.setTrackDone(trackId, completed).catch(() => {});
     detail.reload();
   };
   // Where this person left off: the server only reports a place that is past
@@ -224,7 +226,7 @@ export function ItemPage() {
                     : 'Audio'}
               </h2>
               {learning && item.trackCount > 1 && (
-                <span className="section-note">Tick a {meta.part} to mark it done</span>
+                <span className="section-note">Tap a circle to mark it done - or not</span>
               )}
             </div>
             <div className="rowlist">
@@ -234,14 +236,11 @@ export function ItemPage() {
                   key={t.id}
                 >
                   {learning ? (
-                    <button
-                      className="done-toggle"
-                      aria-pressed={t.completed}
-                      aria-label={t.completed ? `Mark ${t.title} not done` : `Mark ${t.title} done`}
-                      onClick={() => void toggleDone(t.id, !t.completed)}
-                    >
-                      <Icon name={t.completed ? 'check-circle' : 'circle'} size={20} />
-                    </button>
+                    <DoneTick
+                      track={t}
+                      done={t.completed}
+                      onToggle={() => void toggleDone(t.id, !t.completed)}
+                    />
                   ) : (
                     <span className="num">{t.ord}</span>
                   )}

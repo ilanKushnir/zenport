@@ -1821,6 +1821,28 @@
   }
 }
 
+.tl-note {
+  margin: 0 0 var(--s3);
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.tl-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-inline-start: var(--s1);
+}
+
+.tl-item .tl-row {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.tl-item.done .tl-t {
+  color: var(--muted);
+}
+
 .tl-row.current {
   background: color-mix(in oklab, var(--accent) 12%, transparent);
 }
@@ -5529,21 +5551,115 @@
 }
 
 /* Lessons: tick to mark done; the next one is lit. */
-.done-toggle {
+/* Done or not done (DoneTick.tsx): an empty ring still ahead, a filled disc
+   with its check drawn once done. The same in lists and in the player. */
+.dt-ring {
+  display: block;
+  overflow: visible;
+}
+
+.dt-disc {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  opacity: 0.55;
+  transition:
+    fill var(--t-fast) var(--ease),
+    stroke var(--t-fast) var(--ease),
+    opacity var(--t-fast) var(--ease);
+}
+
+.dt-check {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 260ms var(--ease) 60ms;
+}
+
+.dt-ring[data-done] .dt-disc {
+  fill: var(--accent);
+  stroke: var(--accent);
+  opacity: 1;
+}
+
+.dt-ring[data-done] .dt-check {
+  stroke-dashoffset: 0;
+}
+
+.done-tick {
   flex: none;
   display: grid;
   place-items: center;
-  inline-size: 36px;
-  block-size: 36px;
+  inline-size: 40px;
+  block-size: 40px;
+  margin: -4px;
   border: 0;
   border-radius: 50%;
   background: none;
-  color: var(--faint);
+  color: var(--muted);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--t-fast) var(--ease);
 }
 
-.done-toggle[aria-pressed='true'] {
-  color: var(--accent);
+.done-tick:active {
+  transform: scale(0.88);
+}
+
+.done-tick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .done-tick:hover .dt-disc {
+    opacity: 1;
+    stroke: var(--accent);
+  }
+}
+
+.done-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 34px;
+  margin-block-start: var(--s3);
+  padding: 0 14px 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.done-pill:active {
+  transform: scale(0.96);
+}
+
+.done-pill.is-done {
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--text);
+}
+
+@media (hover: hover) {
+  .done-pill:hover {
+    border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+    color: var(--text);
+  }
 }
 
 .row.done .grow > div:first-child {
@@ -6370,11 +6486,13 @@
   background: rgba(255, 255, 255, 0.5);
 }
 
-.fp-course-t {
-  font-size: 12px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+/* The tick for the lesson playing now rides on the progress row. */
+.fp-course .done-pill {
+  flex: none;
+  min-block-size: 30px;
+  margin: 0;
+  padding: 0 12px 0 8px;
+  font-size: 12.5px;
 }
 
 .tl-n .nav-ic {

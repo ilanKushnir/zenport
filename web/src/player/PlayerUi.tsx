@@ -13,6 +13,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { formatClock } from '@zenport/shared';
+import { DonePill, DoneTick } from '../components/DoneTick.tsx';
 import { usePlayer } from './PlayerProvider.tsx';
 import { playBell } from './bell.ts';
 import { Cover, Icon, Sheet, Slider, Switch } from '../components/ui.tsx';
@@ -137,8 +138,8 @@ export function PlayerBar() {
         <button
           className="icon-btn"
           onClick={() => p.stop('finish')}
-          aria-label={p.learning ? 'Done for now' : 'End practice'}
-          title={p.learning ? 'Done for now' : 'End practice'}
+          aria-label={p.learning ? 'End session' : 'End practice'}
+          title={p.learning ? 'End session - your place is kept' : 'End practice'}
         >
           <Icon name="x" />
         </button>
@@ -337,7 +338,19 @@ export function FocusMode() {
             )}
           </p>
           {multi && p.track && <p className="fp-track">{p.track.title}</p>}
-          {p.learning && multi && <CourseProgress />}
+          {p.learning && p.track && (
+            <CourseProgress>
+              <DonePill
+                key={p.track.id}
+                track={p.track}
+                done={p.completedIds.has(p.track.id)}
+                onToggle={() => {
+                  const t = p.track!;
+                  void p.setTrackDone(t.id, !p.completedIds.has(t.id)).catch(() => {});
+                }}
+              />
+            </CourseProgress>
+          )}
         </div>
 
         {settling ? (
@@ -453,8 +466,12 @@ export function FocusMode() {
         <span className="fp-elapsed">
           {formatClock(p.practiceElapsed)} {p.learning ? 'studied' : 'practiced'}
         </span>
-        <button className="fp-end" onClick={() => p.stop('finish')}>
-          {p.learning ? 'Done for now' : 'End practice'}
+        <button
+          className="fp-end"
+          onClick={() => p.stop('finish')}
+          title={p.learning ? 'Stop here - your place is kept for next time' : undefined}
+        >
+          {p.learning ? 'End session' : 'End practice'}
         </button>
       </footer>
 
@@ -574,11 +591,15 @@ function FullscreenChip({ el }: { el: HTMLVideoElement }) {
   );
 }
 
-/** A course's lessons as a row of segments: done, current, still ahead. */
-function CourseProgress() {
+/**
+ * A course's lessons as a row of segments - done, current, still ahead - with
+ * the tick for the one playing now beside it. A single lesson is just the tick.
+ */
+function CourseProgress({ children }: { children: React.ReactNode }) {
   const p = usePlayer();
   if (!p.item) return null;
   const tracks = p.item.tracks;
+  if (tracks.length < 2) return <div className="fp-course solo">{children}</div>;
   const done = tracks.filter((t) => p.completedIds.has(t.id)).length;
   return (
     <div className="fp-course" aria-label={`${done} of ${tracks.length} lessons done`}>
@@ -597,9 +618,7 @@ function CourseProgress() {
           />
         )}
       </div>
-      <span className="fp-course-t">
-        {done} of {tracks.length} done
-      </span>
+      {children}
     </div>
   );
 }
@@ -609,13 +628,31 @@ function CourseProgress() {
 function TrackListSheet({ onClose }: { onClose: () => void }) {
   const p = usePlayer();
   if (!p.item) return null;
+  const course = p.item.type === 'course';
+  // In a course or talk each part can be ticked done or not right here; a
+  // meditation's tracks are simply played.
+  const tickable = p.learning;
+  const done = p.item.tracks.filter((t) => p.completedIds.has(t.id)).length;
   return (
-    <Sheet title="Tracks" onClose={onClose} labelId="tracks-title">
+    <Sheet title={course ? 'Lessons' : 'Tracks'} onClose={onClose} labelId="tracks-title">
+      {tickable && (
+        <p className="tl-note">
+          {done} of {p.item.tracks.length} done · tap a circle to mark one done or not
+        </p>
+      )}
       <ol className="tl">
         {p.item.tracks.map((t, i) => {
           const current = i === p.trackIndex;
+          const isDone = p.completedIds.has(t.id);
           return (
-            <li key={t.id}>
+            <li key={t.id} className={tickable ? `tl-item${isDone ? ' done' : ''}` : undefined}>
+              {tickable && (
+                <DoneTick
+                  track={t}
+                  done={isDone}
+                  onToggle={() => void p.setTrackDone(t.id, !isDone).catch(() => {})}
+                />
+              )}
               <button
                 className={`tl-row${current ? ' current' : ''}`}
                 aria-current={current || undefined}
@@ -627,7 +664,7 @@ function TrackListSheet({ onClose }: { onClose: () => void }) {
                 <span className="tl-n">
                   {current && p.playing ? (
                     <span className="tl-eq" aria-hidden="true" />
-                  ) : p.completedIds.has(t.id) ? (
+                  ) : !tickable && isDone ? (
                     <Icon name="check-circle" size={18} />
                   ) : (
                     i + 1

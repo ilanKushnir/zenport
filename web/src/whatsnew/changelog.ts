@@ -25,6 +25,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.16.0',
+    items: [
+      {
+        emoji: '✅',
+        text: 'Mark a lesson watched, done or practised right from the player - or take it back.',
+      },
+      {
+        emoji: '📋',
+        text: 'The Lessons list in the player has a circle to tick beside every lesson.',
+      },
+      { emoji: '⏹️', text: '"Done for now" is now End session: it stops and keeps your place.' },
+    ],
+  },
+  {
     version: '0.15.0',
     items: [
       { emoji: '🧭', text: 'A top bar keeps ZenPort in place, with Settings a tap away.' },

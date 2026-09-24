@@ -5,6 +5,20 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-09-24
+
+### Added
+
+- **Done, or not, from anywhere in a course.** The player shows a tick beside the lesson progress: *Mark as watched* for a video, *Mark as practised* for a meditation inside a course, *Mark as done* otherwise. Tap it to tick the lesson done, and tap it again to take it back. The player's Lessons list has the same circle beside every lesson, while tapping a lesson's name still plays it. The course page uses the same control, and a change in either place shows up in the other at once.
+- Unticking a lesson by hand sticks. Playing on past 95% no longer quietly ticks it again, though playing it right to the end still counts.
+
+### Changed
+
+- **"Done for now" is now "End session".** It always meant "stop here and keep my place", never "this lesson is done", and next to the new ticks the old wording read as the wrong thing.
+- The phone's page lock no longer pins the page in place, so the tab bar no longer jumps a few pixels as More or any other sheet opens and closes.
+- Tablets: the tab bar and mini player sit centred at a comfortable width instead of stretching edge to edge.
+- Admin's library scan card puts Rescan at the end of its row. Search lists every admin area (People, Library folders, YouTube sources, Integrations). Settings' Offline and About cards line up with the groups above them, and About shows the version once.
+
 ## [0.15.0] — 2026-09-24
 
 ### Added
