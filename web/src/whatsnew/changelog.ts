@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.32.4',
+    items: [
+      {
+        emoji: '📱',
+        text: 'Opened from the Home Screen, the tab bar sits at the bottom of the phone again.',
+      },
+    ],
+  },
+  {
     version: '0.32.3',
     items: [
       {

@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.32.4] — 2026-09-24
+
+### Fixed
+
+- **The tab bar meets the bottom of the phone when ZenPort is opened from the Home Screen.** There, iOS can report the window's height without the status bar and home indicator areas. The app's frame, sized from that, ended some 80 points short, with the tab bar floating above a band of empty screen. As a whole-screen app, the frame now takes the screen's full height. In Safari nothing changes.
+
 ## [0.32.3] — 2026-09-24
 
 ### Changed
