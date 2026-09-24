@@ -25,6 +25,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.14.0',
+    items: [
+      {
+        emoji: '⬇️',
+        text: 'Download meditations and play them with no connection - on a flight, on a mountain.',
+      },
+      { emoji: '📱', text: 'See and tidy everything on your phone in Downloads.' },
+      { emoji: '🔄', text: 'Sits played offline count once you are back online.' },
+    ],
+  },
+  {
     version: '0.13.1',
     items: [{ emoji: '👇', text: 'Pull the player down with a finger to tuck it away.' }],
   },

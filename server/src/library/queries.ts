@@ -241,7 +241,7 @@ export function itemDetail(
     db
       .prepare(
         `SELECT t.id, t.ord, t.title, t.name, t.ext, t.duration_sec, t.missing, t.inferred_role,
-                r.role AS manual_role
+                t.size_bytes, r.role AS manual_role
          FROM tracks t LEFT JOIN track_roles r ON r.track_id = t.id
          WHERE t.item_id = ? ORDER BY t.ord`,
       )
@@ -254,6 +254,7 @@ export function itemDetail(
       duration_sec: number | null;
       missing: number;
       inferred_role: string;
+      size_bytes: number;
       manual_role: string | null;
     }[]
   ).map((t) => ({
@@ -275,6 +276,7 @@ export function itemDetail(
           ? ('practice' as const)
           : ('lesson' as const),
     roleSource: t.manual_role ? ('manual' as const) : ('auto' as const),
+    sizeBytes: t.size_bytes,
     positionSec:
       !done.has(t.id) && worthResuming(positions.get(t.id) ?? 0, t.duration_sec)
         ? (positions.get(t.id) ?? null)

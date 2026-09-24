@@ -8254,3 +8254,219 @@ span.role-chip {
 .used-toggle {
   justify-self: start;
 }
+
+/* ===================================================================
+ * Offline: downloads
+ * =================================================================== */
+
+.offline-btn .dl-size {
+  font-weight: 500;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.offline-btn.done {
+  border-color: color-mix(in oklab, #8fd6a6 45%, transparent);
+  color: #a9e3bb;
+}
+
+.offline-btn.done .nav-ic {
+  color: #8fd6a6;
+}
+
+.offline-btn.busy {
+  font-variant-numeric: tabular-nums;
+}
+
+.offline-btn.error {
+  border-color: color-mix(in oklab, var(--danger) 45%, transparent);
+  color: var(--danger);
+}
+
+.dl-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 2.5;
+}
+
+.dl-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 150ms linear;
+}
+
+.dl-cancel {
+  margin-inline-start: 4px;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+.offline-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.card-offline {
+  position: absolute;
+  inset-block-end: 8px;
+  inset-inline-start: 8px;
+  display: grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 50%;
+  color: #a9e3bb;
+  background: rgba(12, 9, 18, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.card-progress ~ .card-offline {
+  inset-block-end: 20px;
+}
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-block-end: var(--s4);
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--amber) 35%, var(--hairline));
+  background: color-mix(in oklab, var(--amber) 9%, var(--surface));
+  color: var(--text);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.offline-banner .nav-ic:first-child {
+  color: var(--amber);
+}
+
+.dl-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  margin-block-end: var(--s5);
+  padding: var(--s4);
+  border-radius: 18px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+}
+
+.dl-summary .grow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.dl-summary-ic {
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 12px;
+  color: #8fd6a6;
+  background: rgba(120, 200, 150, 0.12);
+}
+
+.dl-all-confirm {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.dl-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s2);
+}
+
+.dl-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+  min-inline-size: 0;
+}
+
+.dl-play {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--s3);
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.dl-play .grow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.dl-cover {
+  flex: none;
+  inline-size: 52px;
+  block-size: 52px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dl-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-play .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-play-ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 50%;
+  color: var(--ink-on-accent);
+  background: var(--accent-fill);
+  background-image: var(--accent-fill-grad);
+  background-origin: border-box;
+}
+
+.dl-bar {
+  block-size: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-block-end: 6px;
+}
+
+.dl-bar span {
+  display: block;
+  block-size: 100%;
+  background: var(--accent);
+  transition: inline-size 150ms linear;
+}

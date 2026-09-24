@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-09-24
+
+### Added
+
+- **Meditations offline.** A meditation's page has *Download* with its size; while it downloads, a ring fills with the bytes (tap to cancel); then it reads *On this device*, and a tap offers to remove it. Downloads stream straight into the browser's storage on the device - never held in memory - and a download that stops leaves nothing half-saved. Courses and talks are not offered: they can run to gigabytes.
+- **They play with no connection, and seek.** The service worker serves a downloaded meditation from the device first - online too, so it never downloads twice - and answers the audio player's byte ranges itself, so scrubbing works offline.
+- **Downloads page** (from the Library, Settings, search, and the offline banner): everything on this device with its size, the total, the space still free for ZenPort, play from the list, remove one or all. Cards in the library carry a small mark when a meditation is on the device; downloads the browser cleared by itself are noticed and forgotten.
+- **The app opens offline** as the last person signed in on the device, with their preferences, and a banner says so and points at what still plays. The app's artwork and icons are kept too, so it looks whole.
+- **Sits played offline still count.** They are recorded on the device - tied to the account that played them - and sent up when the connection returns; the server checks each one makes sense and never counts one twice. Streaks, times practised and stats stay true.
+
 ## [0.13.1] — 2026-09-24
 
 ### Added

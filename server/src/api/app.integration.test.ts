@@ -512,6 +512,70 @@ describe('practice, plans, journal, stats', () => {
     expect(stats.creatorMix[0].name).toBe('Mira Solen');
   });
 
+  it('takes sits played offline once, and only when they make sense', async () => {
+    await setupAndLogin();
+    const lib = (await app.inject({ url: '/api/library', headers: auth() })).json();
+    const itemId = lib.items[0].id;
+    const at = (minAgo: number) => new Date(Date.now() - minAgo * 60_000).toISOString();
+    const sessions = [
+      {
+        clientId: 'dev-aaaaaaaa',
+        itemId,
+        startedAt: at(40),
+        endedAt: at(20),
+        listenedSec: 1200,
+        status: 'completed',
+      },
+      // Claims more listening than the sit lasted: capped.
+      {
+        clientId: 'dev-bbbbbbbb',
+        itemId,
+        startedAt: at(10),
+        endedAt: at(5),
+        listenedSec: 3000,
+        status: 'abandoned',
+      },
+      // Ends in the future: dropped.
+      {
+        clientId: 'dev-cccccccc',
+        itemId,
+        startedAt: at(5),
+        endedAt: at(-60),
+        listenedSec: 60,
+        status: 'completed',
+      },
+      // No such item: dropped.
+      {
+        clientId: 'dev-dddddddd',
+        itemId: 'nope',
+        startedAt: at(9),
+        endedAt: at(8),
+        listenedSec: 60,
+        status: 'completed',
+      },
+    ];
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/practice/offline',
+      headers: auth(),
+      payload: { sessions },
+    });
+    expect(first.json()).toEqual({ imported: 2 });
+    const again = await app.inject({
+      method: 'POST',
+      url: '/api/practice/offline',
+      headers: auth(),
+      payload: { sessions },
+    });
+    expect(again.json()).toEqual({ imported: 0 });
+    const rows = db
+      .prepare('SELECT listened_sec FROM practice_sessions ORDER BY started_at')
+      .all() as { listened_sec: number }[];
+    expect(rows.map((r) => Math.round(r.listened_sec))).toEqual([1200, 305]);
+    const detail = (await app.inject({ url: `/api/items/${itemId}`, headers: auth() })).json();
+    expect(detail.tracks[0].sizeBytes).toBeGreaterThan(0);
+  });
+
   it('creates a plan and walks entry actions', async () => {
     await setupAndLogin();
     const created = (

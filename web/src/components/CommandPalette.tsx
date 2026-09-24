@@ -80,6 +80,13 @@ export function CommandPalette() {
       { id: 'journal', label: 'Journal', icon: 'journal', group: 'Go', run: go('/journal') },
       { id: 'stats', label: 'Practice history', icon: 'stats', group: 'Go', run: go('/stats') },
       { id: 'friends', label: 'Friends', icon: 'friends', group: 'Go', run: go('/friends') },
+      {
+        id: 'downloads',
+        label: 'Downloads - meditations on this device',
+        icon: 'on-device',
+        group: 'Go',
+        run: go('/downloads'),
+      },
       ...(isAdmin
         ? [
             {

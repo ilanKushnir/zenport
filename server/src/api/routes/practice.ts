@@ -55,6 +55,63 @@ export function registerPracticeRoutes(app: FastifyInstance, ctx: AppContext): v
     return { id };
   });
 
+  // Sits played with no connection, recorded on the device and sent once back
+  // online. Each is checked for sense (a real item, times that fit together,
+  // listening no longer than the sit) and a retried upload cannot add one twice.
+  app.post('/api/practice/offline', async (req, reply) => {
+    const body = z
+      .object({
+        sessions: z
+          .array(
+            z.object({
+              clientId: z.string().min(8).max(64),
+              itemId: z.string().min(1).max(200),
+              startedAt: z.string().datetime(),
+              endedAt: z.string().datetime(),
+              listenedSec: z
+                .number()
+                .min(0)
+                .max(6 * 3600),
+              status: z.enum(['completed', 'abandoned']),
+            }),
+          )
+          .max(100),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid offline sessions' });
+    const now = Date.now();
+    let imported = 0;
+    const known = db.prepare('SELECT 1 FROM practice_sessions WHERE user_id = ? AND reason = ?');
+    const insert = db.prepare(
+      `INSERT INTO practice_sessions (user_id, item_id, started_at, ended_at, listened_sec, status, reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const s of body.data.sessions) {
+      const start = Date.parse(s.startedAt);
+      const end = Date.parse(s.endedAt);
+      if (!(end >= start) || start < now - 60 * 86_400_000 || end > now + 5 * 60_000) continue;
+      const listened = Math.min(s.listenedSec, (end - start) / 1000 + 5);
+      if (
+        s.itemId !== TIMER_ITEM_ID &&
+        !db.prepare('SELECT 1 FROM items WHERE id = ?').get(s.itemId)
+      )
+        continue;
+      const reason = `offline:${s.clientId}`;
+      if (known.get(req.user!.id, reason)) continue;
+      insert.run(
+        req.user!.id,
+        s.itemId,
+        new Date(start).toISOString(),
+        new Date(end).toISOString(),
+        listened,
+        s.status,
+        reason,
+      );
+      imported++;
+    }
+    return { imported };
+  });
+
   app.post('/api/practice/:id/beat', async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     const body = z.object({ listenedSec: z.number().min(0).max(3600) }).safeParse(req.body);

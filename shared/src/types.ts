@@ -89,6 +89,19 @@ export interface TrackDto {
   roleSource: 'auto' | 'manual';
   /** Where this account left off in it, when that place is worth returning to. */
   positionSec: number | null;
+  /** File size, for a download's estimate. */
+  sizeBytes: number;
+}
+
+/** A practice session played without a connection, sent up once back online. */
+export interface OfflineSessionDto {
+  /** Made on the device, so a retried upload cannot count a sit twice. */
+  clientId: string;
+  itemId: string;
+  startedAt: string;
+  endedAt: string;
+  listenedSec: number;
+  status: 'completed' | 'abandoned';
 }
 
 export type DocumentKind = 'pdf' | 'text' | 'markdown' | 'html';

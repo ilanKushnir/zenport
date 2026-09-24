@@ -130,6 +130,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   <li>
                     <Icon name="heart" /> Star favourites for their own shelf
                   </li>
+                  <li>
+                    <Icon name="download" /> Download meditations to play offline
+                  </li>
                 </ul>
               </>
             )}

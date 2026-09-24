@@ -10,6 +10,7 @@ import { REPO_URL, VersionRow, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
 import { Avatar, ErrorNote, Icon, Slider, Switch } from '../components/ui.tsx';
 import { AiKeyForm } from '../components/AiPlanSheet.tsx';
+import { formatBytes, offlineSupported, useOffline } from '../offline.ts';
 
 const COMMON_TIMEZONES = [
   'UTC',
@@ -68,6 +69,7 @@ export function SettingsPage() {
       />
       <PreferencesSection />
       <AiSection />
+      <OfflineSection />
 
       {user?.role === 'admin' && (
         <section className="section" aria-labelledby="s-scan">
@@ -772,5 +774,34 @@ function PasswordForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
         </button>
       </div>
     </form>
+  );
+}
+
+/** Downloads on this device: a summary and the way to manage them. */
+function OfflineSection() {
+  const off = useOffline();
+  if (!offlineSupported()) return null;
+  return (
+    <section className="section" aria-labelledby="s-offline">
+      <div className="section-head">
+        <h2 id="s-offline">Offline</h2>
+      </div>
+      <Link className="people-link card" to="/downloads">
+        <span className="set-group-ic">
+          <Icon name="on-device" size={19} />
+        </span>
+        <span className="grow">
+          <strong>
+            {off.records.length === 0
+              ? 'No meditations on this device'
+              : `${off.records.length} meditation${off.records.length === 1 ? '' : 's'} on this device · ${formatBytes(off.totalBytes)}`}
+          </strong>
+          <span className="sub">
+            Download meditations from their page to play them with no connection.
+          </span>
+        </span>
+        <Icon name="chevron-right" size={16} />
+      </Link>
+    </section>
   );
 }

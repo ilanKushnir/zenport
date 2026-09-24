@@ -53,6 +53,8 @@ export function usePrefs(): PrefsState {
   return ctx;
 }
 
+const PREFS_KEY = 'zp-prefs-cache';
+
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<UserPrefsDto>(DEFAULT_PREFS);
   const [ready, setReady] = useState(false);
@@ -69,7 +71,23 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
         api.get<FavoriteDto[]>('/api/favorites').catch(() => [] as FavoriteDto[]),
       ]);
       if (cancelled) return;
-      if (p && writeGeneration.current === gen) setPrefs(p);
+      // Offline: the last preferences seen on this device, not the defaults
+      // (which would, for one, replay the welcome tour).
+      let prefsNow = p;
+      if (p) {
+        try {
+          localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+        } catch {
+          /* private mode */
+        }
+      } else {
+        try {
+          prefsNow = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null') as UserPrefsDto | null;
+        } catch {
+          prefsNow = null;
+        }
+      }
+      if (prefsNow && writeGeneration.current === gen) setPrefs(prefsNow);
       setFavorites(new Set(f.map((x) => x.itemId)));
       setReady(true);
     })();

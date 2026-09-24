@@ -663,6 +663,18 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   'chevron-down': <path d="m6 9 6 6 6-6" />,
+  download: (
+    <>
+      <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" />
+      <path d="M5 19.5h14" />
+    </>
+  ),
+  'on-device': (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v7M9 11.5l3 3 3-3" />
+    </>
+  ),
   friends: (
     <>
       <circle cx="9" cy="8.5" r="3.2" />

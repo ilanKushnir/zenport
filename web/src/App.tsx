@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   BrowserRouter,
+  Link,
   NavLink,
   Navigate,
   Route,
@@ -9,7 +10,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import type { SetupStatusDto, UserInfo } from '@zenport/shared';
-import { api } from './api.ts';
+import { api, ApiError } from './api.ts';
 import { clearApiCache } from './hooks.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup, Logo, Wordmark } from './components/Brand.tsx';
@@ -28,6 +29,8 @@ import { JoinPage, LoginPage, SetupPage } from './pages/AuthPages.tsx';
 import { FriendsPage } from './pages/FriendsPage.tsx';
 import { FriendPage } from './pages/FriendPage.tsx';
 import { PeoplePage } from './pages/PeoplePage.tsx';
+import { DownloadsPage } from './pages/DownloadsPage.tsx';
+import { flushOfflineSessions, useOffline, verifyDownloads } from './offline.ts';
 import { InboxProvider, useInbox } from './social.tsx';
 import { TodayPage } from './pages/TodayPage.tsx';
 import { LibraryPage } from './pages/LibraryPage.tsx';
@@ -40,6 +43,16 @@ import { JournalPage } from './pages/JournalPage.tsx';
 import { SourcesPage } from './pages/SourcesPage.tsx';
 import { IntegrationsPage } from './pages/IntegrationsPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
+
+const ME_KEY = 'zp-me';
+
+function readCachedMe(): UserInfo | null {
+  try {
+    return JSON.parse(localStorage.getItem(ME_KEY) ?? 'null') as UserInfo | null;
+  } catch {
+    return null;
+  }
+}
 
 interface AuthState {
   user: UserInfo | null;
@@ -116,6 +129,24 @@ function StartPageRedirect() {
   return null;
 }
 
+/** No connection: say so once, and point at what still works. */
+function OfflineBanner() {
+  const { online, records } = useOffline();
+  if (online) return null;
+  return (
+    <Link className="offline-banner" to="/downloads">
+      <Icon name="download" size={15} />
+      <span className="grow">
+        You are offline
+        {records.length > 0
+          ? ` · ${records.length} downloaded meditation${records.length === 1 ? '' : 's'} ready`
+          : ' · downloaded meditations play without a connection'}
+      </span>
+      <Icon name="chevron-right" size={14} />
+    </Link>
+  );
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { user } = useAuth();
@@ -124,6 +155,15 @@ function Shell({ children }: { children: ReactNode }) {
   const isAdmin = user?.role === 'admin';
   const [moreOpen, setMoreOpen] = useState(false);
   const onMorePage = MORE_LINKS.some((l) => location.pathname.startsWith(l.to));
+  // Sits played offline go up as soon as there is a connection; downloads the
+  // browser dropped are forgotten.
+  useEffect(() => {
+    void flushOfflineSessions();
+    void verifyDownloads();
+    const onOnline = () => void flushOfflineSessions();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, []);
   useEffect(() => {
     // New page: move the reading position back to the top.
     document.getElementById('main')?.scrollTo?.(0, 0);
@@ -182,6 +222,7 @@ function Shell({ children }: { children: ReactNode }) {
           <Logo size={24} bloom={false} />
           <Wordmark size={17} />
         </div>
+        <OfflineBanner />
         {children}
       </main>
       <nav className="mobile-tabs" aria-label="Main">
@@ -252,6 +293,7 @@ function SignedInApp() {
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/friends/:id" element={<FriendPage />} />
               <Route path="/people" element={<PeoplePage />} />
+              <Route path="/downloads" element={<DownloadsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Shell>
@@ -281,8 +323,23 @@ export default function App() {
         if (prev && prev.id !== me.id) clearApiCache();
         return me;
       });
+      try {
+        localStorage.setItem(ME_KEY, JSON.stringify(me));
+      } catch {
+        /* private mode */
+      }
       setPhase('in');
-    } catch {
+    } catch (err) {
+      // No connection at all (not a refusal): carry on as the last person
+      // signed in here, so downloaded meditations still open and play.
+      if (!(err instanceof ApiError)) {
+        const cached = readCachedMe();
+        if (cached) {
+          setUser(cached);
+          setPhase('in');
+          return;
+        }
+      }
       const status = await api.get<SetupStatusDto>('/api/setup/status').catch(() => null);
       setUser(null);
       setPhase(status?.needsSetup ? 'setup' : 'login');
@@ -302,6 +359,11 @@ export default function App() {
   const signOut = async () => {
     await api.post('/api/auth/logout').catch(() => {});
     clearApiCache();
+    try {
+      localStorage.removeItem(ME_KEY);
+    } catch {
+      /* ignore */
+    }
     setUser(null);
     setPhase('login');
   };

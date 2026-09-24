@@ -9,6 +9,7 @@ import { usePlayer } from '../player/PlayerProvider.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { useAuth } from '../App.tsx';
 import { TypeMenu } from '../components/TypeSheet.tsx';
+import { OfflineButton } from '../components/OfflineButton.tsx';
 import { SitTogetherSheet, ago } from '../social.tsx';
 import { TimesPractised } from '../components/TimesPractised.tsx';
 import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
@@ -191,6 +192,7 @@ export function ItemPage() {
                   <Icon name="restart" size={16} /> Begin again
                 </button>
               )}
+              {!learning && <OfflineButton item={item} />}
               <button className="btn btn-ghost" onClick={() => setShowPlanSheet(true)}>
                 <Icon name="plans" size={16} /> Add to a plan
               </button>

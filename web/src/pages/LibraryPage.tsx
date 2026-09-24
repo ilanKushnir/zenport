@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import type { ContentType, LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
 import { isPracticeType } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
+import { useOffline } from '../offline.ts';
+import { useAuth } from '../App.tsx';
 import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
@@ -20,6 +22,7 @@ type SortKey = 'creator' | 'title' | 'recent' | 'duration';
 
 export function MedCard({ item }: { item: MeditationSummaryDto }) {
   const { isFavorite, toggleFavorite } = usePrefs();
+  const offline = useOffline();
   const starred = isFavorite(item.id);
   return (
     <Link className="med-card" to={`/m/${item.id}`}>
@@ -27,6 +30,11 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
         <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
         <CardBadges type={item.type} video={item.hasVideo} />
         <CardProgress done={item.completedCount} total={item.trackCount} />
+        {offline.ids.has(item.id) && (
+          <span className="card-offline" title="On this device - plays offline">
+            <Icon name="on-device" size={13} />
+          </span>
+        )}
         {isPracticeType(item.type) && item.practiceCount > 0 && (
           <span
             className="card-times"
@@ -114,6 +122,8 @@ export function SeriesCard({ series }: { series: Series }) {
 }
 
 export function LibraryPage() {
+  const offlineState = useOffline();
+  const isAdmin = useAuth().user?.role === 'admin';
   const { favorites } = usePrefs();
   const lib = useApi<LibraryDto>('/api/library');
   useRefreshOn('zenport:progress', () => lib.reload());
@@ -384,18 +394,27 @@ export function LibraryPage() {
             <div className="section-head">
               <h2 id="sec-all">{type === 'all' ? 'Everything' : TYPE_META[type].plural}</h2>
               <div className="section-actions">
-                <Link className="btn btn-sm btn-quiet" to="/library/folders">
-                  <Icon name="folder" size={15} />
-                  Folders
+                <Link className="btn btn-sm btn-quiet" to="/downloads">
+                  <Icon name="on-device" size={15} />
+                  Downloads
+                  {offlineState.records.length > 0 ? ` · ${offlineState.records.length}` : ''}
                 </Link>
-                <button
-                  className="btn btn-sm btn-quiet"
-                  onClick={() => void rescan()}
-                  disabled={rescanning}
-                >
-                  <Icon name="history" size={15} />
-                  {rescanning ? 'Scanning…' : 'Rescan'}
-                </button>
+                {isAdmin && (
+                  <>
+                    <Link className="btn btn-sm btn-quiet" to="/library/folders">
+                      <Icon name="folder" size={15} />
+                      Folders
+                    </Link>
+                    <button
+                      className="btn btn-sm btn-quiet"
+                      onClick={() => void rescan()}
+                      disabled={rescanning}
+                    >
+                      <Icon name="history" size={15} />
+                      {rescanning ? 'Scanning…' : 'Rescan'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

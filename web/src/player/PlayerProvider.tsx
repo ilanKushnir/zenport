@@ -10,7 +10,8 @@ import {
 } from 'react';
 import type { MeditationDetailDto, TrackDto } from '@zenport/shared';
 import { isVideoExt } from '@zenport/shared';
-import { api } from '../api.ts';
+import { api, ApiError } from '../api.ts';
+import { queueOfflineSession } from '../offline.ts';
 import { usePrefs } from '../prefs.tsx';
 import { playBell } from './bell.ts';
 
@@ -123,6 +124,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // saved or marked done: on iOS, setting currentTime before metadata is
   // ignored, and saving the 0:01 that plays instead would erase the real place.
   const pendingSeekRef = useRef<number | null>(null);
+  /** A sit started with no connection: recorded on the device instead. */
+  const offlineRef = useRef<{ itemId: string; startedAt: string } | null>(null);
   const markDone = useCallback((trackId: string) => {
     placesRef.current.delete(trackId);
     if (completedRef.current.has(trackId)) return;
@@ -319,6 +322,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     (status: 'completed' | 'abandoned', reason: string, keepPlace = true) => {
       sendBeat();
       if (keepPlace) saveProgress();
+      const off = offlineRef.current;
+      if (!sessionRef.current && off) {
+        queueOfflineSession({
+          itemId: off.itemId,
+          startedAt: off.startedAt,
+          endedAt: new Date().toISOString(),
+          listenedSec: Math.round(listenedRef.current),
+          status,
+        });
+        offlineRef.current = null;
+        listenedRef.current = 0;
+      }
       const sid = sessionRef.current;
       const it = itemRef.current;
       const minutes = startedAtRef.current
@@ -395,12 +410,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         : 0;
       const startAt = opts?.resumeSec ?? placeFor(it, index);
 
+      offlineRef.current = null;
       void api
         .post<{ id: number }>('/api/practice/start', { meditationId: it.id })
         .then((r) => {
           sessionRef.current = r.id;
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          // No connection (not a refusal): keep the sit on the device and
+          // send it up once back online.
+          if (!(err instanceof ApiError)) {
+            offlineRef.current = { itemId: it.id, startedAt: new Date().toISOString() };
+          }
+        });
 
       if (settings.leadInSec > 0) {
         // A settling breath before the audio begins.
