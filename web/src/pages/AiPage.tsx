@@ -247,10 +247,11 @@ export function AiPage() {
         <div className="ai-card slim">
           <div className="ai-share first">
             <div className="grow">
-              <strong>Three for today, picked for you</strong>
+              <strong>For you today</strong>
               <span className="sub">
-                Each day your AI picks from your library - from what you practise and your
-                intentions, never your plan - with a word on why each fits now.
+                Your AI picks one recording from your library - from what you practise and your
+                intentions, never your plan - with a word on why it fits now. A new one once you
+                have begun it, or after a few days.
               </span>
             </div>
             <Switch

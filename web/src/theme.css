@@ -338,7 +338,9 @@ hr {
 :root[data-calm='1'] .ob-breathe,
 :root[data-calm='1'] .timer-orb-pulse,
 :root[data-calm='1'] .app-aurora::before,
-:root[data-calm='1'] .ob-aurora::before {
+:root[data-calm='1'] .ob-aurora::before,
+:root[data-calm='1'] .app-aurora::after,
+:root[data-calm='1'] .ob-aurora::after {
   animation: none !important;
 }
 

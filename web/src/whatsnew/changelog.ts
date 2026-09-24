@@ -25,6 +25,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.32.2',
+    items: [
+      {
+        emoji: '🌌',
+        text: 'A sharper background: a high-resolution aurora, with crisp stars at any screen size.',
+      },
+      {
+        emoji: '🧭',
+        text: 'The welcome remembers what you set up along the way - no second ask for your AI key.',
+      },
+    ],
+  },
+  {
     version: '0.32.1',
     items: [
       { emoji: '⚡', text: 'Choosing libraries responds at once, even on a slow network share.' },

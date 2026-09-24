@@ -28,7 +28,7 @@ import { Icon, Slider, Switch } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
 import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
 import { Scene, SceneCycle } from './scenes.tsx';
-import { ProviderConnect } from '../components/AiConnect.tsx';
+import { ProviderConnect, ProviderMark, providerInfo } from '../components/AiConnect.tsx';
 import { IntentionsForm } from '../components/IntentionsForm.tsx';
 import { EnhanceStep, LibrariesStep, ScanStep } from './AdminSetup.tsx';
 
@@ -75,6 +75,16 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     await save({ onboarded: true, seenVersion: LATEST_RELEASE_VERSION });
     onDone();
   }, [save, onDone]);
+
+  // The admin's own steps change what these answer - a library chosen and
+  // read, a key connected - so look again on every step rather than trust the
+  // first read, made before any of that happened.
+  const aiReload = ai.reload;
+  const scanReload = scan.reload;
+  useEffect(() => {
+    aiReload();
+    scanReload();
+  }, [key, aiReload, scanReload]);
 
   // Arrow keys move between steps; Escape skips. Inputs keep their own arrow
   // behaviour, so the handler stands down while one has focus.
@@ -290,8 +300,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                 <h1 id="ob-title">Your own AI companion</h1>
                 <p className="ob-lede">
                   Connect an AI and it writes and speaks a meditation for exactly how you are, plans
-                  from your library, reviews how your practice is going, picks a few things for each
-                  day, and finds teachers, courses and books beyond your library.
+                  from your library, reviews how your practice is going, picks one for you each day,
+                  and finds teachers, courses and books beyond your library.
                   {user?.role === 'admin' &&
                     ' For you as admin, it can also tidy the library: fixes, descriptions and a picture for every creator.'}
                 </p>
@@ -302,10 +312,27 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                       here. Find it under Plans → Plan with AI.
                     </p>
                   ) : aiSaved || ai.data?.configured ? (
-                    <p className="ob-note ob-ok">
-                      <Icon name="check" size={15} /> Your AI is connected. Find it under Plans →
-                      Plan with AI, and everything else under AI.
-                    </p>
+                    <div className="ob-ai-on">
+                      {ai.data?.provider ? (
+                        <ProviderMark provider={ai.data.provider} size={36} />
+                      ) : (
+                        <span className="ai-mark p-none">
+                          <Icon name="sparkle" size={18} />
+                        </span>
+                      )}
+                      <div className="grow">
+                        <strong>
+                          {ai.data?.provider ? providerInfo(ai.data.provider).label : 'Your AI'} is
+                          connected
+                        </strong>
+                        <span className="sub">
+                          Nothing more to set up. Made for you, plans and the guide are under AI.
+                        </span>
+                      </div>
+                      <span className="ob-ai-tick" aria-hidden="true">
+                        <Icon name="check" size={15} />
+                      </span>
+                    </div>
                   ) : (
                     <ProviderConnect
                       compact
@@ -319,9 +346,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   {(aiSaved || ai.data?.canUse) && (
                     <div className="ai-share ob-featured">
                       <div className="grow">
-                        <strong>Three for today, picked for you</strong>
+                        <strong>For you today</strong>
                         <span className="sub">
-                          On Today, from what you practise and why - never your plan.
+                          One recording on Today, picked from what you practise and why - never your
+                          plan.
                         </span>
                       </div>
                       <Switch
@@ -332,10 +360,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                     </div>
                   )}
                 </div>
-                <p className="ob-note">
-                  Optional - OpenAI, Anthropic, Gemini, OpenRouter or your own server, with your own
-                  key. Also under AI.
-                </p>
+                {!(aiSaved || ai.data?.configured || ai.data?.sharedBy) && (
+                  <p className="ob-note">
+                    Optional - OpenAI, Anthropic, Gemini, OpenRouter or your own server, with your
+                    own key. Also under AI.
+                  </p>
+                )}
               </>
             )}
 
@@ -512,7 +542,12 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
 function Summary({ prefs, indexed }: { prefs: UserPrefsDto; indexed: number }) {
   const rows: [string, string][] = [
-    ['Library', indexed > 0 ? `${indexed} indexed` : 'waiting for a folder'],
+    [
+      'Library',
+      indexed > 0
+        ? `${indexed.toLocaleString()} ${indexed === 1 ? 'recording' : 'recordings'}`
+        : 'waiting for a folder',
+    ],
     ['Daily target', prefs.dailyGoalMinutes ? `${prefs.dailyGoalMinutes} min` : 'none'],
     ['Timer', `${prefs.defaultTimerMinutes} min`],
     ['Bell', prefs.bellEnabled ? 'on' : 'off'],

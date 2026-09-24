@@ -362,11 +362,19 @@ export function ScanStep() {
   const running = s?.status === 'scanning';
   const wasRunning = useRef(false);
 
+  const libs = useApi<LibrariesDto>('/api/admin/libraries');
+  const chosenCount = (libs.data?.chosen.length ?? 0) + (libs.data?.fixed.length ?? 0);
+  // Keep looking while this step is open: a library just chosen is read a
+  // moment later, and the step should see it start rather than say "nothing".
+  const [sawScan, setSawScan] = useState(false);
+  const [openedAt] = useState(() => Date.now() - 2000);
   useEffect(() => {
-    if (!running && s) return;
-    const t = window.setInterval(() => scan.reload(), 700);
+    if (running) setSawScan(true);
+  }, [running]);
+  useEffect(() => {
+    const t = window.setInterval(() => scan.reload(), running ? 700 : 1200);
     return () => window.clearInterval(t);
-  }, [running, s, scan]);
+  }, [running, scan]);
   useEffect(() => {
     if (running) wasRunning.current = true;
     if (!running && s && s.counts.items > 0) {
@@ -383,7 +391,13 @@ export function ScanStep() {
   const files = running ? (p?.files ?? 0) : (s?.counts.tracks ?? 0);
   const pct = p && p.total > 0 ? p.done / p.total : null;
   const libCreators = lib?.creators ?? [];
-  const done = !running && (s?.counts.items ?? 0) > 0;
+  // Libraries chosen but not read yet (the scan starts a moment after a change).
+  // A scan that finished since the step opened counts too (a small library can
+  // be read between two looks).
+  const finishedSince = !!s?.finishedAt && Date.parse(s.finishedAt) >= openedAt;
+  const starting =
+    !running && chosenCount > 0 && (s?.counts.items ?? 0) === 0 && !sawScan && !finishedSince;
+  const done = !running && !starting && (s?.counts.items ?? 0) > 0;
   const aiOk = connected || !!ai.data?.canUse;
   // Faces as they are recognised: names while reading, their pictures once read.
   const faces = done
@@ -422,28 +436,55 @@ export function ScanStep() {
 
   return (
     <>
-      <h1 id="ob-title">{done ? 'Your library is ready' : 'Reading your library'}</h1>
+      <h1 id="ob-title">
+        {done
+          ? 'Your library is ready'
+          : starting
+            ? 'Getting ready to read…'
+            : 'Reading your library'}
+      </h1>
       <div className="scan-stage">
         <div
-          className={`scan-orb${running ? ' live' : ''}${done ? ' done' : ''}`}
+          className={`scan-orb${running || starting ? ' live' : ''}${done ? ' done' : ''}${(running && pct === null) || starting ? ' sweeping' : ''}`}
           aria-hidden="true"
         >
           <svg viewBox="0 0 120 120">
-            <circle className="scan-track" cx="60" cy="60" r="52" />
+            <defs>
+              <linearGradient id="scan-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" style={{ stopColor: 'var(--accent)' }} />
+                <stop offset="0.55" style={{ stopColor: 'var(--lavender)' }} />
+                <stop offset="1" style={{ stopColor: '#ffc04a' }} />
+              </linearGradient>
+            </defs>
+            <circle className="scan-track" cx="60" cy="60" r="54" />
             <circle
               className="scan-fill"
               cx="60"
               cy="60"
-              r="52"
+              r="54"
+              stroke="url(#scan-grad)"
               style={{
-                strokeDashoffset: done ? 0 : pct !== null ? 327 * (1 - pct) : 250,
+                strokeDashoffset: done
+                  ? 0
+                  : running && pct !== null
+                    ? 339 * (1 - pct)
+                    : running || starting
+                      ? 250
+                      : 339,
               }}
             />
           </svg>
-          <span className="scan-orb-n">
-            <Count value={items} />
-            <small>recordings</small>
+          <span className="scan-disc">
+            <span className="scan-orb-n">
+              <Count value={items} />
+            </span>
+            <span className="scan-orb-l">{items === 1 ? 'recording' : 'recordings'}</span>
           </span>
+          {done && (
+            <span className="scan-badge">
+              <Icon name="check" size={14} />
+            </span>
+          )}
         </div>
         <div className="scan-facts" role="status" aria-live="polite">
           {running ? (
@@ -458,11 +499,20 @@ export function ScanStep() {
           ) : done ? (
             <>
               <strong>
-                <Count value={s!.counts.tracks} /> tracks, {libCreators.length} creators
+                <Count value={s!.counts.tracks} /> tracks,{' '}
+                <span className="nowrap">{libCreators.length} creators</span>
               </strong>
               <span>
                 <Count value={s!.counts.covers} /> covers · <Count value={s!.counts.documents} />{' '}
                 notes and guides
+              </span>
+            </>
+          ) : starting ? (
+            <>
+              <strong>Opening your libraries</strong>
+              <span>
+                {chosenCount} {chosenCount === 1 ? 'library' : 'libraries'} chosen - reading starts
+                in a moment.
               </span>
             </>
           ) : (

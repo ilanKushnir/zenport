@@ -5,6 +5,21 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.32.2] — 2026-09-24
+
+### Fixed
+
+- **The welcome's AI step no longer asks again for a key you already gave.** It read your AI settings once when the welcome opened, before you connected on the reading step. Every step now looks again. With a key connected, it shows "OpenAI is connected" and moves on.
+- **The last step no longer says the library is "waiting for a folder"** after you chose, read and enhanced it (same cause). It now shows how many recordings were read.
+- **Reading your library, from the first moment.** The step kept looking only while a scan was running, so opening it in the second before the scan started could leave it on "Nothing to read yet". It now says "Getting ready to read…" until reading starts, and keeps watching.
+- The reading ring is redone: a slim gradient ring in the app's colours around a quiet disc, with the number and "recordings" inside it and a tick when done. Before, it was yellow, and the word spilled over the edge.
+- On a phone, the AI provider tiles keep the longest name inside the tile.
+
+### Changed
+
+- **A sharp, new background.** The old one was a small, grainy picture stretched across the screen, with its stars painted in, so on a large display it looked soft and smudged. It is now a smooth, high-resolution aurora sized for retina desktops, with the stars drawn as vector dots that stay pin-sharp at any size. A fine grain keeps the dark gradients from banding. The drift is slower and smaller.
+- "Three for today" wording left over in AI settings and the welcome now reads "For you today", one recording.
+
 ## [0.32.1] — 2026-09-24
 
 ### Fixed
