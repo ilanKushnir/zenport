@@ -12573,3 +12573,154 @@ html.scroll-locked body {
     font-size: 19px;
   }
 }
+
+/* ===== Featured on Today (AI) ===== */
+
+.ai-share.first {
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+.ob-featured {
+  margin-block-start: var(--s3);
+  text-align: start;
+}
+
+#sec-feat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#sec-feat .nav-ic {
+  color: var(--accent);
+}
+
+.feat-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+@media (max-width: 900px) {
+  .feat-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.feat-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  min-block-size: 112px;
+  padding: var(--s3);
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--hairline));
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--accent-soft), transparent 60%), var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    translate var(--lift-t) var(--lift-ease),
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--lift-t) var(--lift-ease);
+}
+
+.feat-card.skeleton {
+  border-color: var(--hairline);
+}
+
+@media (hover: hover) {
+  .feat-card:not(.skeleton):hover {
+    text-decoration: none;
+    translate: 0 -2px;
+    border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+    box-shadow: 0 10px 26px color-mix(in oklab, var(--accent) 18%, transparent);
+  }
+}
+
+.feat-cover {
+  flex: none;
+  inline-size: 72px;
+  block-size: 72px;
+  border-radius: var(--r-md);
+}
+
+.feat-text {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  min-inline-size: 0;
+}
+
+.feat-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.feat-meta {
+  font-size: 12.5px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feat-why {
+  margin-block-start: 4px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.feat-quiet {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.feat-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  margin-block-start: var(--s6);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px dashed color-mix(in oklab, var(--accent) 40%, transparent);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+
+.feat-invite .grow {
+  flex: 1 1 260px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.feat-invite .sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.feat-invite-ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 38px;
+  block-size: 38px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.feat-invite-actions {
+  display: flex;
+  gap: var(--s2);
+  margin-inline-start: auto;
+}

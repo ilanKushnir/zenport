@@ -471,6 +471,8 @@ export interface UserPrefsDto {
   ambientBackground: boolean;
   /** Latest release this account has been told about; null = never (predates the dialog). */
   seenVersion: string | null;
+  /** Opted in to AI picks on Today. */
+  aiFeatured: boolean;
 }
 
 export interface FavoriteDto {
@@ -1032,4 +1034,23 @@ export interface GuideNoteDto {
   tips: GuideTipDto[];
   next: { title: string; detail: string; action: GuideNextAction };
   reflection: string;
+}
+
+// ── Featured on Today (AI, opt-in) ────────────────────────────────────────
+
+export interface FeaturedPickDto {
+  item: MeditationSummaryDto;
+  /** Why this, now - one short line. */
+  why: string;
+}
+
+export interface FeaturedDto {
+  enabled: boolean;
+  canUse: boolean;
+  /** The local day these picks are for; null when there are none. */
+  day: string | null;
+  picks: FeaturedPickDto[];
+  generatedAt: string | null;
+  /** When today's picks could not be made. */
+  error?: string;
 }

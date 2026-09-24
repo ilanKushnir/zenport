@@ -18,7 +18,7 @@ import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
 import { Lockup, Wordmark } from '../components/Brand.tsx';
-import { Icon, Slider } from '../components/ui.tsx';
+import { Icon, Slider, Switch } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
 import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
 import { Scene, SceneCycle } from './scenes.tsx';
@@ -310,6 +310,21 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                         ai.reload();
                       }}
                     />
+                  )}
+                  {(aiSaved || ai.data?.canUse) && (
+                    <div className="ai-share ob-featured">
+                      <div className="grow">
+                        <strong>Three for today, picked for you</strong>
+                        <span className="sub">
+                          On Today, from what you practise and why - never your plan.
+                        </span>
+                      </div>
+                      <Switch
+                        checked={prefs.aiFeatured}
+                        onChange={(v) => void save({ aiFeatured: v })}
+                        label="Featured on Today"
+                      />
+                    </div>
                   )}
                 </div>
                 <p className="ob-note">

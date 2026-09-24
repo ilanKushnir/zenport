@@ -696,6 +696,17 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_guide_notes_user ON guide_notes(user_id, created_at);
   `,
+  // v17: featured on Today - an opt-in, and the day's picks (one row a person).
+  `
+  ALTER TABLE user_prefs ADD COLUMN ai_featured INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE featured_picks (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    body TEXT NOT NULL,
+    model TEXT,
+    created_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

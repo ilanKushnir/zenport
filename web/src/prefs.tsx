@@ -33,6 +33,7 @@ export const DEFAULT_PREFS: UserPrefsDto = {
   calmMotion: false,
   ambientBackground: true,
   seenVersion: null,
+  aiFeatured: false,
 };
 
 interface PrefsState {

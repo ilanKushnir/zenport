@@ -55,6 +55,7 @@ const auth = () => ({ cookie: `zp_session=${cookie}`, ...CSRF });
  * answer picks from whatever catalogue it was shown. */
 let lastPrompt = '';
 let lastWebSearch = false;
+let featuredCalls = 0;
 function fakeOpenAi(): AiClient {
   return {
     listModels: async ({ apiKey: key }) => {
@@ -97,6 +98,17 @@ function fakeOpenAi(): AiClient {
               reason: 'x',
               confidence: 'high',
             },
+          ],
+        };
+      }
+      if (schemaName === 'zenport_featured') {
+        featuredCalls++;
+        return {
+          picks: [
+            { handle: 'm2', why: 'You have not tried this one.' },
+            { handle: 'm2', why: 'Twice.' },
+            { handle: 'm404', why: 'Made up.' },
+            { handle: 'm1', why: 'Mornings suit you - m1 is short.' },
           ],
         };
       }
@@ -2223,5 +2235,52 @@ describe('The guide', () => {
     expect(
       (await app.inject({ method: 'GET', url: '/api/ai/guide/notes', headers: auth() })).json(),
     ).toHaveLength(1);
+  });
+});
+
+describe('Featured on Today', () => {
+  it('is opt-in, picks once a day from the library, and refreshes on request', async () => {
+    for (const rel of ['Mira Solen/Slow Tide.mp3', 'Mira Solen/Night Rain.mp3']) {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'f'.repeat(300)}`);
+    }
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const get = async () =>
+      (await app.inject({ method: 'GET', url: '/api/ai/featured', headers: auth() })).json();
+    const calls0 = featuredCalls;
+    expect(await get()).toMatchObject({ enabled: false, picks: [] });
+
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/prefs',
+      headers: auth(),
+      payload: { aiFeatured: true },
+    });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/prefs', headers: auth() })).json().aiFeatured,
+    ).toBe(true);
+    expect(await get()).toMatchObject({ enabled: true, canUse: false, picks: [] });
+    expect(featuredCalls).toBe(calls0);
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    const first = await get();
+    expect(featuredCalls).toBe(calls0 + 1);
+    expect(first.picks).toHaveLength(2);
+    expect(first.picks[1].why).toBe('Mornings suit you - it is short.');
+    expect(first.picks[0].item.id).not.toBe(first.picks[1].item.id);
+    expect(lastPrompt).toContain('Library (handle');
+    expect(lastPrompt).not.toMatch(/plan/i);
+
+    await get();
+    expect(featuredCalls).toBe(calls0 + 1);
+    await app.inject({ method: 'POST', url: '/api/ai/featured/refresh', headers: auth() });
+    expect(featuredCalls).toBe(calls0 + 2);
   });
 });

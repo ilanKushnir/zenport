@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-09-24
+
+### Added
+
+- **For you today** (opt-in). Three recordings from your library, picked by your AI once a day from what you practise, what you have not tried and your intentions - never your plan - each with a line on why it fits now. They sit on Today under your plan, can be picked again, and leave out what Today already offers (the last thing you played). Turn it on from the invitation on Today, under AI → On Today, or in the welcome tour's AI step.
+
 ## [0.25.0] — 2026-09-24
 
 ### Added

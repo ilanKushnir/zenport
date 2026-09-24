@@ -22,6 +22,7 @@ import { itemLabel, TYPE_META } from '../content.ts';
 import { Cover, EmptyState, Icon, SkeletonGrid } from '../components/ui.tsx';
 import { MedCard } from './LibraryPage.tsx';
 import { FriendsToday } from '../components/FriendsToday.tsx';
+import { FeaturedToday } from '../components/FeaturedToday.tsx';
 
 export function TodayPage() {
   const navigate = useNavigate();
@@ -288,6 +289,8 @@ export function TodayPage() {
               </div>
             </section>
           )}
+
+          <FeaturedToday />
 
           {starred.length > 0 && (
             <section className="section" aria-labelledby="sec-fav">

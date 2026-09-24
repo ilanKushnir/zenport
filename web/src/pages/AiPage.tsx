@@ -13,6 +13,7 @@ import { INTENTION_REASONS } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import { useApi } from '../hooks.ts';
+import { usePrefs } from '../prefs.tsx';
 import {
   ModelPicker,
   ProviderConnect,
@@ -60,6 +61,7 @@ export function AiPage() {
   const ai = useApi<AiSettingsDto>('/api/ai/settings');
   const intentions = useApi<IntentionsDto | null>('/api/me/intentions');
   const { user } = useAuth();
+  const { prefs, save } = usePrefs();
   const s = ai.data;
   const i = intentions.data;
   const features = FEATURES.filter((f) => !f.admin || user?.role === 'admin');
@@ -182,6 +184,29 @@ export function AiPage() {
               <Icon name="chevron-right" size={16} />
             </Link>
           ))}
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="sec-ai-today">
+        <div className="section-head">
+          <h2 id="sec-ai-today">On Today</h2>
+        </div>
+        <div className="ai-card slim">
+          <div className="ai-share first">
+            <div className="grow">
+              <strong>Three for today, picked for you</strong>
+              <span className="sub">
+                Each day your AI picks from your library - from what you practise and your
+                intentions, never your plan - with a word on why each fits now.
+              </span>
+            </div>
+            <Switch
+              checked={prefs.aiFeatured}
+              onChange={(v) => void save({ aiFeatured: v })}
+              label="Featured on Today"
+              disabled={!s?.canUse && !prefs.aiFeatured}
+            />
+          </div>
         </div>
       </section>
 

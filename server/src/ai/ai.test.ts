@@ -5,6 +5,7 @@ const chatModels = (all: string[]) => rankModels('openai', all);
 import { planPrompt, renderCatalog, resolveProposal, type CatalogEntry } from './planner.js';
 import { openSecret, sealSecret } from './secret.js';
 import { resolveGuide } from './guide.js';
+import { resolvePicks } from './featured.js';
 
 describe('key encryption', () => {
   it('round-trips, and refuses the wrong secret or a tampered value', () => {
@@ -287,5 +288,36 @@ describe('guide answers', () => {
     expect(g.tips[0]).toMatchObject({ detail: 'Try “Night Rain” tonight.', item: { id: 'abc' } });
     expect(g.tips[1]!.item).toBeNull();
     expect(g.next.action).toBe('none');
+  });
+});
+
+describe('featured picks', () => {
+  const mk = (id: string) => ({ id, title: id }) as unknown as MeditationSummaryDto;
+  const handles = new Map([
+    ['m1', mk('a')],
+    ['m2', mk('b')],
+    ['m3', mk('c')],
+    ['m4', mk('d')],
+  ]);
+  it('keeps known, new, not-excluded picks - three at most - and no handles in the words', () => {
+    const picks = resolvePicks(
+      {
+        picks: [
+          { handle: 'm1', why: 'Last time.' },
+          { handle: 'm2', why: 'Like m3, but shorter.' },
+          { handle: 'm2', why: 'Again.' },
+          { handle: 'm9', why: 'Made up.' },
+          { handle: 'm3', why: 'New.' },
+          { handle: 'm4', why: 'Also new.' },
+        ],
+      },
+      handles,
+      new Set(['a']),
+    );
+    expect(picks).toEqual([
+      { id: 'b', why: 'Like it, but shorter.' },
+      { id: 'c', why: 'New.' },
+      { id: 'd', why: 'Also new.' },
+    ]);
   });
 });
