@@ -4,7 +4,13 @@
  * one-line explanation - on every screen.
  */
 import type { ContentType, ItemLevel, MeditationSummaryDto } from '@zenport/shared';
-import { CONTENT_TYPES } from '@zenport/shared';
+import {
+  CONTENT_TYPES,
+  LEVEL_ORDER,
+  looksSequential,
+  naturalCompare,
+  sequenceNumber,
+} from '@zenport/shared';
 
 export interface TypeMeta {
   label: string;
@@ -133,3 +139,83 @@ export const LEVEL_LABEL: Record<ItemLevel, string> = {
   advanced: 'Advanced',
   all: 'For every level',
 };
+
+/** A level as a short tag on a card. */
+export const LEVEL_SHORT: Record<ItemLevel, string> = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+  all: 'All levels',
+};
+
+/** Beginner first; unknown between "all levels" and intermediate. */
+export const levelRank = (l: ItemLevel | null | undefined): number => (l ? LEVEL_ORDER[l] : 1.5);
+
+/** A series' parts in the order they are meant: numbered first, then by name. */
+export function inOrder(items: MeditationSummaryDto[]): MeditationSummaryDto[] {
+  return [...items].sort(
+    (a, b) =>
+      (sequenceNumber(a.title) ?? 9999) - (sequenceNumber(b.title) ?? 9999) ||
+      naturalCompare(a.title, b.title),
+  );
+}
+
+/**
+ * A series' level is where it starts: its first part's (a path that opens
+ * for beginners is one to begin with), else the one most parts share.
+ */
+export function seriesLevel(items: MeditationSummaryDto[]): ItemLevel | null {
+  const first = inOrder(items).find((i) => i.level)?.level;
+  if (first) return first;
+  return null;
+}
+
+/** Programme (in order) or collection (any order) - an admin's word, else the names'. */
+export function seriesStructure(
+  series: Pick<Series, 'creator' | 'name' | 'items' | 'type'>,
+  overrides?: { creator: string; collection: string; structure: 'programme' | 'pack' }[],
+): 'programme' | 'pack' {
+  const set = overrides?.find((o) => o.creator === series.creator && o.collection === series.name);
+  if (set) return set.structure;
+  if (series.type === 'course') return 'programme';
+  return looksSequential(series.items.map((i) => i.title)) ? 'programme' : 'pack';
+}
+
+/** A number a name leads with to say its place: "1. Opening", "6 - Rest" → 1, 6. */
+export function leadingNumber(name: string): number | null {
+  const m = /^\s*(\d{1,3})\s*(?:[.):\-–—]\s*|\s+-\s+)/.exec(name);
+  return m ? Number(m[1]) : null;
+}
+
+/** A name without its ordering prefix, and a nested collection by its own name. */
+export function displayName(name: string): string {
+  const last = name.split(' / ').pop() ?? name;
+  const stripped = last.replace(/^\s*\d{1,3}\s*(?:[.):\-–—]\s*|\s+-\s+)/, '').trim();
+  return stripped || last;
+}
+
+/** The shelf a nested collection sits on ("Extras / Tips" → "Extras"), or null. */
+export const shelfOf = (collection: string | null): string | null =>
+  collection && collection.includes(' / ') ? collection.split(' / ')[0]! : null;
+
+/** The way a creator's series are best walked: easier first, then as numbered, then by name. */
+export function compareSeries(a: Series, b: Series): number {
+  return (
+    levelRank(seriesLevel(a.items)) - levelRank(seriesLevel(b.items)) ||
+    (leadingNumber(a.name) ?? 999) - (leadingNumber(b.name) ?? 999) ||
+    naturalCompare(displayName(a.name), displayName(b.name))
+  );
+}
+
+/** Single recordings the same way: by level, then as numbered, then by title. */
+export function compareItems(a: MeditationSummaryDto, b: MeditationSummaryDto): number {
+  return (
+    levelRank(a.level) - levelRank(b.level) ||
+    (leadingNumber(a.title) ?? 999) - (leadingNumber(b.title) ?? 999) ||
+    naturalCompare(displayName(a.title), displayName(b.title))
+  );
+}
+
+/** Every part of it done. */
+export const isFinished = (x: { trackCount: number; completedCount: number }) =>
+  x.trackCount > 0 && x.completedCount >= x.trackCount;

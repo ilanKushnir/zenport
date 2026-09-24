@@ -12,9 +12,20 @@ import { useAuth } from '../App.tsx';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { Cover, ErrorNote, Icon } from '../components/ui.tsx';
-import { groupSeries, progressLabel, TYPE_META } from '../content.ts';
+import {
+  displayName,
+  groupSeries,
+  isFinished,
+  LEVEL_SHORT,
+  progressLabel,
+  seriesLevel,
+  seriesStructure,
+  TYPE_META,
+} from '../content.ts';
+import type { ItemLevel } from '@zenport/shared';
 import { TypeSheet } from '../components/TypeSheet.tsx';
 import { CardBadges } from './LibraryPage.tsx';
+import { FolderDocs } from '../components/FolderDocs.tsx';
 
 export function SeriesPage() {
   const { creator = '', name = '' } = useParams();
@@ -55,6 +66,21 @@ export function SeriesPage() {
     ? items.reduce((n, i) => n + (i.totalDurationSec ?? 0), 0)
     : null;
   const next = items.find((i) => i.completedCount < i.trackCount) ?? items[0]!;
+  const level = seriesLevel(items);
+  const finished = isFinished({ trackCount: total, completedCount: done });
+  const structure = seriesStructure({ creator, name, items, type }, lib.data?.seriesStructures);
+  const setStructure = async (st: 'programme' | 'pack' | null) => {
+    await api
+      .put('/api/admin/series/structure', { creator, collection: name, structure: st })
+      .catch(() => {});
+    lib.reload();
+  };
+  const setLevel = async (l: ItemLevel | null) => {
+    await api
+      .put('/api/admin/items/level', { ids: items.map((i) => i.id), level: l })
+      .catch(() => {});
+    lib.reload();
+  };
 
   const continueNext = async () => {
     setStarting(true);
@@ -86,15 +112,24 @@ export function SeriesPage() {
         <div className="detail-body">
           <p className="eyebrow type-eyebrow">
             <Icon name={meta.icon} size={14} />
-            {type === 'course' ? 'Course' : `${meta.label} series`}
+            {type === 'course'
+              ? 'Course'
+              : structure === 'programme'
+                ? `${meta.label} programme · in order`
+                : `${meta.label} collection · any order`}
             {series.hasVideo && (
               <span className="eyebrow-video">
                 <Icon name="video" size={14} /> Video
               </span>
             )}
           </p>
-          <h1 className="detail-title">{name}</h1>
+          <h1 className="detail-title">{displayName(name)}</h1>
           <p className="detail-facts">
+            {level && (
+              <span>
+                <span className={`lvl lvl-${level}`}>{LEVEL_SHORT[level]}</span>
+              </span>
+            )}
             <span>{creator}</span>
             <span>
               {items.length} {type === 'course' ? 'modules' : 'parts'}
@@ -110,7 +145,13 @@ export function SeriesPage() {
               <span style={{ inlineSize: `${total ? (done / total) * 100 : 0}%` }} />
             </div>
             <span>
-              {progressLabel(done, total, type) ?? `Not started · ${total} ${meta.parts}`}
+              {finished ? (
+                <strong className="series-done">
+                  <Icon name="check-circle" size={16} /> Done - every part
+                </strong>
+              ) : (
+                (progressLabel(done, total, type) ?? `Not started · ${total} ${meta.parts}`)
+              )}
             </span>
           </div>
 
@@ -128,6 +169,48 @@ export function SeriesPage() {
                 <Icon name={meta.icon} size={16} />
                 Change type
               </button>
+            )}
+            {user?.role === 'admin' && type !== 'course' && (
+              <label className="series-level">
+                <span className="visually-hidden">Programme or collection</span>
+                <select
+                  value={
+                    lib.data?.seriesStructures?.some(
+                      (o) => o.creator === creator && o.collection === name,
+                    )
+                      ? structure
+                      : ''
+                  }
+                  onChange={(e) =>
+                    void setStructure((e.target.value || null) as 'programme' | 'pack' | null)
+                  }
+                  title="In order, or any order"
+                >
+                  <option value="">
+                    {structure === 'programme' ? 'Programme (auto)' : 'Collection (auto)'}
+                  </option>
+                  <option value="programme">Programme - in order</option>
+                  <option value="pack">Collection - any order</option>
+                </select>
+              </label>
+            )}
+            {user?.role === 'admin' && (
+              <label className="series-level">
+                <span className="visually-hidden">Level of this series</span>
+                <select
+                  value={items.every((i) => i.levelSource === 'manual') ? (level ?? '') : ''}
+                  onChange={(e) => void setLevel((e.target.value || null) as ItemLevel | null)}
+                  title="Set the level for every part"
+                >
+                  <option value="">
+                    {level ? `Level: ${LEVEL_SHORT[level]} (auto)` : 'Level: not set'}
+                  </option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="all">All levels</option>
+                </select>
+              </label>
             )}
           </div>
         </div>
@@ -168,6 +251,12 @@ export function SeriesPage() {
           })}
         </ol>
       </section>
+
+      <FolderDocs
+        groups={(lib.data?.folderDocs ?? []).filter(
+          (g) => g.creator === creator && g.collection === name,
+        )}
+      />
 
       {picking && (
         <TypeSheet

@@ -499,3 +499,25 @@ export function inferLibrary(walked: WalkedFile[]): InferredItem[] {
   }
   return items;
 }
+
+/**
+ * Documents no recording took: in a folder with no audio of its own, and no
+ * recording folder above it - a creator's manuals beside their series, a
+ * study guide at the top of a course. Kept with the folder they sit in.
+ */
+export function looseDocuments(
+  walked: WalkedFile[],
+  items: InferredItem[],
+): (InferredDoc & { folder: string })[] {
+  const taken = new Set(items.flatMap((i) => i.documents.map((d) => d.relPath)));
+  return walked
+    .filter((f) => f.kind === 'document' && !taken.has(f.relPath))
+    .map((f) => ({
+      relPath: f.relPath,
+      name: f.name,
+      ext: f.ext,
+      sizeBytes: f.sizeBytes,
+      folder: f.relPath.includes('/') ? f.relPath.slice(0, f.relPath.lastIndexOf('/')) : '',
+    }))
+    .sort((a, b) => naturalCompare(a.relPath, b.relPath));
+}

@@ -771,6 +771,51 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE featured_picks ADD COLUMN opened_at TEXT;
   `,
+  // v23: each recording's level - set by an admin or by the AI (the one read
+  // from its name is worked out as it is read, never stored).
+  `
+  CREATE TABLE item_levels (
+    item_id TEXT PRIMARY KEY,
+    level TEXT NOT NULL,
+    source TEXT NOT NULL,
+    reason TEXT,
+    model TEXT,
+    updated_at TEXT NOT NULL
+  );
+  `,
+  // v24: documents in folders with no audio of their own - a creator's or a
+  // series' folder (manuals, study guides) - shown on its page.
+  `
+  CREATE TABLE folder_docs (
+    id TEXT PRIMARY KEY,
+    root_id INTEGER NOT NULL,
+    folder TEXT NOT NULL,
+    rel_path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    ext TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    missing INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (root_id, rel_path)
+  );
+  `,
+  // v25: programme (in order) or pack (any order) - for a recording of several
+  // parts, and for a series of several recordings - when the AI or an admin
+  // says otherwise than the names do.
+  `
+  CREATE TABLE item_structures (
+    item_id TEXT PRIMARY KEY,
+    structure TEXT NOT NULL,
+    source TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE series_structures (
+    creator TEXT NOT NULL,
+    collection TEXT NOT NULL,
+    structure TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (creator, collection)
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

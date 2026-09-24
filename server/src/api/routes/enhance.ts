@@ -13,6 +13,8 @@ import type { EnhanceStatusDto } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import {
   FIX_BATCH,
+  LEVEL_BATCH,
+  runLevels,
   applySuggestion,
   dismissSuggestion,
   listSuggestions,
@@ -27,6 +29,7 @@ import { targetFor } from '../../ai/connection.js';
 import { ImageFetchError } from '../../ai/fetchImage.js';
 import { AiError, WEB_SEARCH } from '../../ai/providers.js';
 import { libraryDto } from '../../library/queries.js';
+import { setLevels, setSeriesStructure, setStructures } from '../../library/levels.js';
 
 const FILE = /^[0-9a-f]{20}\.webp$/;
 
@@ -70,6 +73,13 @@ export function registerEnhanceRoutes(app: FastifyInstance, ctx: AppContext): vo
       webSearch: target ? WEB_SEARCH[target.provider] : false,
       items: items.length,
       batches: Math.max(1, Math.ceil(items.length / FIX_BATCH)),
+      levelBatches: Math.max(1, Math.ceil(items.length / LEVEL_BATCH)),
+      levels: {
+        set: items.filter((i) => i.level).length,
+        byName: items.filter((i) => i.levelSource === 'name').length,
+        byAi: items.filter((i) => i.levelSource === 'ai').length,
+        byYou: items.filter((i) => i.levelSource === 'manual').length,
+      },
       pending: Object.fromEntries(counts.map((c) => [c.kind, c.n])),
       aboutIds: (db.prepare('SELECT item_id FROM item_about').all() as { item_id: string }[]).map(
         (r) => r.item_id,
@@ -88,6 +98,61 @@ export function registerEnhanceRoutes(app: FastifyInstance, ctx: AppContext): vo
     } catch (err) {
       return fail(err, reply);
     }
+  });
+
+  app.post('/api/ai/library/levels', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const body = z.object({ batch: z.number().int().min(1).max(1000) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'batch required' });
+    const c = enhanceCtx(req.user!.id);
+    if (!c) return reply.code(400).send({ error: 'Set up AI first.' });
+    try {
+      return await runLevels(c, req.user!.id, body.data.batch);
+    } catch (err) {
+      return fail(err, reply);
+    }
+  });
+
+  // An admin's level for recordings (a series at once, too); null gives it back.
+  app.put('/api/admin/items/level', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const body = z
+      .object({
+        ids: z.array(z.string().min(1).max(64)).min(1).max(500),
+        level: z.enum(['beginner', 'intermediate', 'advanced', 'all']).nullable(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'ids and level required' });
+    setLevels(db, body.data.ids, body.data.level);
+    return { ok: true };
+  });
+
+  app.put('/api/admin/items/structure', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const body = z
+      .object({
+        ids: z.array(z.string().min(1).max(64)).min(1).max(500),
+        structure: z.enum(['programme', 'pack']).nullable(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'ids and structure required' });
+    setStructures(db, body.data.ids, body.data.structure);
+    return { ok: true };
+  });
+
+  app.put('/api/admin/series/structure', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const body = z
+      .object({
+        creator: z.string().min(1).max(200),
+        collection: z.string().min(1).max(400),
+        structure: z.enum(['programme', 'pack']).nullable(),
+      })
+      .safeParse(req.body);
+    if (!body.success)
+      return reply.code(400).send({ error: 'creator, collection and structure required' });
+    setSeriesStructure(db, body.data.creator, body.data.collection, body.data.structure);
+    return { ok: true };
   });
 
   app.post('/api/ai/library/about', async (req, reply) => {

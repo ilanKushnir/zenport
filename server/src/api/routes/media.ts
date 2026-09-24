@@ -102,8 +102,11 @@ export function registerMediaRoutes(app: FastifyInstance, ctx: AppContext): void
     const { id } = req.params as { id: string };
     const q = req.query as { download?: string };
     const row = db
-      .prepare('SELECT root_id, rel_path, ext, kind, name, missing FROM assets WHERE id = ?')
-      .get(id) as
+      .prepare(
+        `SELECT root_id, rel_path, ext, kind, name, missing FROM assets WHERE id = ?
+         UNION ALL SELECT root_id, rel_path, ext, 'document', name, missing FROM folder_docs WHERE id = ?`,
+      )
+      .get(id, id) as
       | {
           root_id: number;
           rel_path: string;
@@ -149,9 +152,10 @@ export function registerMediaRoutes(app: FastifyInstance, ctx: AppContext): void
     const row = db
       .prepare(
         `SELECT root_id, rel_path, ext, size_bytes, missing FROM assets
-         WHERE id = ? AND kind = 'document'`,
+         WHERE id = ? AND kind = 'document'
+         UNION ALL SELECT root_id, rel_path, ext, size_bytes, missing FROM folder_docs WHERE id = ?`,
       )
-      .get(id) as
+      .get(id, id) as
       | { root_id: number; rel_path: string; ext: string; size_bytes: number; missing: number }
       | undefined;
     if (!row || row.missing) return reply.code(404).send({ error: 'document not found' });

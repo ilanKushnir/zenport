@@ -3,7 +3,7 @@ import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FolderNodeDto, ScanStateDto } from '@zenport/shared';
 import type { Db } from '../db/index.js';
-import { inferLibrary, type InferredTrack } from '../library/infer.js';
+import { inferLibrary, looseDocuments, type InferredTrack } from '../library/infer.js';
 import { inferContentType, inferTrackRole } from '../library/contentType.js';
 import { extractEmbeddedArt } from './artwork.js';
 import { fingerprintFile, inPool } from './fingerprint.js';
@@ -187,6 +187,7 @@ export async function runScan(
   const passes: {
     root: ScanRoot;
     items: ReturnType<typeof inferLibrary>;
+    loose: ReturnType<typeof looseDocuments>;
     files: Map<string, WalkedFile>;
   }[] = [];
   for (const root of roots) {
@@ -206,9 +207,12 @@ export async function runScan(
     const exclusions = loadExclusions(db, root.id);
     excludedByRoot.set(root.id, exclusions);
     folderTrees.set(root.id, buildFolderTree(walk.files, root.label, exclusions));
+    const kept = walk.files.filter((f) => !underAny(f.relPath, exclusions));
+    const inferred = inferLibrary(kept);
     passes.push({
       root,
-      items: inferLibrary(walk.files.filter((f) => !underAny(f.relPath, exclusions))),
+      items: inferred,
+      loose: looseDocuments(kept, inferred),
       files: new Map(walk.files.map((f) => [f.relPath, f])),
     });
   }
@@ -356,6 +360,35 @@ export async function runScan(
   };
 
   // ── 4. Persist, root by root.
+  for (const { root, loose } of passes) {
+    // Documents of folders (a creator's, a series'): what is here now, and
+    // what is no longer.
+    db.exec('BEGIN');
+    try {
+      db.prepare('UPDATE folder_docs SET missing = 1 WHERE root_id = ?').run(root.id);
+      const put = db.prepare(
+        `INSERT INTO folder_docs (id, root_id, folder, rel_path, name, ext, size_bytes, missing)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+         ON CONFLICT(root_id, rel_path) DO UPDATE SET folder = excluded.folder,
+           name = excluded.name, ext = excluded.ext, size_bytes = excluded.size_bytes, missing = 0`,
+      );
+      for (const d of loose) {
+        put.run(
+          sid(`folderdoc:${root.id}:${d.relPath}`),
+          root.id,
+          d.folder,
+          d.relPath,
+          d.name,
+          d.ext,
+          d.sizeBytes,
+        );
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+  }
   for (const { root, items } of passes) {
     const ids = items.map((item) => itemIdentity(root.id, item));
 
@@ -586,6 +619,7 @@ export async function runScan(
     db.prepare(`UPDATE items SET missing = 1, excluded = 1 WHERE root_id ${notIn}`).run(...rootIds);
     db.prepare(`UPDATE tracks SET missing = 1 WHERE root_id ${notIn}`).run(...rootIds);
     db.prepare(`UPDATE assets SET missing = 1 WHERE root_id ${notIn}`).run(...rootIds);
+    db.prepare(`UPDATE folder_docs SET missing = 1 WHERE root_id ${notIn}`).run(...rootIds);
     db.prepare(
       `UPDATE assets SET missing = 1 WHERE root_id = ? AND item_id IN (SELECT id FROM items WHERE root_id ${notIn})`,
     ).run(EMBEDDED_ROOT_ID, ...rootIds);

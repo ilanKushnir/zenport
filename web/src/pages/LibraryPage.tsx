@@ -19,17 +19,30 @@ import {
   type ContinueEntry,
 } from '../components/Shelves.tsx';
 import {
+  displayName,
   groupSeries,
+  isFinished,
+  LEVEL_SHORT,
+  levelRank,
   progressLabel,
+  seriesLevel,
   seriesPath,
+  seriesStructure,
   TYPE_META,
   TYPES,
   type Series,
 } from '../content.ts';
 
-type SortKey = 'creator' | 'title' | 'recent' | 'duration';
+type SortKey = 'creator' | 'title' | 'recent' | 'duration' | 'level';
 
-export function MedCard({ item }: { item: MeditationSummaryDto }) {
+export function MedCard({
+  item,
+  inCreator,
+}: {
+  item: MeditationSummaryDto;
+  /** On its creator's page: a clean title, its series (not its creator) beneath. */
+  inCreator?: boolean;
+}) {
   const { isFavorite, toggleFavorite } = usePrefs();
   const offline = useOffline();
   const starred = isFavorite(item.id);
@@ -37,8 +50,16 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
     <Link className="med-card" to={`/m/${item.id}`}>
       <div className="card-art">
         <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
-        <CardBadges type={item.type} video={item.hasVideo} />
-        <CardProgress done={item.completedCount} total={item.trackCount} />
+        <CardBadges
+          type={item.type}
+          video={item.hasVideo}
+          shape={item.structure && item.structure !== 'single' ? item.structure : null}
+        />
+        {item.trackCount > 1 && isFinished(item) ? (
+          <CardDone />
+        ) : (
+          <CardProgress done={item.completedCount} total={item.trackCount} />
+        )}
         {offline.ids.has(item.id) && (
           <span className="card-offline" title="On this device - plays offline">
             <Icon name="on-device" size={13} />
@@ -71,9 +92,16 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
       >
         <Icon name="heart" size={16} />
       </button>
-      <div className="t">{item.title}</div>
+      <div className="t">{inCreator ? displayName(item.title) : item.title}</div>
       <div className="c">
-        {item.creator}
+        {inCreator && item.level && (
+          <span className={`lvl lvl-${item.level}`}>{LEVEL_SHORT[item.level]}</span>
+        )}
+        {inCreator
+          ? item.collection
+            ? displayName(item.collection)
+            : TYPE_META[item.type].label
+          : item.creator}
         {item.totalDurationSec ? ` · ${formatDuration(item.totalDurationSec)}` : ''}
       </div>
     </Link>
@@ -81,15 +109,39 @@ export function MedCard({ item }: { item: MeditationSummaryDto }) {
 }
 
 /** Type pill (and a video mark) over a cover's corner. Meditation, the default, goes unlabelled. */
-export function CardBadges({ type, video }: { type: ContentType; video: boolean }) {
-  if (type === 'meditation' && !video) return null;
+/** How several meditations are meant: in order, or any order. */
+export type Shape = 'programme' | 'pack' | 'collection';
+export const SHAPE_LABEL: Record<Shape, string> = {
+  programme: 'Programme',
+  pack: 'Pack',
+  collection: 'Collection',
+};
+
+export function CardBadges({
+  type,
+  video,
+  shape,
+}: {
+  type: ContentType;
+  video: boolean;
+  shape?: Shape | null;
+}) {
+  const showShape = !!shape && (type === 'meditation' || type === 'soundscape');
+  if (type === 'meditation' && !video && !showShape) return null;
   return (
     <span className="card-badges" aria-hidden="true">
-      {type !== 'meditation' && (
-        <span className={`card-badge t-${type}`}>
-          <Icon name={TYPE_META[type].icon} size={13} />
-          {TYPE_META[type].label}
+      {showShape ? (
+        <span className={`card-badge s-${shape}`}>
+          <Icon name={shape === 'programme' ? 'sprout' : 'grid'} size={13} />
+          {SHAPE_LABEL[shape]}
         </span>
+      ) : (
+        type !== 'meditation' && (
+          <span className={`card-badge t-${type}`}>
+            <Icon name={TYPE_META[type].icon} size={13} />
+            {TYPE_META[type].label}
+          </span>
+        )
       )}
       {video && (
         <span className="card-badge card-badge-video" title="Video">
@@ -110,23 +162,55 @@ export function CardProgress({ done, total }: { done: number; total: number }) {
 }
 
 /** A series (course modules, a meditation programme) as one card. */
-export function SeriesCard({ series }: { series: Series }) {
+export function SeriesCard({
+  series,
+  inCreator,
+  structure,
+}: {
+  series: Series;
+  inCreator?: boolean;
+  /** Programme or collection (an admin's word may differ from the names'). */
+  structure?: 'programme' | 'pack';
+}) {
+  const shape: Shape =
+    (structure ?? seriesStructure(series)) === 'programme' ? 'programme' : 'collection';
   const m = TYPE_META[series.type];
   const progress = progressLabel(series.completedCount, series.trackCount, series.type);
+  const level = seriesLevel(series.items);
+  const done = isFinished(series);
+  const count = `${series.items.length} ${series.type === 'course' ? 'modules' : 'parts'}`;
   return (
     <Link className="med-card series-card" to={seriesPath(series.creator, series.name)}>
       <div className="card-art">
         <div className="series-stack" aria-hidden="true" />
         <Cover coverId={series.coverId} title={series.name} creator={series.creator} />
-        <CardBadges type={series.type} video={series.hasVideo} />
-        <CardProgress done={series.completedCount} total={series.trackCount} />
+        <CardBadges type={series.type} video={series.hasVideo} shape={shape} />
+        {done ? (
+          <CardDone />
+        ) : (
+          <CardProgress done={series.completedCount} total={series.trackCount} />
+        )}
       </div>
-      <div className="t">{series.name}</div>
+      <div className="t">{inCreator ? displayName(series.name) : series.name}</div>
       <div className="c">
-        {progress ??
-          `${series.items.length} ${series.type === 'course' ? 'modules' : m.plural.toLowerCase()} · ${series.creator}`}
+        {level && <span className={`lvl lvl-${level}`}>{LEVEL_SHORT[level]}</span>}
+        {done
+          ? 'Done'
+          : (progress ??
+            (inCreator
+              ? count
+              : `${series.items.length} ${series.type === 'course' ? 'modules' : m.plural.toLowerCase()} · ${series.creator}`))}
       </div>
     </Link>
+  );
+}
+
+/** Every part done: a quiet check on the artwork. */
+export function CardDone() {
+  return (
+    <span className="card-done" title="Done">
+      <Icon name="check" size={14} /> Done
+    </span>
   );
 }
 
@@ -275,6 +359,10 @@ export function LibraryPage() {
         break;
       case 'duration':
         out = [...out].sort((a, b) => (b.totalDurationSec ?? -1) - (a.totalDurationSec ?? -1));
+        break;
+      case 'level':
+        // Beginner first; within a level, the library's own order.
+        out = [...out].sort((a, b) => levelRank(a.level) - levelRank(b.level));
         break;
       default:
         break; // server order is creator/title already
@@ -580,6 +668,7 @@ export function LibraryPage() {
                 <option value="title">By title</option>
                 <option value="recent">Recently added</option>
                 <option value="duration">Longest first</option>
+                <option value="level">By level, beginner first</option>
               </select>
             </div>
 
@@ -633,13 +722,21 @@ export function LibraryPage() {
                     {view === 'grid' ? (
                       <div className="card-grid shelf">
                         {grouped.series.map((sr) => (
-                          <SeriesCard key={sr.key} series={sr} />
+                          <SeriesCard
+                            key={sr.key}
+                            series={sr}
+                            structure={seriesStructure(sr, lib.data?.seriesStructures)}
+                          />
                         ))}
                       </div>
                     ) : (
                       <div className="med-rows shelf">
                         {grouped.series.map((sr) => (
-                          <SeriesRow key={sr.key} series={sr} />
+                          <SeriesRow
+                            key={sr.key}
+                            series={sr}
+                            structure={seriesStructure(sr, lib.data?.seriesStructures)}
+                          />
                         ))}
                       </div>
                     )}

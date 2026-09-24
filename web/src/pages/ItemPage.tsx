@@ -186,7 +186,9 @@ export function ItemPage() {
                 {item.documentCount} note{item.documentCount === 1 ? '' : 's'}
               </span>
             ) : null}
-            {item.about?.level ? <span>{LEVEL_LABEL[item.about.level]}</span> : null}
+            {item.level ? <span>{LEVEL_LABEL[item.level]}</span> : null}
+            {!learning && item.structure === 'programme' ? <span>In order</span> : null}
+            {!learning && item.structure === 'pack' ? <span>Any order</span> : null}
           </p>
           {item.about && <ItemAbout about={item.about} />}
 
@@ -250,6 +252,35 @@ export function ItemPage() {
                     ? 'Video'
                     : 'Audio'}
               </h2>
+              {!reordering && user?.role === 'admin' && !learning && item.tracks.length > 1 && (
+                <select
+                  className="structure-pick"
+                  aria-label="Programme or pack"
+                  value={item.structureSource === 'manual' ? item.structure : ''}
+                  onChange={(e) => {
+                    void api
+                      .put('/api/admin/items/structure', {
+                        ids: [item.id],
+                        structure: e.target.value || null,
+                      })
+                      .then(() => {
+                        detail.reload();
+                        lib.reload();
+                      })
+                      .catch(() => {});
+                  }}
+                >
+                  <option value="">
+                    {item.structure === 'programme'
+                      ? 'Programme (auto)'
+                      : item.structure === 'pack'
+                        ? 'Pack (auto)'
+                        : 'Automatic'}
+                  </option>
+                  <option value="programme">Programme - in order</option>
+                  <option value="pack">Pack - any order</option>
+                </select>
+              )}
               {reordering ? null : user?.role === 'admin' && item.tracks.length > 1 ? (
                 <button
                   type="button"
@@ -584,7 +615,7 @@ function AddToPlanSheet({ meditationId, onClose }: { meditationId: string; onClo
   );
 }
 
-function DocReaderSheet({ doc, onClose }: { doc: DocumentDto; onClose: () => void }) {
+export function DocReaderSheet({ doc, onClose }: { doc: DocumentDto; onClose: () => void }) {
   const isText = doc.kind === 'text' || doc.kind === 'markdown';
   const text = useApi<{ kind: string; content: string }>(
     isText ? `/api/media/doc/${doc.id}/text` : null,

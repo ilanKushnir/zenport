@@ -107,6 +107,14 @@ function fakeOpenAi(): AiClient {
           ],
         };
       }
+      if (schemaName === 'zenport_levels') {
+        // Every handle that is not fixed: intermediate.
+        return {
+          items: [...user.matchAll(/^(i\d+) \|.*$/gm)]
+            .filter((m) => !m[0].includes('[fixed'))
+            .map((m) => ({ handle: m[1], level: 'intermediate', reason: 'Builds on basics.' })),
+        };
+      }
       if (schemaName === 'zenport_sit') {
         return {
           title: '"Softening the Evening"',
@@ -2683,5 +2691,189 @@ describe('Made for you', () => {
         })
       ).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('Levels', () => {
+  it('reads them from names, lets the AI set the rest, and an admin decide', async () => {
+    for (const rel of [
+      'Tomas Reyes/River Practice (ADV)/one.mp3',
+      'Tomas Reyes/Breath Basics/one.mp3',
+      'Tomas Reyes/Evening Sit/one.mp3',
+      'Tomas Reyes/Morning Sit/one.mp3',
+    ]) {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'l'.repeat(300)}`);
+    }
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const levels = async () =>
+      Object.fromEntries(
+        (
+          (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json()
+            .items as { title: string; level: string | null; levelSource: string | null }[]
+        )
+          .filter((i) => /River|Basics|Sit$/.test(i.title))
+          .map((i) => [i.title, `${i.level}/${i.levelSource}`]),
+      );
+    expect(await levels()).toMatchObject({
+      'River Practice (ADV)': 'advanced/name',
+      'Breath Basics': 'beginner/name',
+      'Evening Sit': 'null/null',
+    });
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    const status = (
+      await app.inject({ method: 'GET', url: '/api/ai/library/status', headers: auth() })
+    ).json();
+    const run = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/ai/library/levels',
+        headers: auth(),
+        payload: { batch: 1 },
+      })
+    ).json();
+    expect(run.batches).toBe(status.levelBatches);
+    expect(lastPrompt).toContain('[fixed: advanced]');
+    const after = await levels();
+    expect(after['Evening Sit']).toBe('intermediate/ai');
+    // What a name says, the AI does not overrule.
+    expect(after['River Practice (ADV)']).toBe('advanced/name');
+
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const evening = lib.items.find((i: { title: string }) => i.title === 'Evening Sit');
+    const river = lib.items.find((i: { title: string }) => i.title === 'River Practice (ADV)');
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/items/level',
+      headers: auth(),
+      payload: { ids: [evening.id, river.id], level: 'beginner' },
+    });
+    expect(await levels()).toMatchObject({
+      'Evening Sit': 'beginner/manual',
+      'River Practice (ADV)': 'beginner/manual',
+    });
+    // A later AI run leaves an admin's choice alone.
+    await app.inject({
+      method: 'POST',
+      url: '/api/ai/library/levels',
+      headers: auth(),
+      payload: { batch: 1 },
+    });
+    expect((await levels())['Evening Sit']).toBe('beginner/manual');
+    // Given back: the name speaks again.
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/items/level',
+      headers: auth(),
+      payload: { ids: [river.id], level: null },
+    });
+    expect((await levels())['River Practice (ADV)']).toBe('advanced/name');
+  });
+});
+
+describe('Folder documents', () => {
+  it('keeps a creator’s and a series’ guides, and serves them like any document', async () => {
+    for (const rel of [
+      'Tomas Reyes/Manual.pdf',
+      'Tomas Reyes/Wave One/Wave One Guide.pdf',
+      'Tomas Reyes/Wave One/Part 1/a.mp3',
+      'Tomas Reyes/Wave One/Part 2/b.mp3',
+      'Tomas Reyes/Evening/c.mp3',
+    ]) {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'d'.repeat(300)}`);
+    }
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    const docs = lib.folderDocs as {
+      creator: string;
+      collection: string | null;
+      label: string | null;
+      docs: { id: string; name: string }[];
+    }[];
+    const creatorLevel = docs.find((d) => d.creator === 'Tomas Reyes' && !d.collection);
+    const seriesLevel = docs.find((d) => d.collection === 'Wave One');
+    expect(creatorLevel?.docs.map((d) => d.name)).toEqual(['Manual.pdf']);
+    expect(creatorLevel?.label).toBeNull();
+    expect(seriesLevel?.docs.map((d) => d.name)).toEqual(['Wave One Guide.pdf']);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/media/asset/${creatorLevel!.docs[0]!.id}`,
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('pdf');
+
+    // Gone from the folder: gone from the page.
+    rmSync(path.join(libRoot, 'Tomas Reyes/Manual.pdf'));
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    const after = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json()
+      .folderDocs as { collection: string | null; creator: string }[];
+    expect(after.some((d) => d.creator === 'Tomas Reyes' && !d.collection)).toBe(false);
+  });
+});
+
+describe('Programme or pack', () => {
+  it('reads it from the parts’ names, and lets an admin say otherwise', async () => {
+    for (const rel of [
+      'Tomas Reyes/Calm Start/Calm Start Day 1.mp3',
+      'Tomas Reyes/Calm Start/Calm Start Day 2.mp3',
+      'Tomas Reyes/Calm Start/Calm Start Day 3.mp3',
+      'Tomas Reyes/Everyday/On Eating.mp3',
+      'Tomas Reyes/Everyday/On Sleep.mp3',
+      'Tomas Reyes/Everyday/On Walking.mp3',
+    ]) {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'s'.repeat(300)}`);
+    }
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const read = async () => {
+      const lib = (
+        await app.inject({ method: 'GET', url: '/api/library', headers: auth() })
+      ).json();
+      const by = (t: string) => lib.items.find((i: { title: string }) => i.title === t);
+      return { lib, calm: by('Calm Start'), every: by('Everyday') };
+    };
+    const { calm, every } = await read();
+    expect(calm).toMatchObject({ structure: 'programme', structureSource: 'name' });
+    expect(every).toMatchObject({ structure: 'pack', structureSource: 'name' });
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/items/structure',
+      headers: auth(),
+      payload: { ids: [every.id], structure: 'programme' },
+    });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/series/structure',
+      headers: auth(),
+      payload: { creator: 'Tomas Reyes', collection: 'Waves', structure: 'pack' },
+    });
+    const after = await read();
+    expect(after.every).toMatchObject({ structure: 'programme', structureSource: 'manual' });
+    expect(after.lib.seriesStructures).toEqual([
+      { creator: 'Tomas Reyes', collection: 'Waves', structure: 'pack' },
+    ]);
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/items/structure',
+      headers: auth(),
+      payload: { ids: [every.id], structure: null },
+    });
+    expect((await read()).every.structureSource).toBe('name');
   });
 });

@@ -24,7 +24,17 @@ import { api } from '../api.ts';
 import { usePlayer } from '../player/PlayerProvider.tsx';
 import { usePrefs } from '../prefs.tsx';
 import { useOffline } from '../offline.ts';
-import { progressLabel, seriesPath, TYPE_META, type Series } from '../content.ts';
+import {
+  displayName,
+  isFinished,
+  LEVEL_SHORT,
+  progressLabel,
+  seriesLevel,
+  seriesPath,
+  seriesStructure,
+  TYPE_META,
+  type Series,
+} from '../content.ts';
 import { Cover, Icon } from './ui.tsx';
 
 // ── Rail ───────────────────────────────────────────────────────────────────
@@ -242,7 +252,7 @@ export function CreatorBubble({ creator }: { creator: CreatorDto }) {
 
 // ── List view ──────────────────────────────────────────────────────────────
 
-export function MedRow({ item }: { item: MeditationSummaryDto }) {
+export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCreator?: boolean }) {
   const { isFavorite, toggleFavorite } = usePrefs();
   const offline = useOffline();
   const starred = isFavorite(item.id);
@@ -255,9 +265,12 @@ export function MedRow({ item }: { item: MeditationSummaryDto }) {
         <Cover coverId={item.coverId} title={item.title} creator={item.creator} />
       </span>
       <span className="med-row-text">
-        <span className="med-row-title">{item.title}</span>
+        <span className="med-row-title">{inCreator ? displayName(item.title) : item.title}</span>
         <span className="sub">
-          {item.creator}
+          {inCreator && item.level && (
+            <span className={`lvl lvl-${item.level}`}>{LEVEL_SHORT[item.level]}</span>
+          )}
+          {inCreator ? (item.collection ? displayName(item.collection) : meta.label) : item.creator}
           {item.totalDurationSec ? ` · ${formatDuration(item.totalDurationSec)}` : ''}
           {item.trackCount > 1 ? ` · ${item.trackCount} ${meta.parts}` : ''}
         </span>
@@ -268,10 +281,17 @@ export function MedRow({ item }: { item: MeditationSummaryDto }) {
         )}
       </span>
       <span className="med-row-meta">
-        <span className={`med-row-type t-${item.type}`}>
-          <Icon name={meta.icon} size={13} />
-          <span>{meta.label}</span>
-        </span>
+        {item.structure && item.structure !== 'single' && isPracticeType(item.type) ? (
+          <span className={`med-row-type s-${item.structure}`}>
+            <Icon name={item.structure === 'programme' ? 'sprout' : 'grid'} size={13} />
+            <span>{item.structure === 'programme' ? 'Programme' : 'Pack'}</span>
+          </span>
+        ) : (
+          <span className={`med-row-type t-${item.type}`}>
+            <Icon name={meta.icon} size={13} />
+            <span>{meta.label}</span>
+          </span>
+        )}
         {item.hasVideo && <Icon name="video" size={14} />}
         {offline.ids.has(item.id) && (
           <span className="med-row-offline" title="Saved offline">
@@ -302,26 +322,55 @@ export function MedRow({ item }: { item: MeditationSummaryDto }) {
   );
 }
 
-export function SeriesRow({ series }: { series: Series }) {
+export function SeriesRow({
+  series,
+  inCreator,
+  structure,
+}: {
+  series: Series;
+  inCreator?: boolean;
+  structure?: 'programme' | 'pack';
+}) {
   const meta = TYPE_META[series.type];
   const progress = progressLabel(series.completedCount, series.trackCount, series.type);
+  const programme = (structure ?? seriesStructure(series)) === 'programme';
+  const level = seriesLevel(series.items);
+  const done = isFinished(series);
   return (
     <Link className="med-row" to={seriesPath(series.creator, series.name)}>
       <span className="med-row-cover stacked">
         <Cover coverId={series.coverId} title={series.name} creator={series.creator} />
       </span>
       <span className="med-row-text">
-        <span className="med-row-title">{series.name}</span>
+        <span className="med-row-title">{inCreator ? displayName(series.name) : series.name}</span>
         <span className="sub">
-          {series.creator} · {series.items.length}{' '}
-          {series.type === 'course' ? 'modules' : meta.plural.toLowerCase()}
-          {progress ? ` · ${progress}` : ''}
+          {inCreator && level && <span className={`lvl lvl-${level}`}>{LEVEL_SHORT[level]}</span>}
+          {inCreator ? '' : `${series.creator} · `}
+          {series.items.length} {series.type === 'course' ? 'modules' : 'parts'}
+          {done ? ' · Done' : progress ? ` · ${progress}` : ''}
         </span>
+        {series.completedCount > 0 && !done && (
+          <span className="med-row-bar" aria-hidden="true">
+            <span
+              style={{
+                inlineSize: `${Math.round((series.completedCount / series.trackCount) * 100)}%`,
+              }}
+            />
+          </span>
+        )}
       </span>
       <span className="med-row-meta">
-        <span className={`med-row-type t-${series.type}`}>
-          <Icon name="list" size={13} />
-          <span>Series</span>
+        <span className={`med-row-type ${programme ? 's-programme' : 's-collection'}`}>
+          <Icon name={done ? 'check-circle' : programme ? 'sprout' : 'grid'} size={13} />
+          <span>
+            {done
+              ? 'Done'
+              : series.type === 'course'
+                ? meta.label
+                : programme
+                  ? 'Programme'
+                  : 'Collection'}
+          </span>
         </span>
       </span>
       <Icon name="chevron-right" size={16} />

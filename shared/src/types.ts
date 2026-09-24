@@ -174,7 +174,23 @@ export interface MeditationSummaryDto {
    */
   practiceCount: number;
   lastPracticedAt: string | null;
+  /** Who it suits: set by an admin, read from its name ("(ADV)"), researched, or the AI's. */
+  level?: ItemLevel | null;
+  levelSource?: LevelSource | null;
+  /** One part; several meant in order (programme); or several in any order (pack). */
+  structure?: Structure;
+  structureSource?: StructureSource | null;
 }
+
+import type { Structure, StructureSource } from './structure.js';
+export type LevelSource = 'manual' | 'name' | 'research' | 'ai';
+/** Beginner first; "every level" sits with beginners, unknown in the middle. */
+export const LEVEL_ORDER: Record<ItemLevel, number> = {
+  beginner: 0,
+  all: 1,
+  intermediate: 2,
+  advanced: 3,
+};
 
 /** Minutes a meditation's place is kept for an accidental exit; courses keep theirs. */
 export const PRACTICE_RESUME_MINUTES = 10;
@@ -216,6 +232,10 @@ export interface CreatorDto {
 export interface LibraryDto {
   items: MeditationSummaryDto[];
   creators: CreatorDto[];
+  /** Guides and notes that belong to a creator or series rather than one recording. */
+  folderDocs?: FolderDocsDto[];
+  /** Series an admin marked a programme or a collection, against what the names say. */
+  seriesStructures?: { creator: string; collection: string; structure: 'programme' | 'pack' }[];
   scan: ScanStateDto;
   /** Set aside from this account's Continue row: 'item:<id>' or 'series:<creator>\u001f<series>'. */
   continueHidden: string[];
@@ -983,6 +1003,9 @@ export interface EnhanceStatusDto {
   items: number;
   /** How many calls a full check for fixes takes. */
   batches: number;
+  /** How many calls setting every level takes, and where levels stand. */
+  levelBatches: number;
+  levels: { set: number; byName: number; byAi: number; byYou: number };
   pending: Partial<Record<SuggestionKind, number>>;
   /** Recordings that already have a description. */
   aboutIds: string[];
@@ -1198,4 +1221,14 @@ export interface SitsDto {
   /** Something to speak them with: an OpenAI key, own or shared. */
   canSpeak: boolean;
   sits: SitDto[];
+}
+
+/** Documents of a folder that holds no audio itself: a creator's or a series' guides. */
+export interface FolderDocsDto {
+  creator: string;
+  /** Set when everything under the folder is one series. */
+  collection: string | null;
+  /** The folder's own name, when it is not the creator's top folder. */
+  label: string | null;
+  docs: DocumentDto[];
 }

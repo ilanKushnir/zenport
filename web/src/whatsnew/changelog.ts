@@ -25,6 +25,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.31.0',
+    items: [
+      {
+        emoji: '🧭',
+        text: 'Creators are walked in order now: your next step first, programmes easier first, then packs - in a grid or a list.',
+      },
+      {
+        emoji: '🌱',
+        text: 'Every recording can have a level, and several meditations are a programme (in order) or a pack (any order).',
+      },
+      {
+        emoji: '📘',
+        text: 'Manuals and guides in a creator’s or series’ folder now show on its page.',
+      },
+    ],
+  },
+  {
     version: '0.30.1',
     items: [
       {

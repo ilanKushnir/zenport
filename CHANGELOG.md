@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-09-24
+
+### Added
+
+- **Levels for everything.** Every recording can be beginner, intermediate, advanced or for every level. Names are read first ("(ADV)", "Advanced", "Basics", "Beginners", "Level 2"), then approved research, then the AI. Under Enhance the library → **Levels**, one run sets the rest in parts, and you can change any recording, or a whole series or folder, at once. Your choice always wins. The Library can sort **By level, beginner first**, and cards show the level on a creator's page.
+- **Programmes and packs.** Several meditations are either a **programme** (in order, each part building on the last) or a **pack** or collection (any order). It is read from the parts' names (numbered days, parts, weeks, waves), not counting introductions and closings, so an introduction plus one meditation stays one meditation. The AI confirms it in the Levels run, and admins can set it on a recording's or series' page. Cards and rows are tagged Programme, Pack or Collection.
+- **A creator's page, walked in order.** It opens with **your next step**: the programme you are in, or the first one to begin, with Continue. Then come programmes (easier first; numbered ones like "Series 1" before "Series 2"; "1." prefixes honoured and hidden), then packs and collections, then each shelf of collections, then single recordings by kind. You can filter by level and switch between grid and list.
+- **Done, for whole series.** A series or programme whose every part is finished shows **Done** on its card, row and page.
+- **Guides and notes for creators and series.** Documents in a creator's or series' own folder, like manuals and study guides beside the recordings, are kept and shown on that page to read or download. Previously they were skipped.
+
 ## [0.30.1] — 2026-09-24
 
 ### Changed

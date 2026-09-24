@@ -723,3 +723,124 @@ export async function setCreatorImage(
 export function removeCreatorImage(db: Db, name: string): void {
   db.prepare('DELETE FROM creator_images WHERE name = ?').run(name);
 }
+
+// ── Levels ────────────────────────────────────────────────────────────────
+
+export const LEVEL_BATCH = 40;
+
+const LEVEL_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['items'],
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['handle', 'level', 'structure', 'reason'],
+        properties: {
+          handle: { type: 'string' },
+          level: { type: 'string', enum: ['beginner', 'intermediate', 'advanced', 'all'] },
+          structure: {
+            type: 'string',
+            enum: ['programme', 'pack', 'single'],
+            description:
+              'For an item of several parts: programme if meant in order, pack if any order; single for one part.',
+          },
+          reason: { type: 'string', description: 'A few words: why this level.' },
+        },
+      },
+    },
+  },
+} as const;
+
+const LEVEL_SYSTEM = [
+  'You judge the level of each recording in a personal library of meditations, courses and',
+  'talks: who it suits.',
+  '- beginner: introductions, foundations, basics, the first programmes of a sequence, short',
+  '  and fully guided practices for someone new.',
+  '- intermediate: builds on the basics - later programmes of a sequence, longer or less guided',
+  '  sits, deeper themes.',
+  '- advanced: long, lightly guided or unguided, retreat or workshop level, techniques that',
+  '  assume practice; anything the names call advanced.',
+  '- all: suits anyone equally - soundscapes, music, sleep sounds, short talks or tips.',
+  '',
+  'Also say how an item of several parts is meant: a programme (in order, each part building',
+  'on the last - days, parts, weeks, a numbered path) or a pack (a set of meditations to choose',
+  'from in any order). One part - or an introduction and one meditation - is single. Answer',
+  'structure for every handle, fixed or not.',
+  '',
+  'Keep the parts of one series at one level unless they clearly progress; in a numbered',
+  'sequence the earlier ones are easier. Use what you know of these teachers and works where',
+  'you know them. Items marked [fixed] already have a level: keep that level in your answer.',
+].join('\n');
+
+/** The AI's reading of levels, a batch at a time; never over an admin's or a name's. */
+export async function runLevels(
+  ctx: EnhanceCtx,
+  userId: number,
+  batch: number,
+): Promise<EnhanceRunDto> {
+  const all = libraryItems(ctx.db, ctx.config, userId);
+  const batches = Math.max(1, Math.ceil(all.length / LEVEL_BATCH));
+  const b = Math.min(Math.max(1, batch), batches);
+  const slice = all.slice((b - 1) * LEVEL_BATCH, b * LEVEL_BATCH);
+  const handles = new Map<string, (typeof slice)[number]>();
+  const lines = slice.map((i, n) => {
+    const h = `i${n + 1}`;
+    handles.set(h, i);
+    const fixed = i.levelSource === 'manual' || i.levelSource === 'name';
+    const parts =
+      i.trackCount > 1
+        ? (
+            ctx.db
+              .prepare(
+                'SELECT title FROM tracks WHERE item_id = ? AND missing = 0 ORDER BY ord LIMIT 4',
+              )
+              .all(i.id) as { title: string }[]
+          )
+            .map((t) => clip(t.title, 40))
+            .join('; ')
+        : '';
+    return `${h} | ${i.type}${i.hasVideo ? ' (video)' : ''} | ${clip(i.creator, 60)}${i.collection ? ` > ${clip(i.collection, 80)}` : ''} > ${clip(i.title, 100)} | ${i.trackCount} part${i.trackCount === 1 ? '' : 's'}${i.totalDurationSec ? `, ${Math.round(i.totalDurationSec / 60)} min` : ''}${parts ? ` (${parts}${i.trackCount > 4 ? '; …' : ''})` : ''}${fixed ? ` [fixed: ${i.level}]` : ''}`;
+  });
+
+  const raw = (await ctx.ai.chatJson(ctx.target, {
+    system: LEVEL_SYSTEM,
+    user: `Library items (${lines.length}):\n${lines.join('\n')}`,
+    schemaName: 'zenport_levels',
+    schema: LEVEL_SCHEMA as unknown as Record<string, unknown>,
+  })) as { items?: { handle: string; level: string; structure?: string; reason: string }[] };
+  const now = new Date().toISOString();
+  let found = 0;
+  for (const r of raw.items ?? []) {
+    const item = handles.get(r.handle);
+    if (!item) continue;
+    // Programme or pack, for several parts - never over an admin's word.
+    if (item.trackCount > 1 && (r.structure === 'programme' || r.structure === 'pack')) {
+      ctx.db
+        .prepare(
+          `INSERT INTO item_structures (item_id, structure, source, updated_at)
+           VALUES (?, ?, 'ai', ?)
+           ON CONFLICT(item_id) DO UPDATE SET structure = excluded.structure,
+             updated_at = excluded.updated_at
+           WHERE item_structures.source != 'manual'`,
+        )
+        .run(item.id, r.structure, now);
+    }
+    if (item.levelSource === 'manual' || item.levelSource === 'name') continue;
+    if (!['beginner', 'intermediate', 'advanced', 'all'].includes(r.level)) continue;
+    ctx.db
+      .prepare(
+        `INSERT INTO item_levels (item_id, level, source, reason, model, updated_at)
+         VALUES (?, ?, 'ai', ?, ?, ?)
+         ON CONFLICT(item_id) DO UPDATE SET level = excluded.level, reason = excluded.reason,
+           model = excluded.model, updated_at = excluded.updated_at
+         WHERE item_levels.source != 'manual'`,
+      )
+      .run(item.id, r.level, clip(String(r.reason ?? ''), 200), ctx.target.model, now);
+    found++;
+  }
+  return { batch: b, batches, found, notes: [] };
+}

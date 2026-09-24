@@ -1,4 +1,5 @@
 import type {
+  FolderDocsDto,
   ItemLevel,
   CreatorDto,
   LibraryDto,
@@ -18,6 +19,7 @@ import type { Db } from '../db/index.js';
 import type { Config } from '../config.js';
 import { documentKind } from '../scanner/classify.js';
 import { readScanState } from '../scanner/scan.js';
+import { levelOf, structureOf } from './levels.js';
 
 /**
  * How an item's parts are ordered wherever they are listed or played: the
@@ -137,6 +139,8 @@ export function summarize(
       )
       .get(userId, row.id) as { n: number }
   ).n;
+  const { level, levelSource } = levelOf(db, row);
+  const { structure, structureSource } = structureOf(db, row.id);
   return {
     id: row.id,
     title: row.title,
@@ -162,6 +166,10 @@ export function summarize(
       row.id,
       tracks.n > 0 && tracks.unknown === 0 ? tracks.total : null,
     ),
+    level,
+    levelSource,
+    structure,
+    structureSource,
   };
 }
 
@@ -226,6 +234,14 @@ export function libraryDto(db: Db, config: Config, userId: number): LibraryDto {
   for (const c of creators.values()) c.imageUrl = images.get(c.name) ?? null;
   return {
     items,
+    folderDocs: folderDocs(db, rows),
+    seriesStructures: (
+      db.prepare('SELECT creator, collection, structure FROM series_structures').all() as {
+        creator: string;
+        collection: string;
+        structure: 'programme' | 'pack';
+      }[]
+    ).map((r) => ({ ...r })),
     creators: [...creators.values()].sort((a, b) => naturalCompare(a.name, b.name)),
     scan: readScanState(db),
     continueHidden: (
@@ -380,4 +396,51 @@ export function itemDetail(
         : null;
     })(),
   };
+}
+
+/**
+ * Each folder document goes to the creator whose recordings lie under its
+ * folder (the one most of them are by) - and to one series, when everything
+ * under the folder is that series.
+ */
+function folderDocs(db: Db, rows: ItemRow[]): FolderDocsDto[] {
+  const docs = db
+    .prepare(
+      'SELECT id, root_id, folder, name, ext, size_bytes FROM folder_docs WHERE missing = 0 ORDER BY rel_path',
+    )
+    .all() as {
+    id: string;
+    root_id: number;
+    folder: string;
+    name: string;
+    ext: string;
+    size_bytes: number;
+  }[];
+  const live = rows.filter((r) => r.missing !== 1);
+  const out = new Map<string, FolderDocsDto>();
+  for (const d of docs) {
+    const prefix = d.folder ? `${d.folder}/` : '';
+    const under = live.filter((r) => r.root_id === d.root_id && r.item_key.startsWith(prefix));
+    if (under.length === 0 || !d.folder) continue;
+    const by = new Map<string, number>();
+    for (const r of under) by.set(r.creator, (by.get(r.creator) ?? 0) + 1);
+    const creator = [...by.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+    const mine = under.filter((r) => r.creator === creator);
+    const collections = new Set(mine.map((r) => r.collection));
+    const collection = collections.size === 1 ? [...collections][0]! : null;
+    // The creator's top folder needs no label; a folder inside it does.
+    const name = d.folder.split('/').pop() ?? d.folder;
+    const label = collection || !d.folder.includes('/') || name === creator ? null : name;
+    const key = `${creator}\u001f${collection ?? ''}\u001f${d.folder}`;
+    const cur = out.get(key) ?? { creator, collection, label, docs: [] };
+    cur.docs.push({
+      id: d.id,
+      name: d.name,
+      kind: documentKind(d.ext),
+      sizeBytes: d.size_bytes,
+      missing: false,
+    });
+    out.set(key, cur);
+  }
+  return [...out.values()];
 }

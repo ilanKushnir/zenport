@@ -73,6 +73,23 @@ The owner can correct any item - or a whole series - from its page. A correction
 
 **Video.** `mp4`, `m4v`, `webm` and `mov` play as video in the player (with full screen and picture-in-picture); audio always plays through an audio element so it keeps going with the screen locked. `mpg` and `flv` are not playable in a browser and are skipped.
 
+## Programmes, packs and levels
+
+A recording of several parts is one of two things, and a series of several recordings too:
+
+- **Programme** - meant in order, each part building on the last. The parts' names carry their place: _Day 1…10, Part 1…4, Week 2, Wave III, 6 - Rest_, or a run of consecutive numbers (`shared/src/structure.ts`).
+- **Pack** (a **collection**, for a series) - a set to choose from in any order.
+
+Parts that frame the practice rather than being one - an introduction, instructions, an explanation, a welcome, a close - do not count: an introduction and one meditation is one meditation. The AI can say otherwise (Enhance the library → Levels, which judges structure in the same pass), and an admin has the last word on a recording's page or a series' page.
+
+Every recording also has a **level** - beginner, intermediate, advanced or every level (`server/src/library/levels.ts`). The strongest word wins: an admin's choice; then the name, which often says it outright (_(ADV)_, _Advanced_, _Basics_, _Beginners_, _Level 2_); then approved web research; then the AI's reading. A series' level is where it starts - its first part's.
+
+A creator's page is walked in that light: the next step (the programme under way, else the first not begun), then programmes easier first and as numbered (_Series 1_ before _Series 2_), then packs and collections, then each shelf (a folder of several collections), then single recordings by kind.
+
+## Folder documents
+
+Documents in a folder with no audio of its own - a manual in a creator's folder, a study guide at the top of a series - are kept with that folder (`folder_docs`) and shown on the creator's or the series' page as **Guides and notes**. Documents in a recording's own folder (or below it) stay that recording's companion notes.
+
 ## Scan lifecycle
 
 - A scan runs at boot and every `ZP_SCAN_INTERVAL_MINUTES` (0 = off), plus on demand via the **Rescan** button (`POST /api/library/rescan`).

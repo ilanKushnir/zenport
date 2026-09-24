@@ -16,6 +16,7 @@ import type {
   AdminCreatorDto,
   EnhanceRunDto,
   EnhanceStatusDto,
+  ItemLevel,
   LibraryDto,
   MeditationSummaryDto,
   SuggestionDto,
@@ -26,10 +27,10 @@ import { clearApiCache, useApi } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon } from '../components/ui.tsx';
 import { CreatorFace } from '../components/Shelves.tsx';
 import { CreatorEditSheet } from '../components/CreatorsAdmin.tsx';
-import { LEVEL_LABEL, TYPE_META } from '../content.ts';
+import { LEVEL_LABEL, LEVEL_SHORT, TYPE_META } from '../content.ts';
 import { AdminOnly } from './AdminPage.tsx';
 
-type Tab = 'fixes' | 'about' | 'pictures';
+type Tab = 'fixes' | 'levels' | 'about' | 'pictures';
 
 const FIELD_LABEL: Record<SuggestionField, string> = {
   type: 'Type',
@@ -84,7 +85,7 @@ function Enhance() {
   const lib = useApi<LibraryDto>('/api/library');
   const people = useApi<AdminCreatorDto[]>('/api/admin/creators');
   const [params, setParams] = useSearchParams();
-  const tab = (['fixes', 'about', 'pictures'] as Tab[]).includes(params.get('tab') as Tab)
+  const tab = (['fixes', 'levels', 'about', 'pictures'] as Tab[]).includes(params.get('tab') as Tab)
     ? (params.get('tab') as Tab)
     : 'fixes';
   const [gone, setGone] = useState<Set<number>>(new Set());
@@ -126,6 +127,7 @@ function Enhance() {
   const s = status.data;
   const TABS: { key: Tab; label: string; icon: string; n: number }[] = [
     { key: 'fixes', label: 'Fixes', icon: 'pencil', n: byKind.fixes.length },
+    { key: 'levels', label: 'Levels', icon: 'gauge', n: 0 },
     { key: 'about', label: 'About', icon: 'book', n: byKind.about.length },
     { key: 'pictures', label: 'Creator pictures', icon: 'friends', n: byKind.pictures.length },
   ];
@@ -197,6 +199,9 @@ function Enhance() {
           onDecide={decide}
           onFound={refresh}
         />
+      )}
+      {tab === 'levels' && (
+        <LevelsTab status={s} items={lib.data?.items ?? []} onChanged={refresh} />
       )}
       {tab === 'pictures' && (
         <PicturesTab
@@ -910,6 +915,203 @@ function PicturesTab({
             onChanged();
           }}
         />
+      )}
+    </section>
+  );
+}
+
+// ── Levels ────────────────────────────────────────────────────────────────
+
+const SOURCE_LABEL: Record<string, string> = {
+  manual: 'you',
+  name: 'its name',
+  research: 'research',
+  ai: 'AI',
+};
+
+function LevelsTab({
+  status,
+  items,
+  onChanged,
+}: {
+  status: EnhanceStatusDto | null;
+  items: MeditationSummaryDto[];
+  onChanged: () => void;
+}) {
+  const [run, setRun] = useState<EnhanceRunDto | null>(null);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [show, setShow] = useState<'unset' | 'ai' | 'all'>('all');
+  const [q, setQ] = useState('');
+  const stop = useRef(false);
+  const batches = status?.levelBatches ?? 1;
+  const present = items.filter((i) => !i.missing);
+
+  const go = async () => {
+    stop.current = false;
+    setError(null);
+    setRunning(true);
+    let found = 0;
+    setRun({ batch: 0, batches, found: 0, notes: [] });
+    try {
+      for (let b = 1; b <= batches; b++) {
+        if (stop.current) break;
+        const r = await api.post<EnhanceRunDto>('/api/ai/library/levels', { batch: b });
+        found += r.found;
+        setRun({ batch: b, batches: r.batches, found, notes: [] });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The AI could not answer.');
+    } finally {
+      setRunning(false);
+      onChanged();
+    }
+  };
+
+  const set = async (ids: string[], level: ItemLevel | null) => {
+    await api.put('/api/admin/items/level', { ids, level }).catch(() => {});
+    onChanged();
+  };
+
+  const needle = q.trim().toLowerCase();
+  const shown = present.filter(
+    (i) =>
+      (show === 'all' || (show === 'unset' ? !i.level : i.levelSource === 'ai')) &&
+      (!needle || `${i.title} ${i.creator} ${i.collection ?? ''}`.toLowerCase().includes(needle)),
+  );
+  const groups = new Map<string, MeditationSummaryDto[]>();
+  for (const i of shown) {
+    const k = i.collection ? `${i.creator} · ${i.collection}` : i.creator;
+    groups.set(k, [...(groups.get(k) ?? []), i]);
+  }
+  const l = status?.levels;
+
+  return (
+    <section className="enh-panel" aria-label="Levels">
+      <div className="enh-card">
+        <div className="enh-card-text">
+          <h2>Who each recording suits</h2>
+          <p>
+            Beginner, intermediate, advanced - or every level. Names often say it (“(ADV)”,
+            “Basics”, “Level 2”) and those are read as they are; the AI sets the rest from what it
+            knows of each work and its place in a series. Your own choice always wins, and the
+            library can be sorted by level.
+          </p>
+        </div>
+        {l && (
+          <p className="lvl-summary">
+            <strong>
+              {l.set} of {status?.items ?? present.length}
+            </strong>{' '}
+            have a level · {l.byName} from their names · {l.byAi} by the AI · {l.byYou} by you
+          </p>
+        )}
+        <div className="enh-card-actions">
+          {running ? (
+            <button className="btn btn-quiet" onClick={() => (stop.current = true)}>
+              Stop after this part
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary"
+              disabled={!status?.canUse}
+              onClick={() => void go()}
+            >
+              <Icon name="sparkle" size={16} />
+              {l && l.byAi > 0 ? 'Set levels again with AI' : 'Set levels with AI'}
+            </button>
+          )}
+        </div>
+        <RunState run={run} running={running} label="Reading the library" />
+        {error && <p className="enh-err">{error}</p>}
+      </div>
+
+      <div className="enh-pick-tools">
+        <label className="folder-search">
+          <Icon name="search" size={16} />
+          <input
+            type="search"
+            placeholder="Find a recording"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Find a recording"
+          />
+        </label>
+        <div className="view-toggle labelled" role="group" aria-label="Which">
+          <button type="button" aria-pressed={show === 'all'} onClick={() => setShow('all')}>
+            All
+          </button>
+          <button type="button" aria-pressed={show === 'unset'} onClick={() => setShow('unset')}>
+            No level
+          </button>
+          <button type="button" aria-pressed={show === 'ai'} onClick={() => setShow('ai')}>
+            Set by AI
+          </button>
+        </div>
+      </div>
+
+      {shown.length === 0 ? (
+        <p className="enh-empty">Nothing here.</p>
+      ) : (
+        <div className="lvl-groups">
+          {[...groups.entries()].map(([name, list]) => (
+            <div key={name} className="lvl-group">
+              <div className="lvl-group-h">
+                <strong>{name}</strong>
+                {list.length > 1 && (
+                  <select
+                    aria-label={`Set a level for all of ${name}`}
+                    value=""
+                    onChange={(e) =>
+                      e.target.value &&
+                      void set(
+                        list.map((i) => i.id),
+                        (e.target.value === 'auto' ? null : e.target.value) as ItemLevel | null,
+                      )
+                    }
+                  >
+                    <option value="">All of these…</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="all">All levels</option>
+                    <option value="auto">Back to automatic</option>
+                  </select>
+                )}
+              </div>
+              <ul>
+                {list.map((i) => (
+                  <li key={i.id}>
+                    <span className="grow">
+                      <span className="lvl-t">{i.title}</span>
+                      <span className="sub">
+                        {i.level ? `from ${SOURCE_LABEL[i.levelSource ?? 'ai']}` : 'not set'}
+                      </span>
+                    </span>
+                    <select
+                      aria-label={`Level of ${i.title}`}
+                      className={i.level ? `lvl-select lvl-${i.level}` : 'lvl-select'}
+                      value={i.levelSource === 'manual' ? (i.level ?? '') : ''}
+                      onChange={(e) =>
+                        void set([i.id], (e.target.value || null) as ItemLevel | null)
+                      }
+                    >
+                      <option value="">
+                        {i.level && i.levelSource !== 'manual'
+                          ? `${LEVEL_SHORT[i.level]} (auto)`
+                          : 'Automatic'}
+                      </option>
+                      <option value="beginner">Beginner</option>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
+                      <option value="all">All levels</option>
+                    </select>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   );
