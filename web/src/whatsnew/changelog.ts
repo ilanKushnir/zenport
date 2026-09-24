@@ -25,6 +25,10 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.14.1',
+    items: [{ emoji: '🌫️', text: 'Content fades softly behind the tab bar on a phone.' }],
+  },
+  {
     version: '0.14.0',
     items: [
       {

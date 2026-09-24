@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-09-24
+
+### Changed
+
+- **Nothing shows through under the phone's tab bar.** The strip between the floating bar and the bottom of the screen is now the app's own dark background up to the middle of the bar, and above it content dissolves on a soft eased fade as it scrolls into the bar's zone, instead of passing visibly underneath.
+
 ## [0.14.0] — 2026-09-24
 
 ### Added

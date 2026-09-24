@@ -8470,3 +8470,33 @@ span.role-chip {
   background: var(--accent);
   transition: inline-size 150ms linear;
 }
+
+/* Beneath the floating tab bar: solid background from the bottom of the
+   screen to the middle of the bar, then an eased fade to nothing a little
+   above it - so content never shows through the gap under the bar, and
+   dissolves as it scrolls into the bar's zone. */
+.tab-fade {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .tab-fade {
+    --fade-solid: calc(var(--tabbar-gap) + 31px);
+    display: block;
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    block-size: calc(var(--fade-solid) + 64px);
+    z-index: 39;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      var(--bg) 0,
+      var(--bg) var(--fade-solid),
+      color-mix(in oklab, var(--bg) 82%, transparent) calc(var(--fade-solid) + 16px),
+      color-mix(in oklab, var(--bg) 45%, transparent) calc(var(--fade-solid) + 38px),
+      color-mix(in oklab, var(--bg) 12%, transparent) calc(var(--fade-solid) + 56px),
+      transparent 100%
+    );
+  }
+}
