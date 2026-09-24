@@ -160,12 +160,41 @@ export function TrackOrderEditor({
     }
   };
 
+  // The same actions above and below the list: a long series need not be
+  // scrolled to its end to save.
+  const actions = (where: 'top' | 'bottom') => (
+    <div className={`reorder-actions ${where}`}>
+      {item.customOrder && (
+        <button
+          type="button"
+          className="btn btn-sm btn-quiet reorder-auto"
+          onClick={() => void automatic()}
+          disabled={saving}
+        >
+          <Icon name="restart" size={14} /> Automatic order
+        </button>
+      )}
+      <button type="button" className="btn btn-sm btn-quiet" onClick={onClose} disabled={saving}>
+        Cancel
+      </button>
+      <button
+        type="button"
+        className="btn btn-sm btn-primary"
+        onClick={() => void save()}
+        disabled={saving || !changed}
+      >
+        {saving ? 'Saving' : 'Save order'}
+      </button>
+    </div>
+  );
+
   return (
     <div className="reorder">
       <p className="reorder-hint">
         Drag by the grip to arrange the parts - or focus a grip and use the arrow keys. The order
         stays through rescans, and if the files move.
       </p>
+      {actions('top')}
       <ol className={`reorder-list${drag ? ' is-dragging' : ''}`} ref={listRef}>
         {order.map((t, i) => {
           const lifted = drag?.id === t.id;
@@ -221,29 +250,7 @@ export function TrackOrderEditor({
           {error}
         </p>
       )}
-      <div className="reorder-actions">
-        {item.customOrder && (
-          <button
-            type="button"
-            className="btn btn-sm btn-quiet reorder-auto"
-            onClick={() => void automatic()}
-            disabled={saving}
-          >
-            <Icon name="restart" size={14} /> Automatic order
-          </button>
-        )}
-        <button type="button" className="btn btn-sm btn-quiet" onClick={onClose} disabled={saving}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-primary"
-          onClick={() => void save()}
-          disabled={saving || !changed}
-        >
-          {saving ? 'Saving' : 'Save order'}
-        </button>
-      </div>
+      {actions('bottom')}
     </div>
   );
 }

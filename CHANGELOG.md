@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.17.2] — 2026-09-24
+
+### Changed
+
+- *Edit order* has Save order, Cancel and Automatic order above the list as well as below it, so a long series need not be scrolled to its end to save.
+
 ## [0.17.1] — 2026-09-24
 
 ### Fixed
