@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { aiClient, parseJsonText, rankModels } from './providers.js';
+import { aiClient, cleanUrl, parseJsonText, rankModels, stripCitations } from './providers.js';
 
 const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] };
 const req = { system: 'sys', user: 'hi', schemaName: 'answer', schema };
@@ -138,5 +138,19 @@ describe('providers', () => {
     await expect(aiClient.listModels({ provider: 'anthropic', apiKey: 'nope' })).rejects.toThrow(
       'Anthropic did not accept that key.',
     );
+  });
+});
+
+describe('web-search citations', () => {
+  it('keeps the words and drops the inline citations and tracking', () => {
+    expect(
+      stripCitations(
+        'A 13-minute body scan for sleep. ([uclahealth.org](https://www.uclahealth.org/x?utm_source=openai)) Also see [the page](https://example.org/p).',
+      ),
+    ).toBe('A 13-minute body scan for sleep. Also see the page.');
+    expect(cleanUrl('https://example.org/a?utm_source=openai&id=3')).toBe(
+      'https://example.org/a?id=3',
+    );
+    expect(cleanUrl('https://example.org/a?utm_source=openai')).toBe('https://example.org/a');
   });
 });

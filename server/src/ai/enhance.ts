@@ -31,7 +31,14 @@ import type { Db } from '../db/index.js';
 import { libraryDto } from '../library/queries.js';
 import { reviewDetail, saveReview } from '../library/review.js';
 import { downloadImage, storeSquare } from './fetchImage.js';
-import { AiError, WEB_SEARCH, type AiClient, type AiTarget } from './providers.js';
+import {
+  AiError,
+  WEB_SEARCH,
+  cleanUrl,
+  stripCitations,
+  type AiClient,
+  type AiTarget,
+} from './providers.js';
 
 export interface EnhanceCtx {
   db: Db;
@@ -399,13 +406,16 @@ export async function runAbout(
     const sources = (r.sources ?? [])
       .filter((s) => /^https?:\/\//.test(s.url))
       .slice(0, 4)
-      .map((s) => ({ title: clip(String(s.title || s.url), 120), url: s.url.slice(0, 500) }));
+      .map((s) => ({
+        title: clip(stripCitations(String(s.title || s.url)), 120),
+        url: cleanUrl(s.url).slice(0, 500),
+      }));
     if (!r.found || !r.description?.trim() || sources.length === 0) {
       notes.push(`Nothing reliable found for "${item.title}".`);
       continue;
     }
     const about: ItemAboutDto = {
-      description: clip(r.description.trim(), 700),
+      description: clip(stripCitations(r.description), 700),
       level: (LEVELS as string[]).includes(r.level) ? (r.level as ItemLevel) : null,
       sources,
     };

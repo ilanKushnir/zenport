@@ -49,6 +49,12 @@ const FEATURES: Feature[] = [
     hint: 'How your practice is really going, what to try next, and where to head.',
   },
   {
+    to: '/ai/discover',
+    icon: 'search',
+    title: 'Discover',
+    hint: 'Teachers, courses, books and retreats beyond your library, chosen for you.',
+  },
+  {
     to: '/ai/library',
     icon: 'library',
     title: 'Enhance the library',

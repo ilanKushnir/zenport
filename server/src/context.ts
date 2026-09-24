@@ -22,6 +22,8 @@ export interface ExternalDeps {
   transcribe: ((file: Buffer, mime: string, fileName: string) => Promise<string>) | null;
   /** The account's own AI provider (or the owner's shared one): model listing and structured answers. */
   ai: AiClient;
+  /** Which recommended links answer (Discover). Defaults to visiting each; tests swap it. */
+  checkLinks?: (urls: string[]) => Promise<Map<string, string | null>>;
 }
 
 export interface AppContext {

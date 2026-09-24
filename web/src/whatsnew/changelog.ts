@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.27.0',
+    items: [
+      {
+        emoji: '🧭',
+        text: 'Discover: teachers, courses, books and retreats beyond your library, chosen for you - every link checked.',
+      },
+    ],
+  },
+  {
     version: '0.26.0',
     items: [
       {

@@ -707,6 +707,32 @@ export const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL
   );
   `,
+  // v18: Discover - each search, and what it found (saved ones outlive their search).
+  `
+  CREATE TABLE discover_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    kinds TEXT NOT NULL,
+    note TEXT,
+    model TEXT
+  );
+  CREATE TABLE discover_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    run_id INTEGER REFERENCES discover_runs(id) ON DELETE SET NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    by TEXT,
+    why TEXT NOT NULL,
+    url TEXT NOT NULL,
+    format TEXT,
+    cost TEXT NOT NULL DEFAULT 'unknown',
+    saved INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX idx_discover_items_user ON discover_items(user_id, saved);
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

@@ -8,6 +8,7 @@ import { registerLibraryRoutes } from './routes/library.js';
 import { registerEnhanceRoutes } from './routes/enhance.js';
 import { registerGuideRoutes } from './routes/guide.js';
 import { registerFeaturedRoutes } from './routes/featured.js';
+import { registerDiscoverRoutes } from './routes/discover.js';
 import { registerMediaRoutes } from './routes/media.js';
 import { registerPracticeRoutes } from './routes/practice.js';
 import { registerPlanRoutes } from './routes/plans.js';
@@ -112,6 +113,7 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   registerEnhanceRoutes(app, ctx);
   registerGuideRoutes(app, ctx);
   registerFeaturedRoutes(app, ctx);
+  registerDiscoverRoutes(app, ctx);
   registerJournalRoutes(app, ctx);
   registerYouTubeRoutes(app, ctx);
   registerPrefsRoutes(app, ctx);

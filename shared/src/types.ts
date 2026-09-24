@@ -1054,3 +1054,52 @@ export interface FeaturedDto {
   /** When today's picks could not be made. */
   error?: string;
 }
+
+// ── Discover (AI, web search) ─────────────────────────────────────────────
+
+export const DISCOVER_KINDS = [
+  { id: 'teacher', label: 'Teachers' },
+  { id: 'course', label: 'Courses' },
+  { id: 'book', label: 'Books' },
+  { id: 'retreat', label: 'Retreats & workshops' },
+] as const;
+export type DiscoverKind = (typeof DISCOVER_KINDS)[number]['id'];
+
+export interface DiscoverItemDto {
+  id: number;
+  kind: DiscoverKind;
+  title: string;
+  /** The teacher, author or organisation. */
+  by: string | null;
+  /** Why it suits this person. */
+  why: string;
+  url: string;
+  host: string;
+  /** Online, in person, audio, a book… - a few words. */
+  format: string | null;
+  cost: 'free' | 'paid' | 'unknown';
+  saved: boolean;
+}
+
+export interface DiscoverRunDto {
+  id: number;
+  createdAt: string;
+  kinds: DiscoverKind[];
+  note: string | null;
+  model: string | null;
+  items: DiscoverItemDto[];
+  /** Suggestions dropped because their link did not answer. */
+  dropped?: number;
+}
+
+export interface DiscoverDto {
+  canUse: boolean;
+  webSearch: boolean;
+  saved: DiscoverItemDto[];
+  runs: DiscoverRunDto[];
+}
+
+export interface DiscoverRequest {
+  kinds: DiscoverKind[];
+  note?: string;
+}

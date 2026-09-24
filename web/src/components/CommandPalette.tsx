@@ -92,6 +92,13 @@ export function CommandPalette() {
         run: go('/ai/guide'),
       },
       {
+        id: 'discover',
+        label: 'Discover - teachers, courses, books, retreats',
+        icon: 'search',
+        group: 'Go',
+        run: go('/ai/discover'),
+      },
+      {
         id: 'intentions',
         label: 'Your intentions - why you practise',
         icon: 'heart',

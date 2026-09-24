@@ -101,6 +101,27 @@ function fakeOpenAi(): AiClient {
           ],
         };
       }
+      if (schemaName === 'zenport_discover') {
+        const item = (kind: string, title: string, url: string) => ({
+          kind,
+          title,
+          by: 'Someone Kind',
+          why: 'It fits your mornings.',
+          url,
+          format: 'online',
+          cost: 'free',
+        });
+        return {
+          items: [
+            item('course', 'Morning Ground', 'https://good.example.org/morning'),
+            item('course', 'Morning Ground', 'https://good.example.org/morning'),
+            item('book', 'Gone Book', 'https://dead.example.org/book'),
+            item('course', 'Plain Http', 'http://good.example.org/plain'),
+            item('retreat', 'Not Asked', 'https://good.example.org/retreat'),
+            item('teacher', 'A Teacher', 'https://good.example.org/teacher'),
+          ],
+        };
+      }
       if (schemaName === 'zenport_featured') {
         featuredCalls++;
         return {
@@ -228,6 +249,7 @@ beforeEach(async () => {
       ],
       transcribe: null,
       ai: fakeOpenAi(),
+      checkLinks: async (urls) => new Map(urls.map((u) => [u, u.includes('good') ? u : null])),
     },
   });
   await app.ready();
@@ -2282,5 +2304,79 @@ describe('Featured on Today', () => {
     expect(featuredCalls).toBe(calls0 + 1);
     await app.inject({ method: 'POST', url: '/api/ai/featured/refresh', headers: auth() });
     expect(featuredCalls).toBe(calls0 + 2);
+  });
+});
+
+describe('Discover', () => {
+  it('asks the web, keeps only working https links of the kinds asked, saves and forgets', async () => {
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const get = async () =>
+      (await app.inject({ method: 'GET', url: '/api/ai/discover', headers: auth() })).json();
+    expect(await get()).toMatchObject({ canUse: false, webSearch: false, runs: [], saved: [] });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    expect((await get()).webSearch).toBe(true);
+
+    const run = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/ai/discover',
+        headers: auth(),
+        payload: { kinds: ['course', 'book', 'teacher'], note: 'Something for mornings' },
+      })
+    ).json();
+    expect(lastWebSearch).toBe(true);
+    expect(lastPrompt).toContain('Already in their library');
+    expect(lastPrompt).toContain('What they are looking for: Something for mornings');
+    expect(run.items.map((i: { title: string }) => i.title)).toEqual([
+      'Morning Ground',
+      'A Teacher',
+    ]);
+    expect(run.dropped).toBe(1);
+    expect(run.items[0]).toMatchObject({ host: 'good.example.org', saved: false, cost: 'free' });
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/ai/discover/items/${run.items[0].id}`,
+      headers: auth(),
+      payload: { saved: true },
+    });
+    // The next search is told what came before.
+    await app.inject({
+      method: 'POST',
+      url: '/api/ai/discover',
+      headers: auth(),
+      payload: { kinds: ['course'] },
+    });
+    expect(lastPrompt).toContain('Suggested before, so not again: ');
+    expect(lastPrompt).toContain('Morning Ground (Someone Kind)');
+
+    await app.inject({ method: 'DELETE', url: `/api/ai/discover/runs/${run.id}`, headers: auth() });
+    const after = await get();
+    expect(after.runs).toHaveLength(1);
+    expect(after.saved.map((i: { title: string }) => i.title)).toEqual(['Morning Ground']);
+    // Unsaved once its search is gone: it goes for good.
+    await app.inject({
+      method: 'PUT',
+      url: `/api/ai/discover/items/${run.items[0].id}`,
+      headers: auth(),
+      payload: { saved: false },
+    });
+    expect((await get()).saved).toEqual([]);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/ai/discover',
+          headers: auth(),
+          payload: { kinds: [] },
+        })
+      ).statusCode,
+    ).toBe(400);
   });
 });

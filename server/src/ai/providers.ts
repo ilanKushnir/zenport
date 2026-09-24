@@ -435,3 +435,30 @@ export const aiClient: AiClient = {
     return chatCompletions(t, req);
   },
 };
+
+/**
+ * Web-search answers carry the provider's citations in the text itself -
+ * "([site](https://…?utm_source=openai))" - which the app shows its own way
+ * (as sources). Strip them, keep the words.
+ */
+export function stripCitations(text: string): string {
+  return text
+    .replace(/\s*\(\s*\[[^\]]*\]\([^)]*\)\s*\)/g, '')
+    .replace(/\[([^\]]+)\]\((https?:[^)]*)\)/g, '$1')
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** Drop tracking parameters the provider adds to links it cites. */
+export function cleanUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    for (const k of [...u.searchParams.keys()]) {
+      if (/^utm_/i.test(k)) u.searchParams.delete(k);
+    }
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}

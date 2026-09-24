@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { downloadImage, isPrivateAddress, imageAddresses } from './fetchImage.js';
+import { linkWorks } from './links.js';
 
 describe('fetching a suggested image', () => {
   it('knows the addresses it must never reach', () => {
@@ -42,5 +43,12 @@ describe('fetching a suggested image', () => {
     expect(imageAddresses('https://example.org/a/portrait.jpg')).toEqual([
       'https://example.org/a/portrait.jpg',
     ]);
+  });
+
+  it('never checks a recommended link on this network, or over plain http', async () => {
+    expect(await linkWorks('https://127.0.0.1/admin')).toBeNull();
+    expect(await linkWorks('https://192.168.1.1/')).toBeNull();
+    expect(await linkWorks('http://example.org/')).toBeNull();
+    expect(await linkWorks('not a link')).toBeNull();
   });
 });

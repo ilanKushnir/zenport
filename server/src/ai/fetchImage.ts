@@ -19,7 +19,8 @@ import sharp from 'sharp';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TIMEOUT = 15_000;
-const UA = 'ZenPort/1 (self-hosted meditation library; https://github.com/ilanKushnir/zenport)';
+export const UA =
+  'ZenPort/1 (self-hosted meditation library; https://github.com/ilanKushnir/zenport)';
 
 export class ImageFetchError extends Error {}
 
@@ -51,7 +52,7 @@ export function isPrivateAddress(ip: string): boolean {
   return true;
 }
 
-async function assertPublic(url: URL): Promise<void> {
+export async function assertPublic(url: URL): Promise<void> {
   if (url.protocol !== 'https:') throw new ImageFetchError('only https addresses');
   const host = url.hostname.replace(/^\[|\]$/g, '');
   const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });

@@ -5,6 +5,18 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-09-24
+
+### Added
+
+- **Discover** (AI → Discover). Teachers, courses, books, and retreats and workshops beyond your library, found on the web by your AI and chosen for you. It knows your intentions, what you practise most and who is already in your library, and says why each one suits you. Choose the kinds and, if you like, what you are after ("something for sleep").
+  - **Every link is checked.** Each recommendation's page is opened before you see it. One that does not open is left out, and the page says how many.
+  - **Keep what you like.** Save any of them. Searches stay, dated, until you forget them, and what you saved stays saved. It does not suggest the same thing twice.
+
+### Fixed
+
+- Web-search answers (Discover, and About research in Enhance the library) no longer carry the provider's inline citations or tracking parameters in their text and links.
+
 ## [0.26.0] — 2026-09-24
 
 ### Added
