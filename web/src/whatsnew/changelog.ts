@@ -25,6 +25,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.24.0',
+    items: [
+      {
+        emoji: '🖼️',
+        text: 'Creators can have their own picture - a portrait, a logo or a cover - wherever they appear.',
+      },
+      {
+        emoji: '📖',
+        text: 'Recordings can carry a short description and their level, with the pages it came from.',
+      },
+      {
+        emoji: '✨',
+        text: 'For admins: Enhance the library with AI - suggested fixes, research and creator pictures, each yours to approve.',
+      },
+    ],
+  },
+  {
     version: '0.23.0',
     items: [
       { emoji: '📌', text: 'Plan with AI: choose courses that must be in it - none is left out.' },

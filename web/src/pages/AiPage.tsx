@@ -41,6 +41,13 @@ const FEATURES: Feature[] = [
     title: 'Plan with AI',
     hint: 'A path of practice and study from your library, around your time.',
   },
+  {
+    to: '/ai/library',
+    icon: 'library',
+    title: 'Enhance the library',
+    hint: 'Suggested fixes, what each recording is about, and a picture for every creator.',
+    admin: true,
+  },
 ];
 
 export function AiPage() {

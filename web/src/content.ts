@@ -3,7 +3,7 @@
  * One place, so a course is called a course - with the same icon and the same
  * one-line explanation - on every screen.
  */
-import type { ContentType, MeditationSummaryDto } from '@zenport/shared';
+import type { ContentType, ItemLevel, MeditationSummaryDto } from '@zenport/shared';
 import { CONTENT_TYPES } from '@zenport/shared';
 
 export interface TypeMeta {
@@ -125,3 +125,11 @@ export function itemLabel(i: { title: string; collection: string | null }): stri
   const generic = /^(part|week|day|session|module|lesson|chapter|episode|vol\.?|volume)\s*\d+\b/i;
   return i.collection && generic.test(i.title.trim()) ? `${i.collection} · ${i.title}` : i.title;
 }
+
+/** A recording's level, as the AI research found it. */
+export const LEVEL_LABEL: Record<ItemLevel, string> = {
+  beginner: 'For beginners',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+  all: 'For every level',
+};

@@ -41,6 +41,7 @@ import { LibraryPage } from './pages/LibraryPage.tsx';
 import { TimerPage } from './pages/TimerPage.tsx';
 import { CreatorPage } from './pages/CreatorPage.tsx';
 import { CreatorsPage } from './pages/CreatorsPage.tsx';
+import { EnhancePage } from './pages/EnhancePage.tsx';
 import { ItemPage } from './pages/ItemPage.tsx';
 import { PlansPage } from './pages/PlansPage.tsx';
 import { StatsPage } from './pages/StatsPage.tsx';
@@ -360,6 +361,7 @@ function SignedInApp() {
               <Route path="/ai" element={<AiPage />} />
               <Route path="/ai/setup" element={<AiSetupPage />} />
               <Route path="/ai/intentions" element={<IntentionsPage />} />
+              <Route path="/ai/library" element={<EnhancePage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/library" element={<ReviewPage />} />
               <Route

@@ -203,11 +203,21 @@ export function ContinueCard({
 
 // ── Creators ───────────────────────────────────────────────────────────────
 
-export function CreatorFace({ creator, size = 'md' }: { creator: CreatorDto; size?: 'md' | 'sm' }) {
+export function CreatorFace({
+  creator,
+  size = 'md',
+}: {
+  creator: CreatorDto;
+  size?: 'lg' | 'md' | 'sm';
+}) {
   return (
     <span className={`creator-ring ${size}`} aria-hidden="true">
       <span className="creator-face">
-        <Cover coverId={creator.coverIds[0] ?? null} title={creator.name} />
+        {creator.imageUrl ? (
+          <img src={creator.imageUrl} alt="" loading="lazy" decoding="async" />
+        ) : (
+          <Cover coverId={creator.coverIds[0] ?? null} title={creator.name} />
+        )}
       </span>
     </span>
   );

@@ -640,6 +640,48 @@ export const MIGRATIONS: string[] = [
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
   );
   `,
+
+  // v15: AI enhancing the library, always as suggestions the admin decides.
+  //
+  // `ai_suggestions` holds each proposed change - a fix to how something was
+  // read, a description and level found on the web, a creator's picture -
+  // with the reason, until it is applied or dismissed. A dismissed one is
+  // remembered so the same suggestion does not come back.
+  //
+  // `item_about` is what research found for a recording (description, level,
+  // sources); `creator_images` the picture chosen for a creator, a file under
+  // the data dir. Both are keyed like everything else the owner decides.
+  `
+  CREATE TABLE ai_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    target TEXT NOT NULL,
+    field TEXT NOT NULL,
+    value TEXT NOT NULL,
+    current TEXT,
+    reason TEXT NOT NULL DEFAULT '',
+    confidence TEXT NOT NULL DEFAULT 'medium',
+    status TEXT NOT NULL DEFAULT 'pending',
+    model TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    decided_at TEXT
+  );
+  CREATE INDEX idx_ai_suggestions ON ai_suggestions(status, kind);
+  CREATE TABLE item_about (
+    item_id TEXT PRIMARY KEY,
+    description TEXT NOT NULL,
+    level TEXT,
+    sources TEXT NOT NULL DEFAULT '[]',
+    model TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+  CREATE TABLE creator_images (
+    name TEXT PRIMARY KEY,
+    file TEXT NOT NULL,
+    source_url TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

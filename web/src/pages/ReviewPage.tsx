@@ -70,6 +70,12 @@ function Review() {
     [items],
   );
 
+  // ?item=<id> opens that recording straight away (from an AI suggestion).
+  const deep = params.get('item');
+  useEffect(() => {
+    if (deep && items.some((i) => i.id === deep)) setOpen({ id: deep, queue: [deep] });
+  }, [deep, items]);
+
   // Open on what matters: new things first, then what wants a look.
   const asked = params.get('show') as Show | null;
   const show: Show = asked ?? (counts.new > 0 ? 'new' : counts.look > 0 ? 'look' : 'all');
@@ -234,6 +240,15 @@ function Review() {
           onSaved={() => list.reload()}
           onClose={() => {
             setOpen(null);
+            if (deep) {
+              setParams(
+                (p) => {
+                  p.delete('item');
+                  return p;
+                },
+                { replace: true },
+              );
+            }
             list.reload();
           }}
         />

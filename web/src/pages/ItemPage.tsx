@@ -16,7 +16,8 @@ import { ActionTile } from '../components/ActionTile.tsx';
 import { OfflineTile } from '../components/OfflineButton.tsx';
 import { SitTogetherSheet, ago } from '../social.tsx';
 import { TimesPractised } from '../components/TimesPractised.tsx';
-import { progressLabel, seriesPath, TYPE_META } from '../content.ts';
+import { LEVEL_LABEL, progressLabel, seriesPath, TYPE_META } from '../content.ts';
+import { ItemAbout } from '../components/ItemAbout.tsx';
 
 export function ItemPage() {
   const { id = '' } = useParams();
@@ -185,7 +186,9 @@ export function ItemPage() {
                 {item.documentCount} note{item.documentCount === 1 ? '' : 's'}
               </span>
             ) : null}
+            {item.about?.level ? <span>{LEVEL_LABEL[item.about.level]}</span> : null}
           </p>
+          {item.about && <ItemAbout about={item.about} />}
 
           {!learning && item.practiceCount > 0 && (
             <TimesPractised count={item.practiceCount} last={item.lastPracticedAt} />

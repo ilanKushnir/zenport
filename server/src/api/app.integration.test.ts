@@ -54,6 +54,7 @@ const auth = () => ({ cookie: `zp_session=${cookie}`, ...CSRF });
 /** OpenAI without the network: any key starting "sk-good" works, and the plan
  * answer picks from whatever catalogue it was shown. */
 let lastPrompt = '';
+let lastWebSearch = false;
 function fakeOpenAi(): AiClient {
   return {
     listModels: async ({ apiKey: key }) => {
@@ -61,8 +62,70 @@ function fakeOpenAi(): AiClient {
       // A real client ranks and filters (rankModels, unit-tested in ai.test.ts).
       return ['gpt-5.5', 'gpt-4o'];
     },
-    chatJson: async (_t, { user }) => {
+    chatJson: async (_t, { user, schemaName, webSearch }) => {
       lastPrompt = user;
+      lastWebSearch = !!webSearch;
+      if (schemaName === 'zenport_fixes') {
+        // Name the first item's handle and suggest a type and part names.
+        const h = /^(i\d+) \| folder: .*Creativity/m.exec(user)?.[1] ?? 'i1';
+        return {
+          suggestions: [
+            {
+              handle: h,
+              field: 'type',
+              value: 'course',
+              parts: null,
+              order: null,
+              reason: 'Numbered lessons.',
+              confidence: 'high',
+            },
+            {
+              handle: h,
+              field: 'part-names',
+              value: null,
+              parts: [{ number: 1, name: 'Day 1' }],
+              order: null,
+              reason: 'Raw file names.',
+              confidence: 'medium',
+            },
+            {
+              handle: 'i999',
+              field: 'title',
+              value: 'Invented',
+              parts: null,
+              order: null,
+              reason: 'x',
+              confidence: 'high',
+            },
+          ],
+        };
+      }
+      if (schemaName === 'zenport_about') {
+        return {
+          items: [
+            {
+              handle: 'i1',
+              found: true,
+              description: 'A gentle course on creative practice.',
+              level: 'beginner',
+              sources: [{ title: 'Publisher', url: 'https://example.org/creativity' }],
+            },
+          ],
+        };
+      }
+      if (schemaName === 'zenport_creator_images') {
+        return {
+          creators: [
+            {
+              name: 'Quiet Harbor',
+              kind: 'organisation',
+              candidates: [
+                { imageUrl: 'http://not-https.example/x.jpg', pageUrl: 'https://example.org' },
+              ],
+            },
+          ],
+        };
+      }
       const handle = (word: string) =>
         user
           .split('\n')
@@ -1128,6 +1191,11 @@ describe('people: invitations, roles and friends', () => {
       ['POST', '/api/admin/review/reviewed', { ids: [itemId] }],
       ['PUT', `/api/items/${itemId}/order`, { trackIds: ['x'] }],
       ['GET', '/api/library/removed', undefined],
+      ['GET', '/api/ai/library/status', undefined],
+      ['POST', '/api/ai/library/fixes', { batch: 1 }],
+      ['GET', '/api/ai/library/suggestions', undefined],
+      ['POST', '/api/ai/library/suggestions/1/apply', {}],
+      ['PUT', '/api/creators/Someone/image', { url: 'https://example.org/a.jpg' }],
     ] as const;
     for (const [method, url, payload] of forbidden) {
       const res = await app.inject({ method, url, headers: as(m), payload });
@@ -1857,5 +1925,163 @@ describe('planning with must-includes, and reworking a path', () => {
     expect(lastPrompt).toContain('The path so far, and how it went:');
     expect(lastPrompt).toContain('I have less time now');
     expect(lastPrompt).toMatch(/sessions done, \d+ missed/);
+  });
+});
+
+describe('AI library enhancements', () => {
+  const put = (rel: string) => {
+    const abs = path.join(libRoot, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, `${rel}:${'e'.repeat(300)}`);
+  };
+
+  it('suggests fixes, applies one as a correction, remembers a dismissal, researches and sets creator pictures', async () => {
+    put('Quiet Harbor/Creativity/audio-2248.mp3');
+    put('Quiet Harbor/Creativity/audio-2249.mp3');
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    const status = (
+      await app.inject({ method: 'GET', url: '/api/ai/library/status', headers: auth() })
+    ).json();
+    expect(status).toMatchObject({ canUse: true, webSearch: true, batches: 1 });
+
+    const run = await app.inject({
+      method: 'POST',
+      url: '/api/ai/library/fixes',
+      headers: auth(),
+      payload: { batch: 1 },
+    });
+    expect(run.json()).toMatchObject({ batch: 1, batches: 1, found: 2 });
+    expect(lastPrompt).toContain('folder: Meditations/Quiet Harbor/Creativity');
+    const list = (
+      await app.inject({ method: 'GET', url: '/api/ai/library/suggestions', headers: auth() })
+    ).json();
+    const type = list.find((x: { field: string }) => x.field === 'type');
+    const names = list.find((x: { field: string }) => x.field === 'part-names');
+    expect(type).toMatchObject({
+      targetTitle: 'Creativity',
+      from: 'meditation',
+      to: 'course',
+      confidence: 'high',
+    });
+    expect(names.parts[0]).toEqual({ from: 'audio-2248', to: 'Day 1' });
+
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/ai/library/suggestions/${type.id}/apply`,
+          headers: auth(),
+        })
+      ).statusCode,
+    ).toBe(200);
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    const lib = (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json();
+    expect(lib.items.find((i: { title: string }) => i.title === 'Creativity').type).toBe('course');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/ai/library/suggestions/${names.id}/dismiss`,
+      headers: auth(),
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/ai/library/fixes',
+      headers: auth(),
+      payload: { batch: 1 },
+    });
+    const again = (
+      await app.inject({ method: 'GET', url: '/api/ai/library/suggestions', headers: auth() })
+    ).json();
+    expect(again.some((x: { field: string }) => x.field === 'part-names')).toBe(false);
+
+    // Research: a description with its sources, shown on the item once applied.
+    const itemId = lib.items.find((i: { title: string }) => i.title === 'Creativity').id;
+    const about = await app.inject({
+      method: 'POST',
+      url: '/api/ai/library/about',
+      headers: auth(),
+      payload: { itemIds: [itemId] },
+    });
+    expect(about.json()).toMatchObject({ found: 1 });
+    expect(lastWebSearch).toBe(true);
+    const aboutS = (
+      await app.inject({ method: 'GET', url: '/api/ai/library/suggestions', headers: auth() })
+    )
+      .json()
+      .find((x: { field: string }) => x.field === 'about');
+    await app.inject({
+      method: 'POST',
+      url: `/api/ai/library/suggestions/${aboutS.id}/apply`,
+      headers: auth(),
+    });
+    const detail = (
+      await app.inject({ method: 'GET', url: `/api/items/${itemId}`, headers: auth() })
+    ).json();
+    expect(detail.about).toMatchObject({
+      level: 'beginner',
+      sources: [{ url: 'https://example.org/creativity' }],
+    });
+
+    // Creator pictures: an address that is not https is never fetched.
+    const img = await app.inject({
+      method: 'POST',
+      url: '/api/ai/library/creator-images',
+      headers: auth(),
+      payload: { names: ['Quiet Harbor'] },
+    });
+    expect(img.json()).toMatchObject({
+      found: 0,
+      notes: ['No picture could be found for Quiet Harbor.'],
+    });
+    // A candidate that did arrive: applied, it becomes the creator's picture.
+    const sharp = (await import('sharp')).default;
+    const dir = path.join(dataDir, 'creators', 'candidates');
+    mkdirSync(dir, { recursive: true });
+    const file = '0123456789abcdef0123.webp';
+    await sharp({ create: { width: 200, height: 200, channels: 3, background: '#884488' } })
+      .webp()
+      .toFile(path.join(dir, file));
+    db.prepare(
+      "INSERT INTO ai_suggestions (kind, target, field, value, current, reason, confidence) VALUES ('creator-image', 'Quiet Harbor', 'image', ?, 'null', 'A logo.', 'medium')",
+    ).run(JSON.stringify({ file, source: 'https://example.org' }));
+    const cand = (
+      await app.inject({ method: 'GET', url: '/api/ai/library/suggestions', headers: auth() })
+    )
+      .json()
+      .find((x: { field: string }) => x.field === 'image');
+    expect(cand.imageUrl).toBe(`/api/media/creator-candidate/${file}`);
+    await app.inject({
+      method: 'POST',
+      url: `/api/ai/library/suggestions/${cand.id}/apply`,
+      headers: auth(),
+    });
+    const creators = (
+      await app.inject({ method: 'GET', url: '/api/library', headers: auth() })
+    ).json().creators;
+    expect(creators.find((c: { name: string }) => c.name === 'Quiet Harbor').imageUrl).toBe(
+      `/api/media/creator/${file}`,
+    );
+    const served = await app.inject({
+      method: 'GET',
+      url: `/api/media/creator/${file}`,
+      headers: auth(),
+    });
+    expect(served.headers['content-type']).toBe('image/webp');
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/media/creator/..%2Fzenport.db',
+          headers: auth(),
+        })
+      ).statusCode,
+    ).toBe(404);
   });
 });

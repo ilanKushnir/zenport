@@ -5,6 +5,21 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-09-24
+
+### Added
+
+- **Enhance the library with AI** (admin; AI → Enhance the library, also under Admin). Every result is a suggestion to approve or dismiss, and nothing changes until you do.
+  - **Fixes.** The AI reads the library in parts and suggests corrections: a wrong type, a title that is a bare folder or file name, a creator or series spelled two ways, raw part names, parts out of order. Anything you corrected by hand is left alone. Suggestions for one recording share a card, each change is decided on its own, and "Apply the sure ones" applies every confident one in one go. A long check can stop and continue later, and a pencil opens the recording in Review.
+  - **About.** Choose up to six recordings and the AI looks each one up on the web: a short description, who it suits, its level, and the pages it used. Where it cannot find that exact recording it says so rather than guess.
+  - **Creator pictures.** Choose up to four creators and the AI finds each a portrait, or a logo or cover for an organisation. Or set a picture yourself from any https link, and remove one any time.
+- **Creator pictures everywhere.** Library, Creators and each creator's page (now with the picture beside the name) use the creator's picture when there is one.
+- **About on a recording's page.** The description sits under the title, a few lines with More, then the sources. The level shows beside the length.
+
+### Security
+
+- Suggested pictures are fetched defensively: https only, public addresses only (checked again on every redirect), at most 8 MB within 15 seconds, and decoded and re-encoded as a 512px square, so only ZenPort's own copy is kept and served.
+
 ## [0.23.0] — 2026-09-24
 
 ### Added

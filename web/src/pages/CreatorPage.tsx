@@ -4,6 +4,7 @@ import { formatDuration } from '@zenport/shared';
 import { useApi } from '../hooks.ts';
 import { EmptyState, ErrorNote, PageSkeleton } from '../components/ui.tsx';
 import { MedCard } from './LibraryPage.tsx';
+import { CreatorFace } from '../components/Shelves.tsx';
 
 export function CreatorPage() {
   const { name = '' } = useParams();
@@ -31,13 +32,18 @@ export function CreatorPage() {
           <span className="sep">/</span>
           <span aria-current="page">{creatorName}</span>
         </nav>
-        <h1 style={{ marginTop: 8 }}>{creatorName}</h1>
-        {creator && (
-          <p className="lede">
-            {creator.itemCount} meditation{creator.itemCount > 1 ? 's' : ''}
-            {creator.totalDurationSec ? ` · ${formatDuration(creator.totalDurationSec)}` : ''}
-          </p>
-        )}
+        <div className="creator-head">
+          {creator && <CreatorFace creator={creator} size="lg" />}
+          <div className="grow">
+            <h1>{creatorName}</h1>
+            {creator && (
+              <p className="lede">
+                {creator.itemCount} {creator.itemCount === 1 ? 'recording' : 'recordings'}
+                {creator.totalDurationSec ? ` · ${formatDuration(creator.totalDurationSec)}` : ''}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
       {items.length === 0 ? (
         <EmptyState title="No meditations for this creator">

@@ -189,6 +189,8 @@ export interface MeditationDetailDto extends MeditationSummaryDto {
   resume: ResumeStateDto | null;
   /** The parts play in an order the owner set by hand, not the scanner's. */
   customOrder: boolean;
+  /** What research found about it (approved by the owner). */
+  about?: ItemAboutDto | null;
 }
 
 /** A library that was mounted once and is no longer in ZP_LIBRARY_DIRS. */
@@ -207,6 +209,8 @@ export interface CreatorDto {
   itemCount: number;
   totalDurationSec: number | null;
   coverIds: string[];
+  /** A picture chosen for the creator (AI-found and approved), when there is one. */
+  imageUrl?: string | null;
 }
 
 export interface LibraryDto {
@@ -915,4 +919,64 @@ export interface ReviewSaveDto {
   /** Track ids in the wanted order; null for the scanner's order. */
   order?: string[] | null;
   hidden?: boolean;
+}
+
+// --- AI library enhancements (admin) ---
+
+export type SuggestionKind = 'fix' | 'about' | 'creator-image';
+export type SuggestionField =
+  'type' | 'title' | 'creator' | 'series' | 'part-names' | 'order' | 'about' | 'image';
+export type ItemLevel = 'beginner' | 'intermediate' | 'advanced' | 'all';
+
+export interface ItemAboutDto {
+  description: string;
+  level: ItemLevel | null;
+  sources: { title: string; url: string }[];
+}
+
+export interface SuggestionDto {
+  id: number;
+  kind: SuggestionKind;
+  field: SuggestionField;
+  /** The recording (id) or the creator (name) it is about. */
+  target: string;
+  /** For display: what it is about. */
+  targetTitle: string;
+  targetSub: string;
+  coverId: string | null;
+  /** Readable before and after. */
+  from: string;
+  to: string;
+  /** Part names, before and after, for a part-names or order suggestion. */
+  parts?: { from: string; to: string }[];
+  about?: ItemAboutDto;
+  /** A creator image candidate, served for preview. */
+  imageUrl?: string;
+  sourceUrl?: string | null;
+  reason: string;
+  confidence: 'high' | 'medium';
+  status: 'pending' | 'applied' | 'dismissed';
+  model: string | null;
+}
+
+export interface EnhanceStatusDto {
+  canUse: boolean;
+  /** Research and pictures need a provider that can search the web. */
+  webSearch: boolean;
+  items: number;
+  /** How many calls a full check for fixes takes. */
+  batches: number;
+  pending: Partial<Record<SuggestionKind, number>>;
+  /** Recordings that already have a description. */
+  aboutIds: string[];
+}
+
+export interface EnhanceRunDto {
+  /** Which batch this was, of how many (fixes run in batches). */
+  batch: number;
+  batches: number;
+  /** New suggestions this call added. */
+  found: number;
+  /** Plain notes: what was skipped or could not be found. */
+  notes: string[];
 }

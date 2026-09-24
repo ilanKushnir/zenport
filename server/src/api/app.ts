@@ -5,6 +5,7 @@ import { verifySession, type SessionUser } from '../auth/sessions.js';
 import type { AppContext } from '../context.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerLibraryRoutes } from './routes/library.js';
+import { registerEnhanceRoutes } from './routes/enhance.js';
 import { registerMediaRoutes } from './routes/media.js';
 import { registerPracticeRoutes } from './routes/practice.js';
 import { registerPlanRoutes } from './routes/plans.js';
@@ -106,6 +107,7 @@ export function buildApp(ctx: AppContext): FastifyInstance {
   registerPlanRoutes(app, ctx);
   registerStatsRoutes(app, ctx);
   registerAiRoutes(app, ctx);
+  registerEnhanceRoutes(app, ctx);
   registerJournalRoutes(app, ctx);
   registerYouTubeRoutes(app, ctx);
   registerPrefsRoutes(app, ctx);

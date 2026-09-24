@@ -118,6 +118,13 @@ export function CommandPalette() {
               run: go('/admin/library'),
             },
             {
+              id: 'admin-enhance',
+              label: 'Enhance the library with AI',
+              icon: 'sparkle',
+              group: 'Go' as const,
+              run: go('/ai/library'),
+            },
+            {
               id: 'people',
               label: 'People - invitations and roles',
               icon: 'user-plus',

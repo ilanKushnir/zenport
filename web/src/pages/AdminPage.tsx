@@ -64,6 +64,12 @@ const AREAS = [
     title: 'Integrations',
     hint: 'What this server can reach.',
   },
+  {
+    to: '/ai/library',
+    icon: 'sparkle',
+    title: 'Enhance with AI',
+    hint: 'Suggested fixes, descriptions and creator pictures.',
+  },
 ] as const;
 
 export function AdminPage() {

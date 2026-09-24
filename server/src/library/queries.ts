@@ -1,4 +1,5 @@
 import type {
+  ItemLevel,
   CreatorDto,
   LibraryDto,
   MeditationDetailDto,
@@ -217,6 +218,12 @@ export function libraryDto(db: Db, config: Config, userId: number): LibraryDto {
     creators.set(item.creator, cur);
   }
 
+  const images = new Map(
+    (
+      db.prepare('SELECT name, file FROM creator_images').all() as { name: string; file: string }[]
+    ).map((r) => [r.name, `/api/media/creator/${r.file}`]),
+  );
+  for (const c of creators.values()) c.imageUrl = images.get(c.name) ?? null;
   return {
     items,
     creators: [...creators.values()].sort((a, b) => naturalCompare(a.name, b.name)),
@@ -360,5 +367,17 @@ export function itemDetail(
     related: relatedRows.map((r) => summarize(db, config, r, userId)),
     resume,
     customOrder: !!db.prepare('SELECT 1 FROM track_order WHERE item_id = ? LIMIT 1').get(itemId),
+    about: (() => {
+      const a = db
+        .prepare('SELECT description, level, sources FROM item_about WHERE item_id = ?')
+        .get(itemId) as { description: string; level: string | null; sources: string } | undefined;
+      return a
+        ? {
+            description: a.description,
+            level: a.level as ItemLevel | null,
+            sources: JSON.parse(a.sources) as { title: string; url: string }[],
+          }
+        : null;
+    })(),
   };
 }
