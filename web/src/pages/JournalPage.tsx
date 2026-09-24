@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { JournalEntryDto, ServerCapabilitiesDto } from '@zenport/shared';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
-import { EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
+import { EmptyState, ErrorNote, Icon, PageSkeleton, Sheet } from '../components/ui.tsx';
 import { ReflectionForm } from '../components/Reflection.tsx';
 
 const MOOD_WORDS = ['', 'Scattered', 'Restless', 'Present', 'Settled', 'Deeply still'];
@@ -39,7 +39,7 @@ export function JournalPage() {
     }
   };
 
-  if (entries.loading) return <div className="skeleton" style={{ height: 200 }} />;
+  if (entries.loading) return <PageSkeleton title="Journal" />;
   if (entries.error) return <ErrorNote message={entries.error} onRetry={entries.reload} />;
 
   const list = entries.data ?? [];

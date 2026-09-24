@@ -211,13 +211,27 @@
 }
 
 .main > * {
-  animation: page-in 260ms var(--ease) both;
+  animation: page-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A page arrives in a soft cascade: heading first, sections just after. */
+.main > :nth-child(3) {
+  animation-delay: 40ms;
+}
+.main > :nth-child(4) {
+  animation-delay: 80ms;
+}
+.main > :nth-child(5) {
+  animation-delay: 110ms;
+}
+.main > :nth-child(n + 6) {
+  animation-delay: 140ms;
 }
 
 @keyframes page-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px);
   }
 }
 
@@ -883,7 +897,11 @@
   inset: 0;
   background: rgba(10, 7, 16, 0.6);
   z-index: 60;
-  animation: fade-in var(--t-med) var(--ease);
+  animation: fade-in 320ms ease both;
+}
+
+.scrim.closing {
+  animation: fade-out 240ms ease both;
 }
 
 @keyframes fade-in {
@@ -892,24 +910,70 @@
   }
 }
 
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The sheet is a column: a still header, then a body that scrolls. */
 .sheet {
+  --sheet-ease: cubic-bezier(0.32, 0.72, 0, 1);
   position: fixed;
   inset-inline: 0;
   inset-block-end: 0;
   margin-inline: auto;
   max-width: 560px;
   max-height: min(86dvh, 720px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
   border-start-start-radius: var(--r-lg);
   border-start-end-radius: var(--r-lg);
-  padding: var(--s6) var(--s6) calc(var(--s6) + env(safe-area-inset-bottom));
   z-index: 61;
-  animation: sheet-up var(--t-med) var(--ease);
+  outline: none;
+  will-change: transform;
+  animation: sheet-rise 480ms var(--sheet-ease) both;
+}
+
+.sheet.settled,
+.sheet.dragging {
+  animation: none;
+}
+
+.sheet.dragging {
+  transition: none;
+}
+
+.sheet.closing {
+  animation: sheet-fall 240ms var(--sheet-ease) both;
+}
+
+.sheet-grab-zone {
+  flex: none;
+  padding: var(--s6) var(--s6) 0;
+  touch-action: none;
+  cursor: grab;
+}
+
+.sheet.dragging .sheet-grab-zone {
+  cursor: grabbing;
+}
+
+.sheet-grab {
+  display: none;
+}
+
+.sheet-body {
+  flex: 1;
+  min-block-size: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 var(--s6) calc(var(--s6) + env(safe-area-inset-bottom));
 }
 
 /* On a phone a sheet floats: clear of the screen's sides and bottom, round
@@ -920,21 +984,25 @@
     inset-block-end: max(10px, calc(env(safe-area-inset-bottom) - 12px));
     border-radius: 26px;
     max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px);
-    padding-block-end: var(--s5);
     box-shadow: 0 24px 60px rgba(6, 4, 12, 0.6);
   }
-}
 
-/* A grab handle, as on a native bottom sheet. */
-@media (max-width: 699px) {
-  .sheet::before {
-    content: '';
+  .sheet-grab-zone {
+    padding-block-start: 10px;
+  }
+
+  /* A grab handle, as on a native bottom sheet - and the place to drag it. */
+  .sheet-grab {
     display: block;
     inline-size: 38px;
     block-size: 5px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.22);
-    margin: calc(-1 * var(--s3)) auto var(--s4);
+    margin: 0 auto 14px;
+  }
+
+  .sheet-body {
+    padding-block-end: var(--s5);
   }
 }
 
@@ -944,25 +1012,60 @@
     inset-block-start: 50%;
     translate: 0 -50%;
     border-radius: var(--r-lg);
+    animation-name: sheet-pop;
+    animation-duration: 340ms;
+  }
+
+  .sheet.closing {
+    animation-name: sheet-unpop;
+    animation-duration: 200ms;
   }
 }
 
-@keyframes sheet-up {
+@keyframes sheet-rise {
+  from {
+    transform: translate3d(0, 105%, 0);
+  }
+}
+
+@keyframes sheet-fall {
+  to {
+    transform: translate3d(0, 110%, 0);
+  }
+}
+
+@keyframes sheet-pop {
   from {
     opacity: 0;
-    translate: 0 16px;
+    transform: scale(0.96);
   }
 }
 
-@media (min-width: 700px) {
-  @keyframes sheet-up {
-    from {
-      opacity: 0;
-      translate: 0 calc(-50% + 12px);
-    }
-    to {
-      translate: 0 -50%;
-    }
+@keyframes sheet-unpop {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+:root[data-calm='1'] .sheet,
+:root[data-calm='1'] .sheet.closing {
+  animation-name: fade-in;
+  animation-duration: 200ms;
+}
+
+:root[data-calm='1'] .sheet.closing {
+  animation-name: fade-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation-name: fade-in;
+    animation-duration: 200ms;
+  }
+
+  .sheet.closing {
+    animation-name: fade-out;
   }
 }
 
@@ -7708,4 +7811,122 @@ span.role-chip {
 .prows > .prow-action + .prow-action,
 .prows > .prow-action + .prow-confirm {
   border-block-start: 1px solid var(--hairline);
+}
+
+.skeleton-stack {
+  display: grid;
+  gap: var(--s3);
+}
+
+/* ===================================================================
+ * Motion: small, quick, and only where it explains something.
+ * Off entirely with calm motion or the system's reduced-motion setting.
+ * =================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Cards drift in one after another the first time a grid appears. */
+  :root:not([data-calm='1']) .card-grid > * {
+    animation: card-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  :root:not([data-calm='1']) .card-grid > :nth-child(2) {
+    animation-delay: 30ms;
+  }
+  :root:not([data-calm='1']) .card-grid > :nth-child(3) {
+    animation-delay: 60ms;
+  }
+  :root:not([data-calm='1']) .card-grid > :nth-child(4) {
+    animation-delay: 90ms;
+  }
+  :root:not([data-calm='1']) .card-grid > :nth-child(5) {
+    animation-delay: 120ms;
+  }
+  :root:not([data-calm='1']) .card-grid > :nth-child(6) {
+    animation-delay: 150ms;
+  }
+  :root:not([data-calm='1']) .card-grid > :nth-child(n + 7) {
+    animation-delay: 180ms;
+  }
+
+  /* A touch answers the finger: a slight press, released with a spring. */
+  :root:not([data-calm='1'])
+    :is(
+      .btn,
+      .chip,
+      .med-card,
+      .begin-card,
+      .more-tile,
+      .prow-head,
+      .prow-action,
+      .person-card,
+      .friend-top,
+      .seg-opt,
+      .type-pop-opt,
+      .icon-btn,
+      .fp-round,
+      .ai-approach-opt,
+      .move-mode,
+      .share-choice
+    ) {
+    transition:
+      transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      background var(--t-fast) var(--ease),
+      border-color var(--t-fast) var(--ease),
+      color var(--t-fast) var(--ease);
+  }
+  :root:not([data-calm='1'])
+    :is(
+      .btn,
+      .chip,
+      .begin-card,
+      .more-tile,
+      .person-card,
+      .seg-opt,
+      .type-pop-opt,
+      .icon-btn,
+      .fp-round,
+      .ai-approach-opt,
+      .move-mode,
+      .share-choice
+    ):active:not(:disabled) {
+    transform: scale(0.965);
+    transition-duration: 90ms;
+  }
+  :root:not([data-calm='1']) .med-card:active {
+    transform: scale(0.98);
+    transition-duration: 90ms;
+  }
+  :root:not([data-calm='1']) :is(.prow-head, .prow-action, .friend-top):active {
+    transform: scale(0.99);
+    transition-duration: 90ms;
+  }
+
+  /* The tab you land on lifts its icon for a moment. */
+  :root:not([data-calm='1']) .mobile-tabs a.active .nav-ic {
+    animation: tab-lift 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Rows, requests and feed items settle in rather than blink in. */
+  :root:not([data-calm='1']) :is(.rowlist > .row, .feed > *, .request-card, .ft-card) {
+    animation: row-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes tab-lift {
+  40% {
+    transform: translateY(-3px) scale(1.12);
+  }
 }

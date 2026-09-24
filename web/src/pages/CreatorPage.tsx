@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { LibraryDto } from '@zenport/shared';
 import { formatDuration } from '@zenport/shared';
 import { useApi } from '../hooks.ts';
-import { EmptyState, ErrorNote, SkeletonGrid } from '../components/ui.tsx';
+import { EmptyState, ErrorNote, PageSkeleton } from '../components/ui.tsx';
 import { MedCard } from './LibraryPage.tsx';
 
 export function CreatorPage() {
@@ -10,7 +10,7 @@ export function CreatorPage() {
   const creatorName = decodeURIComponent(name);
   const lib = useApi<LibraryDto>('/api/library');
 
-  if (lib.loading) return <SkeletonGrid />;
+  if (lib.loading) return <PageSkeleton title={creatorName} grid />;
   if (lib.error) return <ErrorNote message={lib.error} onRetry={lib.reload} />;
 
   const items = (lib.data?.items ?? []).filter((i) => i.creator === creatorName && !i.missing);

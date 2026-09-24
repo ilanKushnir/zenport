@@ -25,6 +25,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.12.0',
+    items: [
+      {
+        emoji: '🫧',
+        text: 'Sheets rise smoothly and close with a swipe down - the handle stays put while the content scrolls.',
+      },
+      { emoji: '⚡', text: 'Pages open instantly, filling in as they load.' },
+      { emoji: '✨', text: 'Gentle motion throughout - and still, if you prefer it still.' },
+    ],
+  },
+  {
     version: '0.11.0',
     items: [
       {

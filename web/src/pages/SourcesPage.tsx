@@ -7,7 +7,7 @@ import type {
 import { privacyEmbedUrl } from '@zenport/shared';
 import { api, ApiError } from '../api.ts';
 import { useApi } from '../hooks.ts';
-import { EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx';
+import { EmptyState, ErrorNote, Icon, PageSkeleton, Sheet } from '../components/ui.tsx';
 
 interface ResolveResult {
   classification: YouTubeClassification;
@@ -29,7 +29,7 @@ export function SourcesPage() {
     sources.reload();
   };
 
-  if (sources.loading) return <div className="skeleton" style={{ height: 200 }} />;
+  if (sources.loading) return <PageSkeleton title="Sources" />;
   if (sources.error) return <ErrorNote message={sources.error} onRetry={sources.reload} />;
 
   const list = sources.data ?? [];

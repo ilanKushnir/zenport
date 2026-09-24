@@ -36,7 +36,23 @@ export function FriendPage() {
       </>
     );
   }
-  if (!profile.data) return <div className="skeleton" style={{ height: 240 }} />;
+  if (!profile.data) {
+    return (
+      <>
+        <nav className="breadcrumbs" aria-label="Breadcrumb" style={{ marginBottom: 20 }}>
+          <Link to="/friends">Friends</Link>
+        </nav>
+        <div className="friend-hero" aria-hidden="true">
+          <div className="skeleton" style={{ width: 88, height: 88, borderRadius: '50%' }} />
+          <div className="friend-hero-text">
+            <div className="skeleton" style={{ width: '50%', height: 28 }} />
+            <div className="skeleton" style={{ width: '70%', marginTop: 10 }} />
+          </div>
+        </div>
+        <div className="skeleton" style={{ height: 160 }} />
+      </>
+    );
+  }
   const { friend: f, days, recent } = profile.data;
   const max = Math.max(10, ...days.map((d) => d.minutes));
   const practisedToday = !!f.now || (f.today?.minutes ?? 0) > 0;

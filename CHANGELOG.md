@@ -5,6 +5,14 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-09-24
+
+### Changed
+
+- **Sheets behave like native ones.** The header - grab handle, title, close - stays still and only the content scrolls, so pulling at the top no longer bounces the handle away from its card. Drag the header down, or pull the content down while it is at its top, and the sheet follows the finger; let go far enough or quickly enough and it slides away, otherwise it springs back. Sheets rise from the bottom on a spring and slide away on close (a soft pop on a desktop). Opening one on a phone no longer throws the keyboard up.
+- **Pages open at once.** Everything already seen shows immediately and refreshes quietly underneath; the first visit to a page draws its heading straight away with soft placeholders where content will land, instead of a bare block.
+- **Quiet motion throughout.** Pages settle in with their sections in a short cascade, cards drift in one after another, buttons, cards, chips and rows answer a touch with a slight press, the tab you land on lifts its icon, and lists settle in rather than blink. All of it steps aside for *Still everything* in Settings and for the system's reduced-motion setting.
+
 ## [0.11.0] — 2026-09-24
 
 ### Added

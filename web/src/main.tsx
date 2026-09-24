@@ -13,6 +13,10 @@ for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
   document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
 }
 
+// iOS only applies :active on touch when some touch listener exists - this
+// empty one lets buttons and cards show their press.
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

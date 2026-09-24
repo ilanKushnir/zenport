@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { GeneratedCover, paintedCover } from './CoverArt.tsx';
 import { useScrollLock } from '../scrollLock.ts';
@@ -168,6 +168,38 @@ export function ErrorNote({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
+/**
+ * A page that is still fetching: its real heading at once, soft placeholders
+ * where the content will land - so a tap always shows the page it opened.
+ */
+export function PageSkeleton({
+  title,
+  lede,
+  grid = false,
+}: {
+  title: string;
+  lede?: string;
+  grid?: boolean;
+}) {
+  return (
+    <>
+      <div className="page-head">
+        <h1>{title}</h1>
+        {lede && <p className="lede">{lede}</p>}
+      </div>
+      {grid ? (
+        <SkeletonGrid count={6} />
+      ) : (
+        <div className="skeleton-stack" aria-hidden="true">
+          <div className="skeleton" style={{ height: 88 }} />
+          <div className="skeleton" style={{ height: 88 }} />
+          <div className="skeleton" style={{ height: 88 }} />
+        </div>
+      )}
+    </>
+  );
+}
+
 export function SkeletonGrid({ count = 8 }: { count?: number }) {
   return (
     <div className="card-grid" aria-hidden="true">
@@ -186,6 +218,18 @@ export function SkeletonGrid({ count = 8 }: { count?: number }) {
  * Modal sheet with focus management: focus moves in on open, is trapped,
  * Escape closes, and focus returns to the opener on close.
  */
+const SHEET_EXIT_MS = 240;
+
+/**
+ * A sheet: rises from the bottom on a phone (a centred card on a desktop).
+ *
+ * The header - grab handle, title, close - stays still; only the body
+ * scrolls, and it never drags the page behind it. Drag the header down, or
+ * pull the body down while it is at its top, and the sheet follows the finger;
+ * let go far or fast enough and it slides away, otherwise it settles back.
+ * Closing (the X, the scrim, Escape, a drag) always plays the exit before the
+ * parent unmounts it.
+ */
 export function Sheet({
   title,
   onClose,
@@ -198,9 +242,23 @@ export function Sheet({
   labelId?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
   const id = labelId ?? 'sheet-title';
+  const [closing, setClosing] = useState(false);
+  const closingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useScrollLock(true);
+
+  /** Play the way out, then let the parent unmount us. */
+  const requestClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    window.setTimeout(() => onCloseRef.current(), SHEET_EXIT_MS);
+  }, []);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -212,11 +270,14 @@ export function Sheet({
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         ),
       ].filter((el) => !el.hasAttribute('disabled'));
-    (focusables()[0] ?? node).focus();
+    // Focus the sheet itself on touch screens: focusing the first field would
+    // pop the keyboard up over a sheet the person only opened to look at.
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    (touch ? node : (focusables()[0] ?? node)).focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       } else if (e.key === 'Tab') {
         const els = focusables();
         if (els.length === 0) return;
@@ -234,24 +295,186 @@ export function Sheet({
     node.addEventListener('keydown', onKey);
     return () => {
       node.removeEventListener('keydown', onKey);
-      opener?.focus();
+      opener?.focus({ preventScroll: true });
     };
-  }, [onClose]);
+  }, [requestClose]);
+
+  // Drag to dismiss. Native listeners: a pull on the body must be able to
+  // cancel the browser's own scroll, which needs a non-passive touchmove.
+  useEffect(() => {
+    const sheet = ref.current;
+    const body = bodyRef.current;
+    if (!sheet || !body) return;
+    let startY = 0;
+    let lastY = 0;
+    let lastT = 0;
+    let velocity = 0;
+    let dragging = false;
+    let fromBody = false;
+    let armed = false;
+
+    const move = (dy: number) => {
+      const y = Math.max(0, dy);
+      sheet.style.transform = `translate3d(0, ${y}px, 0)`;
+      if (scrimRef.current) {
+        scrimRef.current.style.opacity = String(Math.max(0, 1 - y / (sheet.offsetHeight * 0.9)));
+      }
+    };
+    const begin = (y: number) => {
+      startY = y;
+      lastY = y;
+      lastT = performance.now();
+      velocity = 0;
+      armed = true;
+      dragging = false;
+    };
+    const track = (y: number) => {
+      const now = performance.now();
+      velocity = (y - lastY) / Math.max(1, now - lastT);
+      lastY = y;
+      lastT = now;
+    };
+    const end = () => {
+      if (!dragging) {
+        armed = false;
+        return;
+      }
+      dragging = false;
+      armed = false;
+      const dy = lastY - startY;
+      // A finger that paused before lifting was not flicking.
+      if (performance.now() - lastT > 90) velocity = 0;
+      sheet.classList.remove('dragging');
+      if (dy > Math.min(140, sheet.offsetHeight * 0.3) || velocity > 0.55) {
+        // Carry on from where the finger left it.
+        sheet.style.transition = `transform ${SHEET_EXIT_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`;
+        sheet.style.transform = 'translate3d(0, 110%, 0)';
+        if (scrimRef.current) {
+          scrimRef.current.style.transition = `opacity ${SHEET_EXIT_MS}ms ease`;
+          scrimRef.current.style.opacity = '0';
+        }
+        closingRef.current = true;
+        window.setTimeout(() => onCloseRef.current(), SHEET_EXIT_MS);
+      } else {
+        sheet.style.transition = 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)';
+        sheet.style.transform = '';
+        if (scrimRef.current) {
+          scrimRef.current.style.transition = 'opacity 320ms ease';
+          scrimRef.current.style.opacity = '';
+        }
+        window.setTimeout(() => {
+          sheet.style.transition = '';
+          if (scrimRef.current) scrimRef.current.style.transition = '';
+        }, 330);
+      }
+    };
+
+    // Header: always drags.
+    const head = sheet.querySelector<HTMLElement>('.sheet-grab-zone');
+    const onHeadDown = (e: PointerEvent) => {
+      if ((e.target as HTMLElement).closest('button, a, input')) return;
+      if (closingRef.current) return;
+      head?.setPointerCapture(e.pointerId);
+      begin(e.clientY);
+      fromBody = false;
+    };
+    const onHeadMove = (e: PointerEvent) => {
+      if (!armed || fromBody) return;
+      track(e.clientY);
+      if (!dragging && Math.abs(e.clientY - startY) > 4) {
+        dragging = true;
+        sheet.classList.add('dragging');
+      }
+      if (dragging) move(e.clientY - startY);
+    };
+    head?.addEventListener('pointerdown', onHeadDown);
+    head?.addEventListener('pointermove', onHeadMove);
+    head?.addEventListener('pointerup', end);
+    head?.addEventListener('pointercancel', end);
+
+    // Body: a pull down while scrolled to the top becomes a drag.
+    const onTouchStart = (e: TouchEvent) => {
+      if (closingRef.current || e.touches.length !== 1) return;
+      fromBody = true;
+      begin(e.touches[0]!.clientY);
+      armed = body.scrollTop <= 0;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!armed || !fromBody) return;
+      const y = e.touches[0]!.clientY;
+      const dy = y - startY;
+      if (!dragging) {
+        if (dy < -2 || body.scrollTop > 0) {
+          armed = false; // scrolling the content, not the sheet
+          return;
+        }
+        if (dy > 6) {
+          const t = e.target as HTMLElement;
+          // Sliders and text selection keep their own gestures.
+          if (t.closest('.slider, textarea')) {
+            armed = false;
+            return;
+          }
+          dragging = true;
+          sheet.classList.add('dragging');
+          startY = y;
+        }
+      }
+      if (dragging) {
+        e.preventDefault();
+        track(y);
+        move(y - startY);
+      }
+    };
+    body.addEventListener('touchstart', onTouchStart, { passive: true });
+    body.addEventListener('touchmove', onTouchMove, { passive: false });
+    body.addEventListener('touchend', end);
+    body.addEventListener('touchcancel', end);
+    return () => {
+      head?.removeEventListener('pointerdown', onHeadDown);
+      head?.removeEventListener('pointermove', onHeadMove);
+      head?.removeEventListener('pointerup', end);
+      head?.removeEventListener('pointercancel', end);
+      body.removeEventListener('touchstart', onTouchStart);
+      body.removeEventListener('touchmove', onTouchMove);
+      body.removeEventListener('touchend', end);
+      body.removeEventListener('touchcancel', end);
+    };
+  }, []);
 
   // Portalled to <body>: a page's entrance animation makes it the containing
   // block for anything position: fixed inside it, which parked sheets mid-page
   // and let them inherit the page's alignment.
   return createPortal(
     <>
-      <div className="scrim" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={id} ref={ref}>
-        <div className="sheet-head">
-          <h2 id={id}>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            <Icon name="x" />
-          </button>
+      <div className={`scrim${closing ? ' closing' : ''}`} onClick={requestClose} ref={scrimRef} />
+      <div
+        className={`sheet${closing ? ' closing' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={id}
+        ref={ref}
+        tabIndex={-1}
+        onAnimationEnd={(e) => {
+          // The entrance is done: drop it, so toggling classes later (a drag)
+          // can never replay it over the finger's position.
+          if (e.target === e.currentTarget && !closingRef.current) {
+            e.currentTarget.classList.add('settled');
+          }
+        }}
+      >
+        <div className="sheet-grab-zone">
+          <span className="sheet-grab" aria-hidden="true" />
+          <div className="sheet-head">
+            <h2 id={id}>{title}</h2>
+            <button className="icon-btn" onClick={requestClose} aria-label="Close">
+              <Icon name="x" />
+            </button>
+          </div>
         </div>
-        {children}
+        <div className="sheet-body" ref={bodyRef}>
+          {children}
+        </div>
       </div>
     </>,
     document.body,

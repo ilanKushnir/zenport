@@ -8,21 +8,40 @@ export interface Loadable<T> {
   reload: () => void;
 }
 
-/** Fetch-on-mount hook with reload; latency-aware for skeletons. */
+/**
+ * What each GET last answered, for this signed-in session only. A page shows
+ * it at once and refreshes underneath - navigating never waits on the network
+ * for something already seen. Cleared on sign-in, sign-out and account switch.
+ */
+const cache = new Map<string, unknown>();
+export const clearApiCache = () => cache.clear();
+
+/**
+ * Fetch-on-mount hook with reload. With a cached answer the page renders it
+ * immediately (loading stays false) and quietly swaps in the fresh one.
+ */
 export function useApi<T>(path: string | null): Loadable<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(path !== null);
+  const cached = path !== null ? (cache.get(path) as T | undefined) : undefined;
+  const [data, setData] = useState<T | null>(cached ?? null);
+  const [loading, setLoading] = useState(path !== null && cached === undefined);
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
 
   const load = useCallback(() => {
     if (path === null) return;
     const gen = ++generation.current;
-    setLoading(true);
+    const hit = cache.get(path) as T | undefined;
+    if (hit !== undefined) {
+      setData(hit);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     api
       .get<T>(path)
       .then((d) => {
+        cache.set(path, d);
         if (generation.current === gen) {
           setData(d);
           setLoading(false);
@@ -30,7 +49,10 @@ export function useApi<T>(path: string | null): Loadable<T> {
       })
       .catch((err: unknown) => {
         if (generation.current === gen) {
-          setError(err instanceof ApiError ? err.message : 'something went wrong loading this');
+          // A background refresh that fails keeps showing what we had.
+          if (!cache.has(path)) {
+            setError(err instanceof ApiError ? err.message : 'something went wrong loading this');
+          }
           setLoading(false);
         }
       });

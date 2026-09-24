@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom';
 import type { SetupStatusDto, UserInfo } from '@zenport/shared';
 import { api } from './api.ts';
+import { clearApiCache } from './hooks.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup, Logo, Wordmark } from './components/Brand.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
@@ -275,7 +276,11 @@ export default function App() {
   const refresh = async () => {
     try {
       const me = await api.get<UserInfo>('/api/auth/me');
-      setUser(me);
+      // Another account on this device: nothing of the last one may show.
+      setUser((prev) => {
+        if (prev && prev.id !== me.id) clearApiCache();
+        return me;
+      });
       setPhase('in');
     } catch {
       const status = await api.get<SetupStatusDto>('/api/setup/status').catch(() => null);
@@ -286,13 +291,17 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
-    const onSignedOut = () => setPhase('login');
+    const onSignedOut = () => {
+      clearApiCache();
+      setPhase('login');
+    };
     window.addEventListener('zenport:signed-out', onSignedOut);
     return () => window.removeEventListener('zenport:signed-out', onSignedOut);
   }, []);
 
   const signOut = async () => {
     await api.post('/api/auth/logout').catch(() => {});
+    clearApiCache();
     setUser(null);
     setPhase('login');
   };
