@@ -1127,3 +1127,74 @@ export interface AdminCreatorDto extends CreatorDto {
   /** Other spellings merged into this one (undoable). */
   aliases: string[];
 }
+
+// ── Made for you: a guided meditation written and spoken for this moment ──
+
+/** Practice sessions of a made-for-you sit use `ai:<id>` as their item. */
+export const SIT_ITEM_PREFIX = 'ai:';
+export const SIT_TITLE = 'Made for you';
+
+export const SIT_FEELINGS = [
+  { id: 'restless', label: 'Restless' },
+  { id: 'anxious', label: 'Anxious' },
+  { id: 'tired', label: 'Tired' },
+  { id: 'scattered', label: 'Scattered' },
+  { id: 'low', label: 'Low' },
+  { id: 'tender', label: 'Tender' },
+  { id: 'sleepless', label: 'Can’t sleep' },
+  { id: 'grateful', label: 'Grateful' },
+  { id: 'calm', label: 'Calm' },
+] as const;
+export type SitFeeling = (typeof SIT_FEELINGS)[number]['id'];
+
+export const SIT_FOCI = [
+  { id: 'any', label: 'Let it choose' },
+  { id: 'breath', label: 'Breath' },
+  { id: 'body', label: 'Body' },
+  { id: 'kindness', label: 'Kindness' },
+  { id: 'awareness', label: 'Open awareness' },
+  { id: 'sleep', label: 'Sleep' },
+] as const;
+export type SitFocus = (typeof SIT_FOCI)[number]['id'];
+
+export const SIT_VOICES = [
+  { id: 'sage', label: 'Sage', hint: 'Soft and clear' },
+  { id: 'coral', label: 'Coral', hint: 'Warm' },
+  { id: 'ballad', label: 'Ballad', hint: 'Gentle' },
+  { id: 'ash', label: 'Ash', hint: 'Low and steady' },
+] as const;
+export type SitVoice = (typeof SIT_VOICES)[number]['id'];
+
+export const SIT_LENGTHS = [5, 10, 15, 20] as const;
+
+export interface SitRequest {
+  minutes: (typeof SIT_LENGTHS)[number];
+  feelings: SitFeeling[];
+  focus: SitFocus;
+  voice: SitVoice;
+  note?: string;
+}
+
+export interface SitDto {
+  id: string;
+  createdAt: string;
+  title: string;
+  minutes: number;
+  durationSec: number;
+  feelings: SitFeeling[];
+  focus: SitFocus;
+  voice: SitVoice;
+  note: string | null;
+  /** The words, in order - to read along or read back. */
+  script: string[];
+  /** Times it was sat (practice sessions that counted). */
+  sat: number;
+}
+
+export interface SitsDto {
+  /** Something to write the words with. */
+  canUse: boolean;
+  /** Something to speak them with: an OpenAI key, own or shared. */
+  canSpeak: boolean;
+  sits: SitDto[];
+}

@@ -92,6 +92,13 @@ export function CommandPalette() {
         run: go('/ai/guide'),
       },
       {
+        id: 'sit',
+        label: 'Made for you - a meditation written for now',
+        icon: 'volume',
+        group: 'Go',
+        run: go('/ai/sit'),
+      },
+      {
         id: 'discover',
         label: 'Discover - teachers, courses, books, retreats',
         icon: 'search',

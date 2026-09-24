@@ -138,6 +138,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (completedRef.current.has(trackId)) return;
     completedRef.current.add(trackId);
     setCompletedIds(new Set(completedRef.current));
+    // A made-for-you sit is no library track: nothing to tick on the server.
+    if (trackId.startsWith('ai-')) return;
     void api
       .put(`/api/tracks/${trackId}/completed`, { completed: true })
       .then(() => window.dispatchEvent(new Event('zenport:progress')))
@@ -266,6 +268,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (pendingSeekRef.current !== null) return;
     if (el && tr && el.currentTime > 0) {
       if (!completedRef.current.has(tr.id)) placesRef.current.set(tr.id, el.currentTime);
+      if (tr.id.startsWith('ai-')) return;
       void api.put(`/api/progress/${tr.id}`, { positionSec: el.currentTime }).catch(() => {});
     }
   }, []);

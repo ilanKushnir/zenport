@@ -107,6 +107,19 @@ function fakeOpenAi(): AiClient {
           ],
         };
       }
+      if (schemaName === 'zenport_sit') {
+        return {
+          title: '"Softening the Evening"',
+          passages: [
+            { text: 'Welcome. Let yourself arrive. [pause]', pause: 2 },
+            { text: 'Feel the breath, just as it is.', pause: 6 },
+            { text: 'When the mind wanders, come back gently.', pause: 10 },
+            { text: '(long pause)', pause: 3 },
+            { text: 'Now let the attention widen.', pause: 4 },
+            { text: 'And slowly, come back.', pause: 1 },
+          ],
+        };
+      }
       if (schemaName === 'zenport_discover') {
         const item = (kind: string, title: string, url: string) => ({
           kind,
@@ -2523,5 +2536,113 @@ describe('Managing creators', () => {
         })
       ).statusCode,
     ).toBe(400);
+  });
+});
+
+describe('Made for you', () => {
+  it('writes, speaks and times a sit, plays it as a recording, and counts it', async () => {
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const list = async () =>
+      (await app.inject({ method: 'GET', url: '/api/ai/sits', headers: auth() })).json();
+    expect(await list()).toMatchObject({ canUse: false, canSpeak: false, sits: [] });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/ai/settings',
+      headers: auth(),
+      payload: { apiKey: 'sk-good-0000000000abcd' },
+    });
+    expect(await list()).toMatchObject({ canUse: true, canSpeak: true });
+
+    spoken.length = 0;
+    const made = await app.inject({
+      method: 'POST',
+      url: '/api/ai/sits',
+      headers: auth(),
+      payload: {
+        minutes: 5,
+        feelings: ['restless'],
+        focus: 'breath',
+        voice: 'sage',
+        note: 'Long day.',
+      },
+    });
+    expect(made.statusCode).toBe(200);
+    const sit = made.json();
+    expect(lastPrompt).toContain('They arrive feeling: restless.');
+    expect(lastPrompt).toContain('In their words: Long day.');
+    expect(sit.title).toBe('Softening the Evening');
+    // What is read out is only what is meant to be said.
+    expect(spoken).toHaveLength(5);
+    expect(spoken.join(' ')).not.toMatch(/pause|\[|\(/i);
+    // Silences sized to land it on five minutes.
+    expect(Math.abs(sit.durationSec - 300)).toBeLessThan(3);
+
+    const item = (
+      await app.inject({ method: 'GET', url: `/api/ai/sits/${sit.id}/item`, headers: auth() })
+    ).json();
+    expect(item).toMatchObject({ id: `ai:${sit.id}`, creator: 'Made for you', trackCount: 1 });
+    const audio = await app.inject({
+      method: 'GET',
+      url: `/api/media/track/${item.tracks[0].id}`,
+      headers: { ...auth(), range: 'bytes=0-99' },
+    });
+    expect(audio.statusCode).toBe(206);
+    expect(audio.headers['content-type']).toBe('audio/mpeg');
+
+    const s = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/practice/start',
+        headers: auth(),
+        payload: { meditationId: item.id },
+      })
+    ).json();
+    await app.inject({
+      method: 'POST',
+      url: `/api/practice/${s.id}/finish`,
+      headers: auth(),
+      payload: { status: 'completed', reason: 'finished' },
+    });
+    const history = (
+      await app.inject({ method: 'GET', url: '/api/practice/history', headers: auth() })
+    ).json();
+    expect(history[0]).toMatchObject({
+      meditationTitle: 'Softening the Evening',
+      creator: 'Made for you',
+    });
+    expect((await list()).sits[0].sat).toBe(1);
+
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/ai/sits',
+          headers: auth(),
+          payload: { minutes: 7, feelings: [], focus: 'breath', voice: 'sage' },
+        })
+      ).statusCode,
+    ).toBe(400);
+
+    await app.inject({ method: 'DELETE', url: `/api/ai/sits/${sit.id}`, headers: auth() });
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/media/track/${item.tracks[0].id}`,
+          headers: auth(),
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/practice/start',
+          headers: auth(),
+          payload: { meditationId: item.id },
+        })
+      ).statusCode,
+    ).toBe(404);
   });
 });

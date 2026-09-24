@@ -40,6 +40,13 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
+    to: '/ai/sit',
+    icon: 'volume',
+    title: 'Made for you',
+    hint: 'A guided meditation written for how you are now, spoken by a calm voice.',
+    id: 'sits',
+  },
+  {
     to: '/plans?ai=1',
     icon: 'plans',
     title: 'Plan with AI',

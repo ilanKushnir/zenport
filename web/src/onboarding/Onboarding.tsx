@@ -285,9 +285,9 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <>
                 <h1 id="ob-title">Your own AI companion</h1>
                 <p className="ob-lede">
-                  Connect an AI and it plans from your library, reviews how your practice is going,
-                  picks a few things for each day, and finds teachers, courses and books beyond your
-                  library.
+                  Connect an AI and it writes and speaks a meditation for exactly how you are, plans
+                  from your library, reviews how your practice is going, picks a few things for each
+                  day, and finds teachers, courses and books beyond your library.
                   {user?.role === 'admin' &&
                     ' For you as admin, it can also tidy the library: fixes, descriptions and a picture for every creator.'}
                 </p>

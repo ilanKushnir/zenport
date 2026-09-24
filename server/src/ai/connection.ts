@@ -87,3 +87,17 @@ export function targetFor(
   const theirs = shared ? activeRow(db, shared.userId) : null;
   return theirs ? toTarget(theirs, secret) : null;
 }
+
+/**
+ * An OpenAI key to speak with (Made for you): this person's own OpenAI
+ * connection - active or not - else the sharing admin's, when they opened
+ * sharing for it. Null when there is none.
+ */
+export function speechKeyFor(db: Db, secret: string, userId: number): string | null {
+  const own = connections(db, userId).find((r) => r.provider === 'openai');
+  if (own?.api_key_enc) return openSecret(own.api_key_enc, secret);
+  const shared = sharedOwner(db);
+  if (!shared || shared.userId === userId || !sharedFeatures(db).includes('sits')) return null;
+  const theirs = connections(db, shared.userId).find((r) => r.provider === 'openai');
+  return theirs?.api_key_enc ? openSecret(theirs.api_key_enc, secret) : null;
+}

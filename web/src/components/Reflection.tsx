@@ -80,7 +80,9 @@ function ReflectionSheetInner() {
             : 'A line now is worth pages later - or skip it, the sit already counts.'}
         </p>
       </div>
-      {!prompt.learning && prompt.meditationId && <TimesLine meditationId={prompt.meditationId} />}
+      {!prompt.learning && prompt.meditationId && !prompt.meditationId.startsWith('ai:') && (
+        <TimesLine meditationId={prompt.meditationId} />
+      )}
       <ReflectionForm
         sessionId={prompt.sessionId}
         meditationId={prompt.meditationId}

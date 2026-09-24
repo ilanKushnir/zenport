@@ -1,6 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { TIMER_ITEM_ID, TIMER_ITEM_TITLE, type PracticeSessionDto } from '@zenport/shared';
+import {
+  SIT_ITEM_PREFIX,
+  TIMER_ITEM_ID,
+  TIMER_ITEM_TITLE,
+  type PracticeSessionDto,
+} from '@zenport/shared';
 import type { AppContext } from '../../context.js';
 import { activeSession, beatSession, finishSession, startSession } from '../../practice/service.js';
 
@@ -37,7 +42,10 @@ function toDto(row: SessionRow): PracticeSessionDto {
 }
 
 const SELECT = `SELECT s.id, s.item_id, s.started_at, s.ended_at, s.listened_sec, s.status, s.reason,
-  i.title, i.creator FROM practice_sessions s LEFT JOIN items i ON i.id = s.item_id`;
+  COALESCE(i.title, a.title) AS title,
+  COALESCE(i.creator, CASE WHEN a.id IS NOT NULL THEN 'Made for you' END) AS creator
+  FROM practice_sessions s LEFT JOIN items i ON i.id = s.item_id
+  LEFT JOIN ai_sits a ON s.item_id = 'ai:' || a.id`;
 
 export function registerPracticeRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { db } = ctx;
@@ -47,7 +55,13 @@ export function registerPracticeRoutes(app: FastifyInstance, ctx: AppContext): v
     if (!body.success) return reply.code(400).send({ error: 'meditationId required' });
     // An unguided sit has no library item behind it; everything else must
     // name one that exists, so a typo cannot create unreachable history.
-    if (body.data.meditationId !== TIMER_ITEM_ID) {
+    if (body.data.meditationId.startsWith(SIT_ITEM_PREFIX)) {
+      // A meditation made for this person - theirs alone.
+      const sit = db
+        .prepare('SELECT id FROM ai_sits WHERE id = ? AND user_id = ?')
+        .get(body.data.meditationId.slice(SIT_ITEM_PREFIX.length), req.user!.id);
+      if (!sit) return reply.code(404).send({ error: 'meditation not found' });
+    } else if (body.data.meditationId !== TIMER_ITEM_ID) {
       const item = db.prepare('SELECT id FROM items WHERE id = ?').get(body.data.meditationId);
       if (!item) return reply.code(404).send({ error: 'meditation not found' });
     }

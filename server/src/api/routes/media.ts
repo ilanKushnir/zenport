@@ -5,6 +5,7 @@ import { parseCoverWidth, sizedCover } from '../../media/thumbs.js';
 import { EMBEDDED_ROOT_ID } from '../../scanner/scan.js';
 import type { AppContext } from '../../context.js';
 import { AUDIO_MIME, DOCUMENT_MIME, IMAGE_MIME, documentKind } from '../../scanner/classify.js';
+import { sitFile, sitsDir } from '../../ai/sits.js';
 
 /** Cap a single range response; clients simply request the next chunk. */
 const MAX_CHUNK = 8 * 1024 * 1024;
@@ -75,6 +76,17 @@ export function registerMediaRoutes(app: FastifyInstance, ctx: AppContext): void
 
   app.get('/api/media/track/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
+    // A meditation made for this person (Made for you): theirs alone.
+    if (id.startsWith('ai-')) {
+      const sit = sitFile(db, req.user!.id, id.slice(3));
+      if (!sit) return reply.code(404).send({ error: 'audio not found' });
+      return streamFile(
+        reply,
+        path.join(sitsDir(config.dataDir), sit.file),
+        'audio/mpeg',
+        req.headers.range,
+      );
+    }
     const row = db
       .prepare('SELECT root_id, rel_path, ext, missing FROM tracks WHERE id = ?')
       .get(id) as { root_id: number; rel_path: string; ext: string; missing: number } | undefined;

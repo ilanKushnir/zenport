@@ -120,7 +120,7 @@ export function registerFriendRoutes(app: FastifyInstance, ctx: AppContext): voi
     db
       .prepare(
         `SELECT s.id, s.item_id, s.started_at, s.last_beat_at, s.listened_sec, s.status,
-                COALESCE(i.title, CASE s.item_id WHEN ? THEN ? ELSE 'Removed recording' END) AS title,
+                COALESCE(i.title, CASE WHEN s.item_id = ? THEN ? WHEN s.item_id LIKE 'ai:%' THEN 'Made for you' ELSE 'Removed recording' END) AS title,
                 COALESCE(i.creator, '') AS creator,
                 COALESCE(t.type, i.inferred_type, 'meditation') AS type,
                 (SELECT a.id FROM assets a WHERE a.item_id = s.item_id AND a.kind = 'cover'
@@ -514,7 +514,7 @@ export function registerFriendRoutes(app: FastifyInstance, ctx: AppContext): voi
       .prepare(
         `SELECT c.id, c.kind, c.from_id, c.message, c.created_at, c.seen_at, c.item_id,
                 u.username, u.display_name, u.avatar,
-                COALESCE(i.title, CASE s.item_id WHEN ? THEN ? END) AS session_title,
+                COALESCE(i.title, CASE WHEN s.item_id = ? THEN ? WHEN s.item_id LIKE 'ai:%' THEN 'Made for you' END) AS session_title,
                 ci.title AS item_title,
                 (SELECT a.id FROM assets a WHERE a.item_id = c.item_id AND a.kind = 'cover'
                    AND a.missing = 0 LIMIT 1) AS item_cover

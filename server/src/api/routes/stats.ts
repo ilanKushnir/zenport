@@ -11,7 +11,7 @@ export function registerStatsRoutes(app: FastifyInstance, ctx: AppContext): void
       .prepare(
         `SELECT s.started_at, s.listened_sec, s.status, s.item_id,
                 COALESCE(i.creator, '') AS creator,
-                COALESCE(i.title, CASE s.item_id WHEN ? THEN ? ELSE 'Removed meditation' END) AS title,
+                COALESCE(i.title, CASE WHEN s.item_id = ? THEN ? WHEN s.item_id LIKE 'ai:%' THEN 'Made for you' ELSE 'Removed meditation' END) AS title,
                 COALESCE(t.type, i.inferred_type, 'meditation') AS type
          FROM practice_sessions s
          LEFT JOIN items i ON i.id = s.item_id

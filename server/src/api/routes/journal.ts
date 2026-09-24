@@ -82,8 +82,9 @@ export function registerJournalRoutes(app: FastifyInstance, ctx: AppContext): vo
     };
   };
 
-  const SELECT = `SELECT j.*, i.title AS med_title FROM journal_entries j
-    LEFT JOIN items i ON i.id = j.item_id`;
+  const SELECT = `SELECT j.*, COALESCE(i.title, a.title) AS med_title FROM journal_entries j
+    LEFT JOIN items i ON i.id = j.item_id
+    LEFT JOIN ai_sits a ON j.item_id = 'ai:' || a.id AND a.user_id = j.user_id`;
 
   const owned = (id: number, userId: number): EntryRow | undefined =>
     db.prepare(`${SELECT} WHERE j.id = ? AND j.user_id = ?`).get(id, userId) as

@@ -84,12 +84,22 @@ export function guideContext(
     handles.set(`m${n + 1}`, i);
     handleOf.set(i.id, `m${n + 1}`);
   });
+  const sitTitles = new Map(
+    (
+      db.prepare('SELECT id, title FROM ai_sits WHERE user_id = ?').all(user.id) as {
+        id: string;
+        title: string;
+      }[]
+    ).map((r) => [`ai:${r.id}`, r.title]),
+  );
   const name = (id: string) =>
     id === TIMER_ITEM_ID
       ? 'Unguided timer'
-      : byId.has(id)
-        ? `${handleOf.get(id)} "${clip(byId.get(id)!.title, 80)}" (${byId.get(id)!.type})`
-        : 'a recording no longer in the library';
+      : sitTitles.has(id)
+        ? `a meditation made for them, "${clip(sitTitles.get(id)!, 60)}"`
+        : byId.has(id)
+          ? `${handleOf.get(id)} "${clip(byId.get(id)!.title, 80)}" (${byId.get(id)!.type})`
+          : 'a recording no longer in the library';
 
   const all = db
     .prepare(

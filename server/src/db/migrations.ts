@@ -746,6 +746,26 @@ export const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL
   );
   `,
+  // v21: Made for you - meditations written and spoken for one person.
+  `
+  CREATE TABLE ai_sits (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    title TEXT NOT NULL,
+    minutes INTEGER NOT NULL,
+    duration_sec REAL NOT NULL,
+    feelings TEXT NOT NULL,
+    focus TEXT NOT NULL,
+    voice TEXT NOT NULL,
+    note TEXT,
+    script TEXT NOT NULL,
+    file TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    model TEXT
+  );
+  CREATE INDEX idx_ai_sits_user ON ai_sits(user_id, created_at);
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

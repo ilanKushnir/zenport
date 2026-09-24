@@ -5,6 +5,18 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-09-24
+
+### Added
+
+- **Made for you** (AI → Made for you). A guided meditation written for this moment and spoken by a calm voice, with real silence between the words.
+  - **What you choose:** how you are arriving (up to three: restless, anxious, tired, scattered…), anything you would like it to hold, 5, 10, 15 or 20 minutes, what to rest on (breath, body, kindness, open awareness, sleep, or let it choose), and one of four voices, each of which you can hear first.
+  - **How it is made:** your AI writes it from that and your intentions, and OpenAI's speech model speaks each passage. ZenPort then sizes the silences from the real length of the speech, so it lasts exactly the minutes asked for: a quiet lead-in, longer silences in the middle and a soft close.
+  - **How it plays:** in the player, like any recording. It counts in your history, streaks and times sat, and can be reflected on in the journal.
+  - **It stays:** every one is kept to sit with again. Read the words, or delete it (your history keeps the time you sat). Only you can play yours, and friends see only "Made for you".
+  - **The voice needs an OpenAI key,** your own, or the admin's shared one if they open it for Made for you. Writing can use any provider.
+  - **No ffmpeg:** speech and silence are joined in ZenPort itself (silence as real empty MP3 frames, with a seek table for exact length and seeking), so a 10-minute sit is about 3 MB.
+
 ## [0.28.0] — 2026-09-24
 
 ### Added
