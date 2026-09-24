@@ -5,7 +5,7 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.16.0] — 2026-09-24
+## [0.16.1] — 2026-09-24
 
 ### Added
 
@@ -16,6 +16,9 @@ All notable changes to ZenPort are documented here. The format follows
 
 - **"Done for now" is now "End session".** It always meant "stop here and keep my place", never "this lesson is done", and next to the new ticks the old wording read as the wrong thing.
 - The phone's page lock no longer pins the page in place, so the tab bar no longer jumps a few pixels as More or any other sheet opens and closes.
+- **The top bar fades in.** Its frosting now comes in gradually over the first stretch of scrolling instead of switching on at once.
+- **Every ZenPort logo lines up.** The name sits on the ring's centre in the top bar, sidebar, sign-in and onboarding. It was measured off by 1-3px, the mark sitting low. The top bar and onboarding now share the one lockup.
+- The mini player has the tab bar's 24px corners and the same edges, with its cover's curve following them in.
 - Tablets: the tab bar and mini player sit centred at a comfortable width instead of stretching edge to edge.
 - Admin's library scan card puts Rescan at the end of its row. Search lists every admin area (People, Library folders, YouTube sources, Integrations). Settings' Offline and About cards line up with the groups above them, and About shows the version once.
 

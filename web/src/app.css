@@ -1356,8 +1356,14 @@
 
 @media (max-width: 900px) {
   .mini {
-    inset-inline: max(var(--s2), calc(50% - 300px));
+    inset-inline: max(10px, calc(50% - 300px));
     inset-block-end: calc(var(--tabbar-h) + var(--s2));
+    /* The same curve as the tab bar beneath it, and the cover's curve
+       follows it in from the edge. */
+    border-radius: 24px;
+  }
+  .mini-cover {
+    border-radius: 16px;
   }
   .mini-desk,
   .mini-desk-only {
@@ -2978,10 +2984,18 @@
   padding-inline: var(--s2);
 }
 
-/* The serif's x-height sits a hair above the mark's optical centre; one
-   pixel down puts the name on the ring's equator. */
+/* Centred as boxes, the serif's ink rides high: its line box keeps room for
+   ascenders the name does not use. Measured against the ring, the middle of
+   "ZenPort" sits 0.125em above the ring's centre at every size - so the name
+   comes down by that much and its middle lands on the ring's equator. */
 .lockup:not(.lockup-stacked) .wordmark {
-  transform: translateY(1px);
+  transform: translateY(0.125em);
+}
+
+/* In the top bar and onboarding header the lockup is a small inline mark. */
+.app-bar-brand .lockup,
+.ob-lockup {
+  padding-inline: 0;
 }
 
 .lockup-stacked {
@@ -8678,19 +8692,24 @@ span.role-chip {
     justify-content: space-between;
     block-size: var(--appbar-h);
     padding: env(safe-area-inset-top) var(--s4) 0;
-    border-block-end: 1px solid transparent;
-    transition:
-      background 220ms var(--ease),
-      border-color 220ms var(--ease),
-      backdrop-filter 220ms var(--ease);
+    --bar: 0;
   }
 
-  /* Once the page moves beneath it: frosted, with a hairline. */
-  .app-bar.scrolled {
+  /* The frosting, on its own layer so it can fade: see-through over the top
+     of a page, it comes in gradually as the page moves beneath it (--bar is
+     set from the scroll position in AppBar) - glass, then a hairline. */
+  .app-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
     background: color-mix(in oklab, var(--bg) 78%, transparent);
     backdrop-filter: blur(18px) saturate(1.4);
     -webkit-backdrop-filter: blur(18px) saturate(1.4);
-    border-block-end-color: var(--hairline);
+    border-block-end: 1px solid var(--hairline);
+    opacity: var(--bar);
+    transition: opacity 180ms var(--ease);
+    pointer-events: none;
   }
 }
 

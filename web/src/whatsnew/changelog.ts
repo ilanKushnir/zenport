@@ -25,7 +25,7 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: '0.16.0',
+    version: '0.16.1',
     items: [
       {
         emoji: '✅',
@@ -36,6 +36,7 @@ export const CHANGELOG: ChangelogRelease[] = [
         text: 'The Lessons list in the player has a circle to tick beside every lesson.',
       },
       { emoji: '⏹️', text: '"Done for now" is now End session: it stops and keeps your place.' },
+      { emoji: '🪷', text: 'The top bar fades in gently as you scroll, and the logo sits level.' },
     ],
   },
   {

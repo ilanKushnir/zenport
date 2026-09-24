@@ -62,22 +62,36 @@ export function Wordmark({
   );
 }
 
-/** Logo + wordmark lockup — sidebar, auth pages, onboarding. */
+/**
+ * Logo + wordmark lockup - everywhere the name sits beside the mark: the
+ * phone's top bar, the sidebar, sign-in, onboarding and the splash. One
+ * component so every lockup lines up the same way (see `.lockup` in app.css).
+ */
 export function Lockup({
   size = 34,
+  word,
   tagline,
   spin = false,
   stacked = false,
+  bloom = true,
+  className,
 }: {
   size?: number;
+  /** The name's size; by default in proportion to the mark. */
+  word?: number;
   tagline?: string;
   spin?: boolean;
   stacked?: boolean;
+  bloom?: boolean;
+  className?: string;
 }) {
   return (
-    <div className={`lockup${stacked ? ' lockup-stacked' : ''}`}>
-      <Logo size={size} spin={spin} />
-      <Wordmark size={Math.round(size * (stacked ? 0.78 : 0.62))} tagline={tagline} />
+    <div
+      className={`lockup${stacked ? ' lockup-stacked' : ''}${className ? ` ${className}` : ''}`}
+      style={stacked ? undefined : { gap: Math.round(size * 0.32) }}
+    >
+      <Logo size={size} spin={spin} bloom={bloom} />
+      <Wordmark size={word ?? Math.round(size * (stacked ? 0.78 : 0.62))} tagline={tagline} />
     </div>
   );
 }

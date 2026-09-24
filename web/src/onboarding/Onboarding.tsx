@@ -17,7 +17,7 @@ import { useApi } from '../hooks.ts';
 import { api } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import { usePrefs, ACCENT_OPTIONS } from '../prefs.tsx';
-import { Logo, Wordmark } from '../components/Brand.tsx';
+import { Lockup, Wordmark } from '../components/Brand.tsx';
 import { Icon, Slider } from '../components/ui.tsx';
 import { playBell } from '../player/bell.ts';
 import { LATEST_RELEASE_VERSION } from '../whatsnew/changelog.ts';
@@ -83,8 +83,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       <div className="ob-aurora" aria-hidden="true" />
       <div className="ob-card">
         <div className="ob-head">
-          <Logo size={26} bloom={false} />
-          <Wordmark size={16} />
+          <Lockup size={26} word={17} bloom={false} className="ob-lockup" />
           <button className="btn btn-sm btn-quiet ob-skip" onClick={() => void finish()}>
             Skip
           </button>

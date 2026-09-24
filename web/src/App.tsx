@@ -13,7 +13,7 @@ import type { SetupStatusDto, UserInfo } from '@zenport/shared';
 import { api, ApiError } from './api.ts';
 import { clearApiCache } from './hooks.ts';
 import { Icon } from './components/ui.tsx';
-import { Lockup, Logo, Wordmark } from './components/Brand.tsx';
+import { Lockup } from './components/Brand.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
 import { VersionRow, WhatsNew } from './whatsnew/WhatsNew.tsx';
 import { PrefsProvider, usePrefs } from './prefs.tsx';
@@ -134,20 +134,33 @@ function StartPageRedirect() {
  * moves beneath it. Settings on the right - and, for admins only, Admin.
  */
 function AppBar({ isAdmin }: { isAdmin: boolean }) {
-  const [scrolled, setScrolled] = useState(false);
+  const barRef = useRef<HTMLElement>(null);
   const location = useLocation();
+  // The frosting fades in over the first stretch of scrolling rather than
+  // switching on: --bar is 0 at the top and 1 once the page has moved 36px.
+  // Written straight to the element, so scrolling never re-renders React.
   useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 4);
-    on();
+    let frame = 0;
+    const paint = () => {
+      frame = 0;
+      const t = Math.min(1, Math.max(0, window.scrollY / 36));
+      barRef.current?.style.setProperty('--bar', t.toFixed(3));
+    };
+    const on = () => {
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
+    paint();
     window.addEventListener('scroll', on, { passive: true });
-    return () => window.removeEventListener('scroll', on);
+    return () => {
+      window.removeEventListener('scroll', on);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, [location.pathname]);
   const here = (p: string) => location.pathname === p || location.pathname.startsWith(`${p}/`);
   return (
-    <header className={`app-bar${scrolled ? ' scrolled' : ''}`}>
+    <header className="app-bar" ref={barRef}>
       <Link className="app-bar-brand" to="/" aria-label="ZenPort - Today">
-        <Logo size={26} bloom={false} />
-        <Wordmark size={18} />
+        <Lockup size={26} word={18} bloom={false} />
       </Link>
       <nav className="app-bar-actions" aria-label="Account">
         {isAdmin && (
