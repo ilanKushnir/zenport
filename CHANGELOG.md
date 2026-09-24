@@ -5,6 +5,21 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-09-24
+
+### Added
+
+- **Start the library over.** Admin → Library folders → **Start over** reads the whole library again, as if for the first time: titles, creators, series, types, parts, covers, lengths and guides. It also forgets what the AI made of it (levels, programme or pack, descriptions, the pictures it found, suggested fixes), then lets the AI enhance it again once the fresh read is done. You choose which enhancements run, and whether found pictures and descriptions are used as found.
+  - **Your own corrections are kept by default.** Switch that off to have them read afresh too.
+  - **Nobody's practice is touched.** Sessions, finished parts, places, favourites, plans and the journal come back on the same recordings, because each recording keeps the id it had.
+  - **A copy of the database is kept first.**
+  - **Deliberate:** it takes a second tap to confirm, and it will not start while a scan or an enhancement is running.
+- Lengths the player measured before are kept for a fresh read too.
+
+### Fixed
+
+- The Enhance page updates its counts once the library it was waiting for has been read, instead of saying "All checked" meanwhile.
+
 ## [0.34.2] — 2026-09-24
 
 ### Fixed

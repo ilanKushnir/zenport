@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.35.0',
+    items: [
+      {
+        emoji: '🔁',
+        text: 'Admins can start the library over - read every folder afresh and let the AI enhance it again. Practice, plans and the journal stay.',
+      },
+    ],
+  },
+  {
     version: '0.34.2',
     items: [
       {

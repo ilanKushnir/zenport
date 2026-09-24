@@ -6,8 +6,11 @@
  * file. The rescan runs as part of the change, so the page answers with the
  * library as it now is. Only the admin can change it; everyone can look.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type {
+  EnhanceStatusDto,
+  EnhanceStepKey,
   FolderNodeDto,
   LibraryFoldersDto,
   RemovedLibraryDto,
@@ -182,7 +185,223 @@ export function FoldersPage() {
           )}
         </section>
       ))}
+
+      {canEdit && <StartOver />}
     </>
+  );
+}
+
+const AI_STEPS: { key: EnhanceStepKey; label: string; sub: string; web?: boolean }[] = [
+  { key: 'levels', label: 'Levels and programmes', sub: 'Who each suits; in order or any order' },
+  { key: 'pictures', label: 'Creator pictures', sub: 'A face or logo for each', web: true },
+  {
+    key: 'fixes',
+    label: 'Suggested fixes',
+    sub: 'Titles, types and part names - for you to accept',
+  },
+  {
+    key: 'about',
+    label: 'Descriptions',
+    sub: 'Looked up on the web, for the first 24 - the slowest',
+    web: true,
+  },
+];
+
+/**
+ * Start the library over: forget how it was read and what the AI made of it,
+ * read every folder again, and let the AI go through it afresh. Practice,
+ * plans and the journal are never touched (they come back attached).
+ */
+function StartOver() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [keep, setKeep] = useState(true);
+  const status = useApi<EnhanceStatusDto>(open ? '/api/ai/library/status' : null);
+  const [steps, setSteps] = useState<EnhanceStepKey[]>(['levels', 'pictures', 'fixes']);
+  const [apply, setApply] = useState(true);
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canAi = !!status.data?.canUse;
+  const web = !!status.data?.webSearch;
+  const chosen = steps.filter((k) => web || !AI_STEPS.find((x) => x.key === k)?.web);
+
+  // A second tap confirms; the first only arms it, for a few seconds.
+  useEffect(() => {
+    if (!armed) return;
+    const t = window.setTimeout(() => setArmed(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [armed]);
+
+  const go = async () => {
+    if (!armed) {
+      setArmed(true);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<{ ok: boolean; aiStarted: boolean }>(
+        '/api/admin/library/start-over',
+        {
+          keepCorrections: keep,
+          enhance: canAi && chosen.length > 0 ? { steps: chosen, apply, aboutLimit: 24 } : null,
+        },
+      );
+      setOpen(false);
+      navigate(r.aiStarted ? '/ai/library' : '/admin/library?show=all');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not start.');
+      setBusy(false);
+      setArmed(false);
+    }
+  };
+
+  return (
+    <section className="section start-over" aria-labelledby="sec-start-over">
+      <div className="section-head">
+        <h2 id="sec-start-over">Start over</h2>
+      </div>
+      <div className="start-over-card">
+        <div className="grow">
+          <strong>Read the whole library again, from scratch</strong>
+          <span className="sub">
+            Forget how it was read and what the AI made of it, read every folder afresh, and let the
+            AI go through it again. Practice, plans and the journal stay.
+          </span>
+        </div>
+        <button type="button" className="btn btn-quiet" onClick={() => setOpen(true)}>
+          <Icon name="restart" size={16} /> Start over…
+        </button>
+      </div>
+
+      {open && (
+        <Sheet
+          title="Start the library over"
+          onClose={() => !busy && setOpen(false)}
+          labelId="so-t"
+        >
+          <div className="start-over-sheet">
+            <ul className="so-list">
+              <li>
+                <Icon name="restart" size={16} />
+                <span>
+                  <strong>Read again:</strong> every folder, as if for the first time - titles,
+                  creators, series, types, parts, covers, lengths and guides.
+                </span>
+              </li>
+              <li>
+                <Icon name="sparkle" size={16} />
+                <span>
+                  <strong>Forgotten:</strong> what the AI made of it - levels, programme or pack,
+                  descriptions, the pictures it found, suggested fixes.
+                </span>
+              </li>
+              <li>
+                <Icon name="check-circle" size={16} />
+                <span>
+                  <strong>Never touched:</strong> everyone&apos;s practice, finished parts,
+                  favourites, plans and journal - they come back on the same recordings. A copy of
+                  the database is kept first.
+                </span>
+              </li>
+            </ul>
+
+            <div className="so-row">
+              <div className="grow">
+                <strong>Keep my own corrections</strong>
+                <span className="sub">
+                  Titles, types, part names and order, hidden folders, levels and pictures you set.
+                  Off: they are read afresh too.
+                </span>
+              </div>
+              <Switch checked={keep} onChange={setKeep} label="Keep my own corrections" />
+            </div>
+
+            <div className="so-ai">
+              <strong>Then let the AI enhance it again</strong>
+              {status.loading && !status.data ? (
+                <div className="skeleton" style={{ height: 80 }} />
+              ) : canAi ? (
+                <>
+                  <span className="sub">It starts as soon as the library has been read.</span>
+                  <div className="so-steps">
+                    {AI_STEPS.map((x) => {
+                      const off = !!x.web && !web;
+                      const on = steps.includes(x.key) && !off;
+                      return (
+                        <label
+                          key={x.key}
+                          className={`so-step${on ? ' on' : ''}${off ? ' off' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            disabled={off}
+                            onChange={(e) =>
+                              setSteps((s) =>
+                                e.target.checked ? [...s, x.key] : s.filter((k) => k !== x.key),
+                              )
+                            }
+                          />
+                          <span>
+                            <strong>{x.label}</strong>
+                            <span className="sub">
+                              {off ? 'Needs a provider that searches the web' : x.sub}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="so-row slim">
+                    <div className="grow">
+                      <span className="sub">Use pictures and descriptions as they are found</span>
+                    </div>
+                    <Switch checked={apply} onChange={setApply} label="Use as found" />
+                  </div>
+                </>
+              ) : (
+                <span className="sub">
+                  Connect an AI under AI to have it enhance the library again - or start over
+                  without it.
+                </span>
+              )}
+            </div>
+
+            {error && (
+              <p className="hint" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="so-actions">
+              <button
+                type="button"
+                className="btn btn-quiet"
+                disabled={busy}
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`btn ${armed ? 'btn-danger' : 'btn-primary'}`}
+                disabled={busy}
+                onClick={() => void go()}
+              >
+                {busy
+                  ? 'Starting…'
+                  : armed
+                    ? 'Tap again to start over'
+                    : canAi && chosen.length > 0
+                      ? 'Start over and enhance'
+                      : 'Start over'}
+              </button>
+            </div>
+          </div>
+        </Sheet>
+      )}
+    </section>
   );
 }
 

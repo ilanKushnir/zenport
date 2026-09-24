@@ -33,6 +33,8 @@ import { AiError, WEB_SEARCH } from '../../ai/providers.js';
 import { libraryDto } from '../../library/queries.js';
 import { setLevels, setSeriesStructure, setStructures } from '../../library/levels.js';
 import { jobState, startJob } from '../../ai/job.js';
+import { startOver } from '../../library/reset.js';
+import { isScanning, startScan } from '../../scanner/coordinator.js';
 
 const FILE = /^[0-9a-f]{20}\.webp$/;
 
@@ -182,6 +184,53 @@ export function registerEnhanceRoutes(app: FastifyInstance, ctx: AppContext): vo
       });
     }
     return startJob(c, req.user!.id, body.data);
+  });
+
+  // Start the library over: forget how it was read (and what the AI made of
+  // it), read it afresh, and - if asked - let the AI go through it again.
+  app.post('/api/admin/library/start-over', async (req, reply) => {
+    if (!admin(req, reply)) return;
+    const body = z
+      .object({
+        keepCorrections: z.boolean(),
+        enhance: z
+          .object({
+            steps: z
+              .array(z.enum(['levels', 'pictures', 'fixes', 'about']))
+              .min(1)
+              .max(4),
+            apply: z.boolean(),
+            aboutLimit: z.number().int().min(1).max(120).optional(),
+          })
+          .nullable(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: 'Choose how to start over.' });
+    if (isScanning() || jobState()?.running) {
+      return reply.code(409).send({
+        error: 'The library is being read or enhanced right now - try again when it is done.',
+      });
+    }
+    const { backup, idHints } = startOver(db, dataDir, {
+      keepCorrections: body.data.keepCorrections,
+    });
+    req.log.info({ backup }, 'library started over');
+    void startScan(db, config, (err) => req.log.error(err, 'fresh scan failed'), idHints);
+    let aiStarted = false;
+    const c = body.data.enhance ? enhanceCtx(req.user!.id) : null;
+    if (c && body.data.enhance) {
+      const needsSearch = body.data.enhance.steps.some((s) => s === 'pictures' || s === 'about');
+      const steps =
+        needsSearch && !WEB_SEARCH[c.target.provider]
+          ? body.data.enhance.steps.filter((s) => s !== 'pictures' && s !== 'about')
+          : body.data.enhance.steps;
+      if (steps.length > 0) {
+        // It waits for the fresh scan to finish before it starts.
+        startJob(c, req.user!.id, { ...body.data.enhance, steps });
+        aiStarted = true;
+      }
+    }
+    return { ok: true, backup, aiStarted };
   });
 
   app.get('/api/ai/library/job', async (req, reply) => {

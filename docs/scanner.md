@@ -90,6 +90,17 @@ A creator's page is walked in that light: the next step (the programme under way
 
 Each folder with audio is its own recording, so a set filed as sibling folders (_Calm Harbour - Vol. 1_ to _Vol. 5_, _Quiet Walk 01…13_, or three or more _Open Sky - To …_) is read as separate recordings with no series. Review the library → **Belong together** offers each such set, found from the names alone within one creator's folder among recordings in no series. **Group as one series** gives them a series (named as you like), in their numbered order; **Not together** is remembered (`server/src/library/groups.ts`). Nothing in the folders changes, and any recording can be taken out again from Review.
 
+## Starting over
+
+Admin → Library folders → **Start over** reads the whole library again from scratch (`POST /api/admin/library/start-over`, `server/src/library/reset.ts`):
+
+- **Forgotten:** how it was read (recordings, parts, covers, lengths, folder guides) and what the AI made of it (levels and programme/pack calls it set, descriptions, pictures found on the web, suggested fixes, what it had already checked).
+- **Kept by default:** the admin's own corrections (titles, creators, series, types, part names, roles and order, hidden folders, levels, structures and pictures set by hand, merged creators). The admin can choose to forget those too.
+- **Never touched:** everyone's practice history, finished parts, playback places, favourites, plans, journal and today's pick. The fresh scan gives every recording and part still in place the id it had, so all of it comes back attached. Hiding is by folder, so it survives either way.
+- **A copy first:** the database is copied to `data/zenport-before-start-over-<time>.db` before anything is forgotten (the newest two are kept).
+
+It can also start the AI enhancement (levels, pictures, fixes, descriptions), which waits for the fresh scan to finish. It refuses to start while a scan or an enhancement is running.
+
 ## Lengths
 
 A track's length is read from its file's header as part of each scan (the last phase, _Measuring how long each one is_): MP3 (Xing/Info or VBRI frame, else bitrate), MP4/M4A/M4V/MOV (the `mvhd` movie header), FLAC (STREAMINFO) and WAV. Only a few kilobytes are read per file, only for tracks with no length yet, four at a time, and every path is resolved inside its library first (`server/src/scanner/duration.ts`). Other formats get their length when first played (the player reports it).

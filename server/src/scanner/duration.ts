@@ -181,6 +181,10 @@ export async function fillDurations(
   roots: { id: number; path: string }[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<number> {
+  // What the player measured before (kept apart, so a fresh index keeps it).
+  db.exec(`UPDATE tracks SET duration_sec =
+      (SELECT r.duration_sec FROM track_durations_reported r WHERE r.track_id = tracks.id)
+    WHERE duration_sec IS NULL AND id IN (SELECT track_id FROM track_durations_reported)`);
   const rows = (
     db
       .prepare(

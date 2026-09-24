@@ -9851,6 +9851,130 @@ textarea.review-part-name {
   text-decoration-color: color-mix(in oklab, var(--faint) 70%, transparent);
 }
 
+/* Start the library over (Library folders). */
+.start-over {
+  margin-block-start: var(--s7, 40px);
+}
+
+.start-over-card,
+.so-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+}
+
+.start-over-card .grow,
+.so-row .grow,
+.so-ai {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  flex: 1 1 260px;
+  min-inline-size: 0;
+}
+
+.start-over-card .sub,
+.so-row .sub,
+.so-ai .sub {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.start-over-sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+}
+
+.so-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.so-list li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--s2);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.so-list li svg {
+  margin-block-start: 3px;
+  color: var(--accent);
+}
+
+.so-list strong {
+  color: var(--text);
+}
+
+.so-row.slim {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.so-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s2);
+  margin-block-start: var(--s2);
+}
+
+.so-step {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s2);
+  padding: var(--s3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+}
+
+.so-step.on {
+  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+  background: var(--accent-soft);
+}
+
+.so-step.off {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.so-step input {
+  margin-block-start: 3px;
+  accent-color: var(--accent);
+}
+
+.so-step > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.so-step strong {
+  font-size: 14px;
+}
+
+.so-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s2);
+}
+
 /* Recordings that look like one set, offered as a series. */
 .set-cards {
   display: grid;

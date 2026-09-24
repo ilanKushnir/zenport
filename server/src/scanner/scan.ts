@@ -25,6 +25,12 @@ export interface ScanOptions {
   coverCacheDir?: string;
   /** Told how far the scan has got, as it goes (for a live progress view). */
   onProgress?: (p: ScanProgressDto) => void;
+  /**
+   * After the index was cleared to read the library afresh: the ids things
+   * had, by "rootId:path", so what is still there keeps its id - and with it
+   * the history, plans and journal that point at it.
+   */
+  idHints?: { items: Map<string, string>; tracks: Map<string, string> };
 }
 
 /** Pseudo-root for covers extracted from the files themselves. */
@@ -362,6 +368,12 @@ export async function runScan(
         return { id: best, adopted: true };
       }
     }
+    const hinted = opts.idHints?.items.get(at(rootId, item.itemKey));
+    if (hinted && !takenItemIds.has(hinted)) {
+      takenItemIds.add(hinted);
+      claimedItems.add(hinted);
+      return { id: hinted, adopted: false };
+    }
     newItems++;
     return { id: freshId(`item:${rootId}:${item.itemKey}`, takenItemIds), adopted: false };
   };
@@ -391,6 +403,12 @@ export async function runScan(
       claimedTracks.add(pick.id);
       recognisedTracks++;
       return pick.id;
+    }
+    const hinted = opts.idHints?.tracks.get(at(rootId, track.relPath));
+    if (hinted && !takenTrackIds.has(hinted)) {
+      takenTrackIds.add(hinted);
+      claimedTracks.add(hinted);
+      return hinted;
     }
     return freshId(`track:${rootId}:${track.relPath}`, takenTrackIds);
   };

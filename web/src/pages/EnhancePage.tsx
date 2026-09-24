@@ -1104,6 +1104,7 @@ function LevelsTab({
 function JobBanner({ onDone }: { onDone: () => void }) {
   const [job, setJob] = useState<EnhanceJobDto | null>(null);
   const was = useRef(false);
+  const waited = useRef(false);
   useEffect(() => {
     let alive = true;
     const load = () =>
@@ -1112,8 +1113,12 @@ function JobBanner({ onDone }: { onDone: () => void }) {
         .then((j) => {
           if (!alive) return;
           setJob(j);
+          // Finished - or the library it waited for has just been read (after
+          // starting over): what the page counts has changed.
           if (was.current && j && !j.running) onDone();
+          else if (waited.current && j && !j.waitingForScan) onDone();
           was.current = !!j?.running;
+          waited.current = !!j?.running && !!j.waitingForScan;
         })
         .catch(() => {});
     void load();

@@ -3105,3 +3105,96 @@ describe('Recordings that belong together', () => {
     expect(await groups()).toEqual([]);
   });
 });
+
+describe('Starting the library over', () => {
+  const settle = async () => {
+    for (let i = 0; i < 200 && isScanning(); i++) await new Promise((r) => setTimeout(r, 20));
+  };
+
+  it('reads it afresh and forgets the AI, but keeps ids, practice and (by choice) corrections', async () => {
+    for (const rel of [
+      'Mira Solen/Morning Ritual/1 - Arrive.mp3',
+      'Mira Solen/Morning Ritual/2 - Rest.mp3',
+      'Tomas Reyes/Evening Sit/a.mp3',
+    ]) {
+      const abs = path.join(libRoot, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'s'.repeat(300)}`);
+    }
+    await runScan(db, [{ id: 0, path: libRoot, label: 'Meditations' }]);
+    await setupAndLogin();
+    const lib = async () =>
+      (await app.inject({ method: 'GET', url: '/api/library', headers: auth() })).json().items as {
+        id: string;
+        title: string;
+        level: string | null;
+        levelSource: string | null;
+      }[];
+    const before = await lib();
+    const morning = before.find((i) => i.title === 'Morning Ritual')!;
+    const evening = before.find((i) => i.title === 'Evening Sit')!;
+
+    // Practice, a correction, and something the AI made.
+    await app.inject({
+      method: 'POST',
+      url: '/api/practice/start',
+      headers: auth(),
+      payload: { meditationId: morning.id },
+    });
+    await app.inject({
+      method: 'PUT',
+      url: `/api/admin/items/${evening.id}`,
+      headers: auth(),
+      payload: { title: 'Evening Sit, by the Window' },
+    });
+    db.prepare(
+      "INSERT INTO item_levels (item_id, level, source, updated_at) VALUES (?, 'advanced', 'ai', 'x')",
+    ).run(morning.id);
+    db.prepare(
+      "INSERT INTO item_about (item_id, description) VALUES (?, 'Written by the AI.')",
+    ).run(morning.id);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/library/start-over',
+      headers: auth(),
+      payload: { keepCorrections: true, enhance: null },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().backup).toMatch(/^zenport-before-start-over-.*\.db$/);
+    await settle();
+
+    const after = await lib();
+    // The same recordings, with the ids they had.
+    expect(after.map((i) => i.id).sort()).toEqual(before.map((i) => i.id).sort());
+    expect(after.find((i) => i.id === evening.id)!.title).toBe('Evening Sit, by the Window');
+    // What the AI made of it is gone, ready to be made again.
+    expect(after.find((i) => i.id === morning.id)!.levelSource).not.toBe('ai');
+    expect(db.prepare('SELECT COUNT(*) AS n FROM item_about').get()).toEqual({ n: 0 });
+    // Practice still points at the recording.
+    const sessions = db.prepare('SELECT item_id FROM practice_sessions').all() as {
+      item_id: string;
+    }[];
+    expect(sessions.map((s) => s.item_id)).toEqual([morning.id]);
+
+    // And once more, forgetting the corrections too.
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/library/start-over',
+      headers: auth(),
+      payload: { keepCorrections: false, enhance: null },
+    });
+    await settle();
+    expect((await lib()).find((i) => i.id === evening.id)!.title).toBe('Evening Sit');
+  });
+
+  it('is for admins only', async () => {
+    await setupAndLogin();
+    const member = await app.inject({
+      method: 'POST',
+      url: '/api/admin/library/start-over',
+      payload: { keepCorrections: true, enhance: null },
+    });
+    expect(member.statusCode).not.toBe(200);
+  });
+});
