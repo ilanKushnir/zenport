@@ -3,7 +3,7 @@
  *
  * - Your next step: the series you are in, or the first you have not begun,
  *   with Continue.
- * - Packs (those meant in order first), easier first, then as numbered, then
+ * - Packs, easier first, then as numbered, then
  *   by name - each with its level, progress, and Done once every part is.
  * - Each shelf (a folder of several collections, like "Extras") as its own
  *   section.
@@ -204,7 +204,7 @@ export function CreatorPage() {
                 <p className="sub">
                   {next?.kind === 'series'
                     ? titleInSeries(displayName(nextItem.title), nextInfo.name)
-                    : 'In order'}
+                    : `${nextItem.trackCount} parts`}
                   {nextInfo.level ? ` · ${LEVEL_SHORT[nextInfo.level]}` : ''}
                   {` · ${nextInfo.done} of ${nextInfo.total} done`}
                 </p>

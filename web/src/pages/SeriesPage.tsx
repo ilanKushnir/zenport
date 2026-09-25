@@ -20,7 +20,6 @@ import {
   LEVEL_SHORT,
   progressLabel,
   seriesLevel,
-  seriesStructure,
   titleInSeries,
   TYPE_META,
 } from '../content.ts';
@@ -93,13 +92,6 @@ export function SeriesPage() {
   const next = items.find((i) => i.completedCount < i.trackCount) ?? items[0]!;
   const level = seriesLevel(items);
   const finished = isFinished({ trackCount: total, completedCount: done });
-  const structure = seriesStructure({ creator, name, items, type }, lib.data?.seriesStructures);
-  const setStructure = async (st: 'programme' | 'pack' | null) => {
-    await api
-      .put('/api/admin/series/structure', { creator, collection: name, structure: st })
-      .catch(() => {});
-    lib.reload();
-  };
   const setLevel = async (l: ItemLevel | null) => {
     await api
       .put('/api/admin/items/level', { ids: items.map((i) => i.id), level: l })
@@ -137,11 +129,7 @@ export function SeriesPage() {
         <div className="detail-body">
           <p className="eyebrow type-eyebrow">
             <Icon name={meta.icon} size={14} />
-            {type === 'course'
-              ? 'Course'
-              : structure === 'programme'
-                ? `${meta.label} pack · in order`
-                : `${meta.label} pack · any order`}
+            {type === 'course' ? 'Course' : `${meta.label} pack`}
             {series.hasVideo && (
               <span className="eyebrow-video">
                 <Icon name="video" size={14} /> Video
@@ -202,32 +190,6 @@ export function SeriesPage() {
                 <Icon name={meta.icon} size={16} />
                 Change type
               </button>
-            )}
-            {user?.role === 'admin' && type !== 'course' && (
-              <label className="series-level">
-                <span className="visually-hidden">In order or any order</span>
-                <select
-                  value={
-                    lib.data?.seriesStructures?.some(
-                      (o) => o.creator === creator && o.collection === name,
-                    )
-                      ? structure
-                      : ''
-                  }
-                  onChange={(e) =>
-                    void setStructure((e.target.value || null) as 'programme' | 'pack' | null)
-                  }
-                  title="In order, or any order"
-                >
-                  <option value="">
-                    {structure === 'programme'
-                      ? 'In order (from the names)'
-                      : 'Any order (from the names)'}
-                  </option>
-                  <option value="programme">In order - a step at a time</option>
-                  <option value="pack">Any order - pick what you like</option>
-                </select>
-              </label>
             )}
             {user?.role === 'admin' && (
               <label className="series-level">

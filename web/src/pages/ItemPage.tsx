@@ -187,8 +187,6 @@ export function ItemPage() {
               </span>
             ) : null}
             {item.level ? <span>{LEVEL_LABEL[item.level]}</span> : null}
-            {!learning && item.structure === 'programme' ? <span>In order</span> : null}
-            {!learning && item.structure === 'pack' ? <span>Any order</span> : null}
           </p>
           {item.about && <ItemAbout about={item.about} />}
 
@@ -252,35 +250,6 @@ export function ItemPage() {
                     ? 'Video'
                     : 'Audio'}
               </h2>
-              {!reordering && user?.role === 'admin' && !learning && item.tracks.length > 1 && (
-                <select
-                  className="structure-pick"
-                  aria-label="In order or any order"
-                  value={item.structureSource === 'manual' ? item.structure : ''}
-                  onChange={(e) => {
-                    void api
-                      .put('/api/admin/items/structure', {
-                        ids: [item.id],
-                        structure: e.target.value || null,
-                      })
-                      .then(() => {
-                        detail.reload();
-                        lib.reload();
-                      })
-                      .catch(() => {});
-                  }}
-                >
-                  <option value="">
-                    {item.structure === 'programme'
-                      ? 'In order (from the names)'
-                      : item.structure === 'pack'
-                        ? 'Any order (from the names)'
-                        : 'Automatic'}
-                  </option>
-                  <option value="programme">In order - a step at a time</option>
-                  <option value="pack">Any order - pick what you like</option>
-                </select>
-              )}
               {reordering ? null : user?.role === 'admin' && item.tracks.length > 1 ? (
                 <button
                   type="button"

@@ -3,7 +3,7 @@
  * creator's page, so the two read alike and change together:
  *
  * - Packs: several meditations together (a folder of parts, or a series of
- *   folders), those meant in order first.
+ *   folders).
  * - Shelves (on a creator's page): a folder of several series, like "Extras".
  * - Then single recordings, and series of courses or talks, by kind:
  *   Meditations, Courses, Talks and videos, Soundscapes.
@@ -329,11 +329,6 @@ export function SectionList({
       <EntrySection
         title="Packs"
         icon="grid"
-        note={
-          view.programmes.length > 0 && view.packs.length > 0
-            ? 'Those meant in order first'
-            : undefined
-        }
         entries={sorted([...view.programmes, ...view.packs].filter((e) => matchesKind(e, kind)))}
         mode={mode}
         folded={folded('packs')}

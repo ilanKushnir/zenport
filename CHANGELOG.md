@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.3] — 2026-09-25
+
+### Changed
+
+- **Order is simply right, never labelled.** The "In order" / "Any order" line on a recording's and a series' page is gone; a series now reads "Meditation pack". So is its admin menu, the "those meant in order first" note on Packs, and "In order" under Your next step (that now says how many parts). What stays is the ordering itself. Parts are sorted as the library is read (Day 1 before Day 2, an introduction first), you can still reorder them by hand, and Begin and Continue go to the next part.
+
 ## [0.38.2] — 2026-09-25
 
 ### Changed
