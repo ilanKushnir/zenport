@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.8] — 2026-09-25
+
+### Fixed
+
+- **Series cards line up with the cards beside them.** The stack behind a series cover used to push the cover 8px lower than its neighbours. The stack now peeks out above the card, so every cover in a row starts at the same height, and the badge and heart sit in the same place on both.
+
 ## [0.38.7] — 2026-09-25
 
 ### Fixed

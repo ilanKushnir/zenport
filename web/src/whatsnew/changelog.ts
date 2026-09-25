@@ -25,6 +25,10 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.8',
+    items: [{ emoji: '📐', text: 'Series and single covers line up, row by row.' }],
+  },
+  {
     version: '0.38.7',
     items: [{ emoji: '✨', text: 'Badges sit neatly inside every cover, series included.' }],
   },

@@ -1,6 +1,6 @@
 {
   "name": "@zenport/web",
-  "version": "0.38.7",
+  "version": "0.38.8",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@fontsource-variable/newsreader": "^5.3.0",
-    "@zenport/shared": "0.38.7",
+    "@zenport/shared": "0.38.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router-dom": "7.18.3"

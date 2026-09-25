@@ -6092,25 +6092,14 @@
   background-origin: border-box;
 }
 
-/* A series card reads as a small stack of covers. */
-.series-card .card-art {
-  padding-block-start: 8px;
-}
-
-/* The badge and the heart sit on the cover, below the stack's 8px - where
-   they sit on any other card. */
-.series-card .card-badges {
-  inset-block-start: 16px;
-}
-
-.series-card .fav-btn {
-  inset-block-start: calc(var(--s2) + 8px);
-}
-
+/* A series card reads as a small stack of covers. The stack peeks out
+   above the cover, in the space over the card, so the cover itself starts
+   level with the covers beside it - and its badge and heart sit where they
+   sit on any card. */
 .series-stack {
   position: absolute;
   inset-inline: 10px;
-  inset-block-start: 0;
+  inset-block-start: -8px;
   block-size: 20px;
   border-radius: var(--r-md) var(--r-md) 0 0;
   background: color-mix(in oklab, var(--surface) 70%, #fff 6%);
