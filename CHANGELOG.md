@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.5] — 2026-09-25
+
+### Changed
+
+- **Sections come in one order, everywhere: Courses, Talks and videos, Packs, Meditations, Soundscapes.** Learning comes first, then practice. This covers the Library, every creator's page, the Type filter and search.
+
 ## [0.38.4] — 2026-09-25
 
 ### Fixed

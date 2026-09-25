@@ -2,11 +2,12 @@
  * A list of recordings in sections - the same on the Library and on every
  * creator's page, so the two read alike and change together:
  *
+ * Learning first, then practice:
+ * - Courses, then Talks and videos.
  * - Packs: several meditations together (a folder of parts, or a series of
  *   folders).
  * - Shelves (on a creator's page): a folder of several series, like "Extras".
- * - Then single recordings, and series of courses or talks, by kind:
- *   Meditations, Courses, Talks and videos, Soundscapes.
+ * - Then Meditations, and Soundscapes.
  *
  * Each section has an icon, a count, and folds from its heading.
  */
@@ -31,7 +32,9 @@ import {
   type Series,
 } from '../content.ts';
 
-export const KIND_ORDER: ContentType[] = ['meditation', 'course', 'talk', 'soundscape'];
+/** The order sections come in, everywhere: learning first, then practice. */
+export const KIND_ORDER: ContentType[] = ['course', 'talk', 'meditation', 'soundscape'];
+const BEFORE_PACKS = new Set<ContentType>(['course', 'talk']);
 export const KIND_TITLE: Record<ContentType, string> = {
   meditation: 'Meditations',
   course: 'Courses',
@@ -280,7 +283,14 @@ export function EntrySection({
 /** The kinds a list has, with how many - the choices of its Type filter. */
 export function kindChoices(view: SectionsView) {
   const all = allEntries(view);
-  return (['all', 'packs', ...KIND_ORDER] as KindFilter[])
+  return (
+    [
+      'all',
+      ...KIND_ORDER.filter((k) => BEFORE_PACKS.has(k)),
+      'packs',
+      ...KIND_ORDER.filter((k) => !BEFORE_PACKS.has(k)),
+    ] as KindFilter[]
+  )
     .map((key) => ({ key, n: all.filter((e) => matchesKind(e, key)).length }))
     .filter((c) => c.key === 'all' || c.n > 0)
     .map((c) => ({
@@ -299,11 +309,16 @@ export const allEntries = (view: SectionsView): Entry[] => [
 
 /** The sections on show for a kind - what "fold every section" folds. */
 export const sectionKeys = (view: SectionsView, kind: KindFilter): string[] => [
+  ...view.byKind
+    .filter((g) => BEFORE_PACKS.has(g.kind) && g.entries.some((e) => matchesKind(e, kind)))
+    .map((g) => g.kind),
   ...([...view.programmes, ...view.packs].some((e) => matchesKind(e, kind)) ? ['packs'] : []),
   ...view.shelves
     .filter(([, es]) => es.some((e) => matchesKind(e, kind)))
     .map(([n]) => `shelf:${n}`),
-  ...view.byKind.filter((g) => g.entries.some((e) => matchesKind(e, kind))).map((g) => g.kind),
+  ...view.byKind
+    .filter((g) => !BEFORE_PACKS.has(g.kind) && g.entries.some((e) => matchesKind(e, kind)))
+    .map((g) => g.kind),
 ];
 
 /** Every section of a list, in order - folded, filtered by kind, each sorted. */
@@ -326,6 +341,20 @@ export function SectionList({
 }) {
   return (
     <>
+      {view.byKind
+        .filter((g) => BEFORE_PACKS.has(g.kind))
+        .map((g) => (
+          <EntrySection
+            key={g.kind}
+            title={KIND_TITLE[g.kind]}
+            icon={TYPE_META[g.kind].icon}
+            entries={sorted(g.entries.filter((e) => matchesKind(e, kind)))}
+            mode={mode}
+            folded={folded(g.kind)}
+            onFold={() => onFold(g.kind)}
+            inCreator={inCreator}
+          />
+        ))}
       <EntrySection
         title="Packs"
         icon="grid"
@@ -347,18 +376,20 @@ export function SectionList({
           inCreator={inCreator}
         />
       ))}
-      {view.byKind.map((g) => (
-        <EntrySection
-          key={g.kind}
-          title={KIND_TITLE[g.kind]}
-          icon={TYPE_META[g.kind].icon}
-          entries={sorted(g.entries.filter((e) => matchesKind(e, kind)))}
-          mode={mode}
-          folded={folded(g.kind)}
-          onFold={() => onFold(g.kind)}
-          inCreator={inCreator}
-        />
-      ))}
+      {view.byKind
+        .filter((g) => !BEFORE_PACKS.has(g.kind))
+        .map((g) => (
+          <EntrySection
+            key={g.kind}
+            title={KIND_TITLE[g.kind]}
+            icon={TYPE_META[g.kind].icon}
+            entries={sorted(g.entries.filter((e) => matchesKind(e, kind)))}
+            mode={mode}
+            folded={folded(g.kind)}
+            onFold={() => onFold(g.kind)}
+            inCreator={inCreator}
+          />
+        ))}
     </>
   );
 }

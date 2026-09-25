@@ -353,7 +353,7 @@ export function CommandPalette() {
       keywords: 'teacher creator',
       run: go(`/creators/${encodeURIComponent(c.name)}`),
     }));
-    const kinds = (['meditation', 'course', 'talk', 'soundscape'] as ContentType[])
+    const kinds = (['course', 'talk', 'meditation', 'soundscape'] as ContentType[])
       .filter((t) => present.some((i) => i.type === t))
       .map<Command>((t) => ({
         id: `k-${t}`,
