@@ -280,18 +280,14 @@ export function EntrySection({
 /** The kinds a list has, with how many - the choices of its Type filter. */
 export function kindChoices(view: SectionsView) {
   const all = allEntries(view);
-  return (
-    (['all', 'packs', 'in-order', ...KIND_ORDER] as KindFilter[])
-      .map((key) => ({ key, n: all.filter((e) => matchesKind(e, key)).length }))
-      .filter((c) => c.key === 'all' || c.n > 0)
-      // "Packs" and "In order" are the same choice when every pack is in order.
-      .filter((c, _i, cs) => c.key !== 'in-order' || c.n !== cs.find((x) => x.key === 'packs')?.n)
-      .map((c) => ({
-        value: c.key,
-        label: c.key === 'all' ? 'All types' : KIND_CHIP[c.key as keyof typeof KIND_CHIP],
-        n: c.key === 'all' ? undefined : c.n,
-      }))
-  );
+  return (['all', 'packs', ...KIND_ORDER] as KindFilter[])
+    .map((key) => ({ key, n: all.filter((e) => matchesKind(e, key)).length }))
+    .filter((c) => c.key === 'all' || c.n > 0)
+    .map((c) => ({
+      value: c.key,
+      label: c.key === 'all' ? 'All types' : KIND_CHIP[c.key as keyof typeof KIND_CHIP],
+      n: c.key === 'all' ? undefined : c.n,
+    }));
 }
 
 export const allEntries = (view: SectionsView): Entry[] => [

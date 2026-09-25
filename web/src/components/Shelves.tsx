@@ -32,7 +32,6 @@ import {
   progressLabel,
   seriesLevel,
   seriesPath,
-  seriesStructure,
   TYPE_META,
   type Series,
 } from '../content.ts';
@@ -300,14 +299,6 @@ export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCrea
       <span className="med-row-meta">
         {/* Only what the row does not already say: a pack's shape. Its type
             is in its section and its subtitle. */}
-        {/* Its section already says it is a pack: only one meant as a path says
-            so, in words. */}
-        {item.structure === 'programme' && isPracticeType(item.type) && (
-          <span className="med-row-tag">
-            <Icon name="sprout" size={12} />
-            In order
-          </span>
-        )}
         {offline.ids.has(item.id) && (
           <span className="med-row-offline" title="Saved offline">
             <Icon name="on-device" size={14} />
@@ -340,14 +331,13 @@ export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCrea
 export function SeriesRow({
   series,
   inCreator,
-  structure,
 }: {
   series: Series;
   inCreator?: boolean;
+  /** Kept for callers; a row no longer shows a pack's order. */
   structure?: 'programme' | 'pack';
 }) {
   const progress = progressLabel(series.completedCount, series.trackCount, series.type);
-  const programme = (structure ?? seriesStructure(series)) === 'programme';
   const level = seriesLevel(series.items);
   const done = isFinished(series);
   return (
@@ -380,14 +370,7 @@ export function SeriesRow({
               <Icon name="check-circle" size={13} />
               <span>Done</span>
             </span>
-          ) : (
-            programme && (
-              <span className="med-row-tag">
-                <Icon name="sprout" size={12} />
-                In order
-              </span>
-            )
-          )
+          ) : null
         ) : (
           // A course or a set of talks sits with its kind: only "Done" is news.
           done && (

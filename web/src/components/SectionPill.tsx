@@ -55,7 +55,16 @@ export function SectionPill() {
     };
   }, [location.pathname]);
 
-  const label = current?.textContent?.trim() ?? '';
+  // The heading's name only - not its count or its fold arrow.
+  const fold = current?.querySelector('.section-fold');
+  const label = (
+    fold
+      ? [...fold.childNodes]
+          .filter((n) => n.nodeType === Node.TEXT_NODE)
+          .map((n) => n.textContent)
+          .join('')
+      : (current?.textContent ?? '')
+  ).trim();
   return (
     <button
       ref={pill}

@@ -120,7 +120,7 @@ export function MedCard({
  */
 export type Shape = 'programme' | 'pack' | 'collection';
 export const SHAPE_LABEL: Record<Shape, string> = {
-  programme: 'In order',
+  programme: 'Pack',
   pack: 'Pack',
   collection: 'Pack',
 };

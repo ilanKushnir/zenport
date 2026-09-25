@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.2] — 2026-09-25
+
+### Changed
+
+- **No more "In order" tag on rows, cards or the Type filter.** Every row in Packs is a pack, and the tag needed explaining. Whether a pack's parts are meant one after another still shows where it helps: on the pack's own page, where Begin and Continue go to the next part.
+
+### Fixed
+
+- The floating section name read "Packs17": it took the heading's count along with its name. It now shows just the name.
+
 ## [0.38.1] — 2026-09-25
 
 ### Changed

@@ -25,6 +25,10 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.2',
+    items: [{ emoji: '🍃', text: 'Fewer tags: a pack is simply a pack in your lists.' }],
+  },
+  {
     version: '0.38.1',
     items: [
       {
