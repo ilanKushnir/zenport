@@ -3330,3 +3330,57 @@ describe('Moving folders within the library', () => {
     ).toEqual({ n: 1 });
   });
 });
+
+describe('A library whose id is -1', () => {
+  it('serves its recordings and documents - never mistaken for the cover cache', async () => {
+    const lib2 = mkdtempSync(path.join(tmpdir(), 'zp-lib-minus-one-'));
+    for (const rel of ['Mira Solen/Open Heart/1 - Arrive.mp3', 'Mira Solen/Open Heart/Guide.pdf']) {
+      const abs = path.join(lib2, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, `${rel}:${'x'.repeat(300)}`);
+    }
+    // The first library chosen in the app is stored as -1, as on a real install.
+    db.prepare("INSERT INTO library_roots (id, path, label) VALUES (-1, ?, 'Spiritual')").run(lib2);
+    const roots = [{ id: -1, path: lib2, label: 'Spiritual' }];
+    const cfg = { ...makeConfig(), libraryRoots: roots };
+    const own = buildApp({
+      db,
+      config: cfg,
+      version: 'test',
+      deps: {
+        fetchVideoMeta: async () => null,
+        listPlaylist: async () => [],
+        transcribe: null,
+        ai: fakeOpenAi(),
+        checkLinks: async () => new Map(),
+      },
+    });
+    await own.ready();
+    await runScan(db, roots);
+    const setup = await own.inject({
+      method: 'POST',
+      url: '/api/setup',
+      headers: CSRF,
+      payload: { username: 'astra', password: 'astra-demo-password-1' },
+    });
+    const session = setup.cookies.find((c) => c.name === 'zp_session')?.value ?? '';
+    const auth = () => ({ cookie: `zp_session=${session}`, ...CSRF });
+    const track = db
+      .prepare('SELECT id FROM tracks WHERE root_id = -1 AND missing = 0 LIMIT 1')
+      .get() as { id: string };
+    const doc = db
+      .prepare(
+        "SELECT id FROM assets WHERE kind = 'document' AND root_id = -1 AND missing = 0 AND ext = 'pdf' LIMIT 1",
+      )
+      .get() as {
+      id: string;
+    };
+    const t = await own.inject({ url: `/api/media/track/${track.id}`, headers: auth() });
+    expect(t.statusCode).toBe(200);
+    const d = await own.inject({ url: `/api/media/asset/${doc.id}?download=1`, headers: auth() });
+    expect(d.statusCode).toBe(200);
+    expect(d.headers['content-type']).toContain('pdf');
+    expect(d.headers['content-disposition']).toContain('attachment');
+    await own.close();
+  });
+});

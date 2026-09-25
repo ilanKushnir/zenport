@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AI_PROVIDERS, type AiSettingsDto, type ShareLevel } from '@zenport/shared';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { useAuth } from '../App.tsx';
@@ -29,6 +29,19 @@ const COMMON_TIMEZONES = [
 
 export function SettingsPage() {
   const { user, refresh, signOut } = useAuth();
+  // Arriving from search (#practice): to that group, briefly lit.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(decodeURIComponent(hash.slice(1)));
+      if (!el) return;
+      el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      el.classList.add('set-flash');
+      window.setTimeout(() => el.classList.remove('set-flash'), 1800);
+    }, 180);
+    return () => window.clearTimeout(t);
+  }, [hash]);
   const [tzSaved, setTzSaved] = useState(false);
 
   const setTimezone = async (tz: string) => {
@@ -113,8 +126,13 @@ function SetGroup({
   hint: string;
   children: React.ReactNode;
 }) {
+  // An address for each group, so a search can go straight to it (#practice).
+  const anchor = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
   return (
-    <div className="set-group">
+    <div className="set-group" id={anchor}>
       <header className="set-group-head">
         <span className="set-group-ic">
           <Icon name={icon} size={19} />

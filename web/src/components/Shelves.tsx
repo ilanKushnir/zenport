@@ -253,6 +253,24 @@ export function CreatorBubble({ creator }: { creator: CreatorDto }) {
 
 // ── List view ──────────────────────────────────────────────────────────────
 
+/**
+ * What a recording's line says under its title. On a creator's page its
+ * section already says what kind it is, so: its series (if any), its length,
+ * and - for a pack - how many parts, like any pack. Elsewhere, its creator.
+ */
+export function subtitle(item: MeditationSummaryDto, inCreator: boolean, parts: string): string {
+  const pack = item.structure === 'programme' || item.structure === 'pack';
+  return [
+    inCreator ? (item.collection ? displayName(item.collection) : null) : item.creator,
+    item.totalDurationSec ? formatDuration(item.totalDurationSec) : null,
+    pack || (!inCreator && item.trackCount > 1)
+      ? `${item.trackCount} ${pack ? 'parts' : parts}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCreator?: boolean }) {
   const { isFavorite, toggleFavorite } = usePrefs();
   const offline = useOffline();
@@ -271,9 +289,7 @@ export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCrea
           {inCreator && item.level && (
             <span className={`lvl lvl-${item.level}`}>{LEVEL_SHORT[item.level]}</span>
           )}
-          {inCreator ? (item.collection ? displayName(item.collection) : meta.label) : item.creator}
-          {item.totalDurationSec ? ` · ${formatDuration(item.totalDurationSec)}` : ''}
-          {item.trackCount > 1 ? ` · ${item.trackCount} ${meta.parts}` : ''}
+          {subtitle(item, !!inCreator, meta.parts)}
         </span>
         {progress !== null && (
           <span className="med-row-bar" aria-hidden="true">
@@ -284,10 +300,12 @@ export function MedRow({ item, inCreator }: { item: MeditationSummaryDto; inCrea
       <span className="med-row-meta">
         {/* Only what the row does not already say: a pack's shape. Its type
             is in its section and its subtitle. */}
-        {item.structure && item.structure !== 'single' && isPracticeType(item.type) && (
-          <span className={`med-row-type s-${item.structure}`}>
-            <Icon name={item.structure === 'programme' ? 'sprout' : 'grid'} size={13} />
-            <span>{item.structure === 'programme' ? 'In order' : 'Pack'}</span>
+        {/* Its section already says it is a pack: only one meant as a path says
+            so, in words. */}
+        {item.structure === 'programme' && isPracticeType(item.type) && (
+          <span className="med-row-tag">
+            <Icon name="sprout" size={12} />
+            In order
           </span>
         )}
         {offline.ids.has(item.id) && (
@@ -357,10 +375,19 @@ export function SeriesRow({
       </span>
       <span className="med-row-meta">
         {isPracticeType(series.type) ? (
-          <span className={`med-row-type ${programme ? 's-programme' : 's-collection'}`}>
-            <Icon name={done ? 'check-circle' : programme ? 'sprout' : 'grid'} size={13} />
-            <span>{done ? 'Done' : programme ? 'In order' : 'Pack'}</span>
-          </span>
+          done ? (
+            <span className="med-row-type s-collection">
+              <Icon name="check-circle" size={13} />
+              <span>Done</span>
+            </span>
+          ) : (
+            programme && (
+              <span className="med-row-tag">
+                <Icon name="sprout" size={12} />
+                In order
+              </span>
+            )
+          )
         ) : (
           // A course or a set of talks sits with its kind: only "Done" is news.
           done && (

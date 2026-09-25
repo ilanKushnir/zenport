@@ -25,6 +25,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.0',
+    items: [
+      {
+        emoji: '🔍',
+        text: 'Search everything from the top bar - recordings, creators, pages and each setting.',
+      },
+      {
+        emoji: '🎚️',
+        text: "One tidy filter bar - type, level, sort - on the Library and every creator's page.",
+      },
+      { emoji: '📂', text: 'Fold any section; documents open and download again.' },
+    ],
+  },
+  {
     version: '0.37.0',
     items: [
       {

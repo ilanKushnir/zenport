@@ -5,6 +5,19 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.0] — 2026-09-25
+
+### Fixed
+
+- **Documents open and download again, and recordings play.** The first library chosen in the app was stored under the same internal id (-1) as the covers read out of the audio files, so the server looked for that library's files in the cover cache. PDFs showed a blank page, and "download it instead" returned an error as JSON. The covers now have their own id, and existing cover entries are moved over (migration v30). A test covers a library with that id.
+- A pack in one folder (UNLOCKED's 12 sessions) now reads like any pack, "12 parts · 8 hr 57 min", not "Meditation · 12 tracks". Rows no longer show a puzzle icon: a pack meant in order says **In order** in words, and the rest are simply in Packs.
+
+### Changed
+
+- **Search everything, from a button in the top bar** (or ⌘K). Results cover recordings, series and packs, creators, kinds and favourites, pages, each setting (opening it at its place in Settings), and quick actions. Every word typed must match, in any order: "joe advanced" finds the Advanced Workshop series. On a phone it opens as a sheet at the top with Cancel. The Library's own search box is gone.
+- **One filter bar for the Library and every creator's page**, the same component in both places: Type, Level, Sort and (in the Library) Filters for creator, library, format, favourites and notes, each a small dropdown showing its current choice. Clear appears when anything is set, followed by the grid/list switch. The Library's big type tabs are part of it now. Sorting is the same everywhere: suggested order, title, recently added, longest, level.
+- **Sections fold.** Tap a section's heading on a creator's page to fold it (its count stays); "Collapse" folds them all. Each creator's page remembers what you folded.
+
 ## [0.37.0] — 2026-09-25
 
 ### Changed

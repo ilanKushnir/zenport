@@ -17,7 +17,7 @@ import { SectionPill } from './components/SectionPill.tsx';
 import { carryScroll, pageScrollTop, rememberScroll, restoreScroll } from './scrollRoot.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup } from './components/Brand.tsx';
-import { CommandPalette } from './components/CommandPalette.tsx';
+import { CommandPalette, openSearch } from './components/CommandPalette.tsx';
 import { VersionRow, WhatsNew } from './whatsnew/WhatsNew.tsx';
 import { PrefsProvider, usePrefs } from './prefs.tsx';
 import { Onboarding } from './onboarding/Onboarding.tsx';
@@ -176,6 +176,9 @@ function AppBar({ isAdmin }: { isAdmin: boolean }) {
         <Lockup size={26} word={18} bloom={false} />
       </Link>
       <nav className="app-bar-actions" aria-label="Account">
+        <button type="button" className="app-bar-btn" aria-label="Search" onClick={openSearch}>
+          <Icon name="search" size={20} />
+        </button>
         {isAdmin && (
           <Link
             className={`app-bar-btn${here('/admin') ? ' on' : ''}`}
@@ -261,14 +264,7 @@ function Shell({ children }: { children: ReactNode }) {
           <div className="sb-brand">
             <Lockup size={30} />
           </div>
-          <button
-            className="sb-search"
-            onClick={() =>
-              window.dispatchEvent(
-                new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
-              )
-            }
-          >
+          <button className="sb-search" onClick={openSearch}>
             <Icon name="search" size={15} />
             <span>Search</span>
             <kbd>⌘K</kbd>

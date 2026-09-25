@@ -1,20 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ContentType, LibraryDto, MeditationSummaryDto, ScanStateDto } from '@zenport/shared';
-import { isPracticeType, seriesFavoriteKey } from '@zenport/shared';
-import { formatDuration } from '@zenport/shared';
+import { isPracticeType, seriesFavoriteKey, type ItemLevel } from '@zenport/shared';
 import { useOffline } from '../offline.ts';
 import { useAuth } from '../App.tsx';
 import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
-import { Cover, EmptyState, ErrorNote, Icon, SkeletonGrid } from '../components/ui.tsx';
+import { Cover, EmptyState, ErrorNote, Icon, SkeletonGrid, Switch } from '../components/ui.tsx';
+import {
+  FilterBar,
+  sortableOf,
+  sortBy,
+  TYPE_CHOICE_LABEL,
+  type SortKey,
+} from '../components/FilterBar.tsx';
 import {
   continueSeriesKey,
   ContinueCard,
   CreatorBubble,
   FavButton,
   MedRow,
+  subtitle,
   Rail,
   SeriesRow,
   type ContinueEntry,
@@ -24,7 +31,6 @@ import {
   groupSeries,
   isFinished,
   LEVEL_SHORT,
-  levelRank,
   progressLabel,
   seriesLevel,
   seriesPath,
@@ -33,8 +39,6 @@ import {
   TYPES,
   type Series,
 } from '../content.ts';
-
-type SortKey = 'creator' | 'title' | 'recent' | 'duration' | 'level';
 
 export function MedCard({
   item,
@@ -98,12 +102,7 @@ export function MedCard({
         {inCreator && item.level && (
           <span className={`lvl lvl-${item.level}`}>{LEVEL_SHORT[item.level]}</span>
         )}
-        {inCreator
-          ? item.collection
-            ? displayName(item.collection)
-            : TYPE_META[item.type].label
-          : item.creator}
-        {item.totalDurationSec ? ` · ${formatDuration(item.totalDurationSec)}` : ''}
+        {subtitle(item, !!inCreator, TYPE_META[item.type].parts)}
       </div>
     </Link>
   );
@@ -225,7 +224,6 @@ export function LibraryPage() {
   const { favorites } = usePrefs();
   const lib = useApi<LibraryDto>('/api/library');
   useRefreshOn('zenport:progress', () => lib.reload());
-  const [q, setQ] = useState('');
   const [creator, setCreator] = useState('');
   const [root, setRoot] = useState('');
   const [format, setFormat] = useState('');
@@ -234,7 +232,8 @@ export function LibraryPage() {
   const [onlyFavs, setOnlyFavs] = useState(() =>
     new URLSearchParams(window.location.search).has('favorites'),
   );
-  const [sort, setSort] = useState<SortKey>('creator');
+  const [sort, setSort] = useState<SortKey>('suggested');
+  const [level, setLevel] = useState<ItemLevel | 'all-levels'>('all-levels');
   const [type, setTypeState] = useState<'all' | ContentType>(() => {
     const t = new URLSearchParams(window.location.search).get('type');
     return (TYPES as readonly string[]).includes(t ?? '') ? (t as ContentType) : 'all';
@@ -270,8 +269,23 @@ export function LibraryPage() {
   const [lastHidden, setLastHidden] = useState<{ key: string; title: string } | null>(null);
 
   const items = lib.data?.items ?? [];
+  const clearFilters = () => {
+    setType('all');
+    setLevel('all-levels');
+    setSort('suggested');
+    setCreator('');
+    setRoot('');
+    setFormat('');
+    setWithDocs(false);
+    setOnlyFavs(false);
+  };
   const filtersActive =
-    q !== '' || creator !== '' || root !== '' || format !== '' || withDocs || onlyFavs;
+    creator !== '' ||
+    root !== '' ||
+    format !== '' ||
+    withDocs ||
+    onlyFavs ||
+    level !== 'all-levels';
 
   const present = useMemo(() => items.filter((i) => !i.missing), [items]);
   const typeCounts = useMemo(() => {
@@ -341,15 +355,7 @@ export function LibraryPage() {
   const filtered = useMemo(() => {
     let out = present;
     if (type !== 'all') out = out.filter((i) => i.type === type);
-    if (q) {
-      const needle = q.toLowerCase();
-      out = out.filter(
-        (i) =>
-          i.title.toLowerCase().includes(needle) ||
-          i.creator.toLowerCase().includes(needle) ||
-          (i.collection ?? '').toLowerCase().includes(needle),
-      );
-    }
+    if (level !== 'all-levels') out = out.filter((i) => i.level === level);
     if (creator) out = out.filter((i) => i.creator === creator);
     if (root) out = out.filter((i) => String(i.rootId) === root);
     if (format) out = out.filter((i) => i.formats.includes(format));
@@ -361,25 +367,9 @@ export function LibraryPage() {
           favorites.has(i.id) ||
           (!!i.collection && favorites.has(seriesFavoriteKey(i.creator, i.collection))),
       );
-    switch (sort) {
-      case 'title':
-        out = [...out].sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case 'recent':
-        out = [...out].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
-        break;
-      case 'duration':
-        out = [...out].sort((a, b) => (b.totalDurationSec ?? -1) - (a.totalDurationSec ?? -1));
-        break;
-      case 'level':
-        // Beginner first; within a level, the library's own order.
-        out = [...out].sort((a, b) => levelRank(a.level) - levelRank(b.level));
-        break;
-      default:
-        break; // server order is creator/title already
-    }
+    out = sortBy(out, sort, sortableOf);
     return out;
-  }, [present, type, q, creator, root, format, withDocs, onlyFavs, favorites, sort]);
+  }, [present, type, level, creator, root, format, withDocs, onlyFavs, favorites, sort]);
   const grouped = useMemo(() => groupSeries(filtered), [filtered]);
 
   const missingCount = items.filter((i) => i.missing).length;
@@ -452,33 +442,6 @@ export function LibraryPage() {
               }.`}
         </p>
       </div>
-
-      {present.length > 0 && typeCounts.size > 1 && (
-        <div className="type-tabs" role="tablist" aria-label="What to show">
-          <button
-            role="tab"
-            aria-selected={type === 'all'}
-            className="type-tab"
-            onClick={() => setType('all')}
-          >
-            All
-            <span className="n">{present.length}</span>
-          </button>
-          {TYPES.filter((t) => typeCounts.get(t)).map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={type === t}
-              className={`type-tab t-${t}`}
-              onClick={() => setType(t)}
-            >
-              <Icon name={TYPE_META[t].icon} size={16} />
-              {TYPE_META[t].plural}
-              <span className="n">{typeCounts.get(t)}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {scan.warnings.length > 0 && (
         <p className="notice" style={{ marginBottom: 24 }}>
@@ -560,26 +523,6 @@ export function LibraryPage() {
             <div className="section-head">
               <h2 id="sec-all">{type === 'all' ? 'Everything' : TYPE_META[type].plural}</h2>
               <div className="section-actions">
-                <div className="view-toggle" role="group" aria-label="Show as">
-                  <button
-                    type="button"
-                    aria-pressed={view === 'grid'}
-                    aria-label="Grid"
-                    title="Grid"
-                    onClick={() => setView('grid')}
-                  >
-                    <Icon name="grid" size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={view === 'list'}
-                    aria-label="List"
-                    title="List"
-                    onClick={() => setView('list')}
-                  >
-                    <Icon name="list" size={16} />
-                  </button>
-                </div>
                 <Link className="btn btn-sm btn-quiet" to="/downloads">
                   <Icon name="on-device" size={15} />
                   Offline
@@ -604,100 +547,109 @@ export function LibraryPage() {
               </div>
             </div>
 
-            <div className="toolbar" role="search">
-              <input
-                className="search"
-                type="search"
-                placeholder={
-                  type === 'all'
-                    ? 'Search titles, creators, series…'
-                    : `Search ${TYPE_META[type].plural.toLowerCase()}…`
-                }
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                aria-label="Search the library"
-              />
-              <select
-                value={creator}
-                onChange={(e) => setCreator(e.target.value)}
-                aria-label="Filter by creator"
-              >
-                <option value="">All creators</option>
-                {lib.data!.creators.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {scan.roots.length > 1 && (
-                <select
-                  value={root}
-                  onChange={(e) => setRoot(e.target.value)}
-                  aria-label="Filter by source"
-                >
-                  <option value="">All sources</option>
-                  {scan.roots.map((r) => (
-                    <option key={r.id} value={String(r.id)}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <select
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                aria-label="Filter by format"
-              >
-                <option value="">All formats</option>
-                {formats.map((f) => (
-                  <option key={f} value={f}>
-                    .{f}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="chip"
-                aria-pressed={withDocs}
-                onClick={() => setWithDocs((v) => !v)}
-              >
-                Has notes
-              </button>
-              <button
-                className="chip"
-                aria-pressed={onlyFavs}
-                onClick={() => setOnlyFavs((v) => !v)}
-              >
-                <Icon name="heart" size={14} />
-                Favourites
-              </button>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                aria-label="Sort"
-              >
-                <option value="creator">By creator</option>
-                <option value="title">By title</option>
-                <option value="recent">Recently added</option>
-                <option value="duration">Longest first</option>
-                <option value="level">By level, beginner first</option>
-              </select>
-            </div>
+            <FilterBar
+              filters={[
+                {
+                  key: 'type',
+                  label: 'Type',
+                  value: type,
+                  choices: [
+                    { value: 'all', label: 'All types' },
+                    ...TYPES.filter((t) => typeCounts.get(t)).map((t) => ({
+                      value: t,
+                      label: TYPE_CHOICE_LABEL[t],
+                      n: typeCounts.get(t),
+                    })),
+                  ],
+                  onChange: (v) => setType(v as 'all' | ContentType),
+                },
+                {
+                  key: 'level',
+                  label: 'Level',
+                  value: level,
+                  choices: [
+                    { value: 'all-levels', label: 'Every level' },
+                    ...(['beginner', 'intermediate', 'advanced', 'all'] as ItemLevel[])
+                      .filter((l) => present.some((i) => i.level === l))
+                      .map((l) => ({
+                        value: l,
+                        label: LEVEL_SHORT[l],
+                        n: present.filter((i) => i.level === l).length,
+                      })),
+                  ],
+                  onChange: (v) => setLevel(v as ItemLevel | 'all-levels'),
+                },
+              ]}
+              sort={sort}
+              onSort={setSort}
+              more={
+                <>
+                  <label className="fb-field">
+                    Creator
+                    <select value={creator} onChange={(e) => setCreator(e.target.value)}>
+                      <option value="">All creators</option>
+                      {lib.data!.creators.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {scan.roots.length > 1 && (
+                    <label className="fb-field">
+                      Library
+                      <select value={root} onChange={(e) => setRoot(e.target.value)}>
+                        <option value="">All libraries</option>
+                        {scan.roots.map((r) => (
+                          <option key={r.id} value={String(r.id)}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {formats.length > 1 && (
+                    <label className="fb-field">
+                      Format
+                      <select value={format} onChange={(e) => setFormat(e.target.value)}>
+                        <option value="">All formats</option>
+                        {formats.map((f) => (
+                          <option key={f} value={f}>
+                            .{f}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <div className="fb-switch">
+                    <span>Favourites only</span>
+                    <Switch checked={onlyFavs} onChange={setOnlyFavs} label="Favourites only" />
+                  </div>
+                  <div className="fb-switch">
+                    <span>With notes or guides</span>
+                    <Switch
+                      checked={withDocs}
+                      onChange={setWithDocs}
+                      label="With notes or guides"
+                    />
+                  </div>
+                </>
+              }
+              moreActive={
+                [creator, root, format].filter(Boolean).length +
+                (onlyFavs ? 1 : 0) +
+                (withDocs ? 1 : 0)
+              }
+              onClear={clearFilters}
+              view={view}
+              onView={setView}
+            />
 
             {filtered.length === 0 ? (
               <EmptyState
                 title="Nothing matches those filters"
                 action={
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      setQ('');
-                      setCreator('');
-                      setRoot('');
-                      setFormat('');
-                      setWithDocs(false);
-                      setOnlyFavs(false);
-                    }}
-                  >
+                  <button className="btn btn-ghost" onClick={clearFilters}>
                     Reset filters
                   </button>
                 }
@@ -712,13 +664,7 @@ export function LibraryPage() {
                     <button
                       className="btn btn-sm btn-quiet"
                       style={{ display: 'inline-flex', minHeight: 0, padding: '0 4px' }}
-                      onClick={() => {
-                        setQ('');
-                        setCreator('');
-                        setRoot('');
-                        setFormat('');
-                        setWithDocs(false);
-                      }}
+                      onClick={clearFilters}
                     >
                       reset
                     </button>

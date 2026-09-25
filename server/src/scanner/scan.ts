@@ -34,7 +34,9 @@ export interface ScanOptions {
 }
 
 /** Pseudo-root for covers extracted from the files themselves. */
-export const EMBEDDED_ROOT_ID = -1;
+// Far from any library's id: the first library chosen in the app is -1, and
+// sharing that once sent every file of it to the cover cache (0.32-0.37).
+export const EMBEDDED_ROOT_ID = -1_000_000;
 
 const COVER_EXTS = ['jpg', 'png', 'webp', 'gif'] as const;
 

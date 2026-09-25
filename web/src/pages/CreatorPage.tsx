@@ -30,6 +30,13 @@ import { usePlayer } from '../player/PlayerProvider.tsx';
 import { Cover, EmptyState, ErrorNote, Icon, PageSkeleton } from '../components/ui.tsx';
 import { CreatorFace } from '../components/Shelves.tsx';
 import {
+  FilterBar,
+  sortableOf,
+  sortBy,
+  type Sortable,
+  type SortKey,
+} from '../components/FilterBar.tsx';
+import {
   compareItems,
   compareSeries,
   displayName,
@@ -49,7 +56,8 @@ import {
 } from '../content.ts';
 import { MedCard, SeriesCard } from './LibraryPage.tsx';
 import { MedRow, SeriesRow } from '../components/Shelves.tsx';
-import { ViewToggle, useViewMode, type ViewMode } from '../components/ViewToggle.tsx';
+import { useViewMode, type ViewMode } from '../components/ViewToggle.tsx';
+import { useCollapsed } from '../components/Collapse.tsx';
 import { FolderDocs } from '../components/FolderDocs.tsx';
 
 const KIND_ORDER: ContentType[] = ['meditation', 'course', 'talk', 'soundscape'];
@@ -85,6 +93,18 @@ function kindOf(e: Entry): Kind {
   return i.type;
 }
 
+/** What a pack, series or recording is sorted by. */
+function entrySortable(e: Entry): Sortable {
+  if (e.kind === 'item') return sortableOf(e.item);
+  const items = e.series.items;
+  return {
+    title: e.series.name,
+    addedAt: items.reduce((m, i) => (i.addedAt > m ? i.addedAt : m), ''),
+    durationSec: items.reduce((t, i) => t + (i.totalDurationSec ?? 0), 0),
+    level: seriesLevel(items),
+  };
+}
+
 const matchesKind = (e: Entry, f: KindFilter) =>
   f === 'all' || (f === 'packs' ? ['in-order', 'pack'].includes(kindOf(e)) : kindOf(e) === f);
 
@@ -107,6 +127,11 @@ export function CreatorPage() {
   const player = usePlayer();
   const [level, setLevel] = useState<ItemLevel | 'all-levels'>('all-levels');
   const [kind, setKind] = useState<KindFilter>('all');
+  const [sort, setSort] = useState<SortKey>('suggested');
+  // Sections folded on this creator's page, remembered on this device.
+  const folds = useCollapsed(`zp-folded:${creatorName}`);
+  // Each section in the chosen order (its own suggested order by default).
+  const sorted = (es: Entry[]) => sortBy(es, sort, entrySortable);
   const [starting, setStarting] = useState(false);
   const [mode, setMode] = useViewMode('zp-creator-view');
 
@@ -249,6 +274,14 @@ export function CreatorPage() {
     // "Packs" and "In order" are the same chip when every pack is in order.
     .filter((c, _i, all) => c.key !== 'in-order' || c.n !== all.find((x) => x.key === 'packs')?.n);
   const shownCount = allEntries.filter((e) => matchesKind(e, kind)).length;
+  // The sections on show - what "fold every section" folds.
+  const sectionKeys = [
+    ...([...view.programmes, ...view.packs].some((e) => matchesKind(e, kind)) ? ['packs'] : []),
+    ...view.shelves
+      .filter(([, es]) => es.some((e) => matchesKind(e, kind)))
+      .map(([n]) => `shelf:${n}`),
+    ...view.byKind.filter((g) => g.entries.some((e) => matchesKind(e, kind))).map((g) => g.kind),
+  ];
   const allPacks = [...view.programmes, ...view.packs];
   const packCount = allPacks.length;
   const packsDone = allPacks.filter((e) => isFinished(progressOf(e))).length;
@@ -352,45 +385,53 @@ export function CreatorPage() {
             )}
           />
 
-          <div className="cr-tools">
-            <ViewToggle view={mode} onChange={setMode} />
-            {kindChips.length > 2 && (
-              <div className="chip-row cr-kinds" role="group" aria-label="Type">
-                {kindChips.map((c) => (
-                  <button
-                    key={c.key}
-                    className="chip"
-                    aria-pressed={kind === c.key}
-                    onClick={() => setKind(c.key)}
-                  >
-                    {c.key === 'all' ? 'All' : KIND_CHIP[c.key as keyof typeof KIND_CHIP]}
-                    {c.key !== 'all' && <span className="chip-n">{c.n}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-            {levels.length > 1 && (
-              <div className="chip-row cr-levels" role="group" aria-label="Level">
-                <button
-                  className="chip"
-                  aria-pressed={level === 'all-levels'}
-                  onClick={() => setLevel('all-levels')}
-                >
-                  Everything
-                </button>
-                {levels.map((l) => (
-                  <button
-                    key={l}
-                    className="chip"
-                    aria-pressed={level === l}
-                    onClick={() => setLevel(l)}
-                  >
-                    {LEVEL_SHORT[l]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <FilterBar
+            filters={[
+              {
+                key: 'type',
+                label: 'Type',
+                value: kind,
+                choices: kindChips.map((c) => ({
+                  value: c.key,
+                  label: c.key === 'all' ? 'All types' : KIND_CHIP[c.key as keyof typeof KIND_CHIP],
+                  n: c.key === 'all' ? undefined : c.n,
+                })),
+                onChange: (v) => setKind(v as KindFilter),
+              },
+              {
+                key: 'level',
+                label: 'Level',
+                value: level,
+                choices: [
+                  { value: 'all-levels', label: 'Every level' },
+                  ...levels.map((l) => ({
+                    value: l,
+                    label: LEVEL_SHORT[l],
+                    n: all.filter((i) => i.level === l).length,
+                  })),
+                ],
+                onChange: (v) => setLevel(v as ItemLevel | 'all-levels'),
+              },
+            ]}
+            sort={sort}
+            onSort={setSort}
+            onClear={() => {
+              setKind('all');
+              setLevel('all-levels');
+              setSort('suggested');
+            }}
+            view={mode}
+            onView={setMode}
+            collapse={
+              sectionKeys.length > 1
+                ? {
+                    allFolded: sectionKeys.every((k) => folds.collapsed.has(k)),
+                    onToggle: () =>
+                      folds.setAll(sectionKeys, !sectionKeys.every((k) => folds.collapsed.has(k))),
+                  }
+                : undefined
+            }
+          />
 
           <EntrySection
             title="Packs"
@@ -399,15 +440,21 @@ export function CreatorPage() {
                 ? 'Those meant in order first'
                 : undefined
             }
-            entries={[...view.programmes, ...view.packs].filter((e) => matchesKind(e, kind))}
+            entries={sorted(
+              [...view.programmes, ...view.packs].filter((e) => matchesKind(e, kind)),
+            )}
             mode={mode}
+            folded={folds.collapsed.has('packs')}
+            onFold={() => folds.toggle('packs')}
           />
           {view.shelves.map(([name, entries]) => (
             <EntrySection
               key={name}
               title={displayName(name)}
-              entries={entries.filter((e) => matchesKind(e, kind))}
+              entries={sorted(entries.filter((e) => matchesKind(e, kind)))}
               mode={mode}
+              folded={folds.collapsed.has(`shelf:${name}`)}
+              onFold={() => folds.toggle(`shelf:${name}`)}
             />
           ))}
           {view.byKind.map((g) => (
@@ -415,8 +462,10 @@ export function CreatorPage() {
               key={g.kind}
               title={KIND_TITLE[g.kind]}
               icon={TYPE_META[g.kind].icon}
-              entries={g.entries.filter((e) => matchesKind(e, kind))}
+              entries={sorted(g.entries.filter((e) => matchesKind(e, kind)))}
               mode={mode}
+              folded={folds.collapsed.has(g.kind)}
+              onFold={() => folds.toggle(g.kind)}
             />
           ))}
 
@@ -464,23 +513,31 @@ function EntrySection({
   icon,
   entries,
   mode,
+  folded,
+  onFold,
 }: {
   title: string;
   note?: string;
   icon?: string;
   entries: Entry[];
   mode: ViewMode;
+  folded: boolean;
+  onFold: () => void;
 }) {
   if (entries.length === 0) return null;
   return (
-    <section className="section" aria-label={title}>
+    <section className={`section${folded ? ' folded' : ''}`} aria-label={title}>
       <div className="section-head">
         <h2>
-          {icon && <Icon name={icon} size={18} />} {title}
+          <button type="button" className="section-fold" aria-expanded={!folded} onClick={onFold}>
+            {icon && <Icon name={icon} size={18} />} {title}
+            <span className="section-n">{entries.length}</span>
+            <Icon name="chevron-down" size={16} />
+          </button>
         </h2>
-        {note && <span className="section-note">{note}</span>}
+        {note && !folded && <span className="section-note">{note}</span>}
       </div>
-      {mode === 'grid' ? (
+      {folded ? null : mode === 'grid' ? (
         <div className="card-grid">
           {entries.map((e) =>
             e.kind === 'series' ? (

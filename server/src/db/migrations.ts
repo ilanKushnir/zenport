@@ -848,6 +848,13 @@ export const MIGRATIONS: string[] = [
   `
   DELETE FROM item_structures WHERE source = 'ai';
   `,
+  // v30: covers read out of the audio files move to their own pseudo-library
+  // id. They shared -1 with the first library chosen in the app, so that
+  // library's recordings and documents were looked for in the cover cache.
+  `
+  UPDATE assets SET root_id = -1000000
+  WHERE root_id = -1 AND kind = 'cover' AND instr(rel_path, '/') = 0 AND name LIKE 'cover.%';
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {
