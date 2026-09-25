@@ -9435,6 +9435,12 @@ span.role-chip {
 }
 
 .app-bar-brand {
+  /* A button (back to the top), dressed as the logo it is. */
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: var(--s2);

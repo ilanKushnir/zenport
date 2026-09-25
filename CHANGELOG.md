@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.6] — 2026-09-25
+
+### Changed
+
+- **Tapping the logo in the top bar (on a phone) scrolls the page back to the top**, like tapping the top of an iPhone app. It used to go to Today, which the tab bar already does.
+
 ## [0.38.5] — 2026-09-25
 
 ### Changed

@@ -14,7 +14,13 @@ import type { SetupStatusDto, UserInfo } from '@zenport/shared';
 import { api, ApiError } from './api.ts';
 import { clearApiCache } from './hooks.ts';
 import { SectionPill } from './components/SectionPill.tsx';
-import { carryScroll, pageScrollTop, rememberScroll, restoreScroll } from './scrollRoot.ts';
+import {
+  carryScroll,
+  pageScroller,
+  pageScrollTop,
+  rememberScroll,
+  restoreScroll,
+} from './scrollRoot.ts';
 import { Icon } from './components/ui.tsx';
 import { Lockup } from './components/Brand.tsx';
 import { CommandPalette, openSearch } from './components/CommandPalette.tsx';
@@ -172,9 +178,19 @@ function AppBar({ isAdmin }: { isAdmin: boolean }) {
   const here = (p: string) => location.pathname === p || location.pathname.startsWith(`${p}/`);
   return (
     <header className="app-bar" ref={barRef}>
-      <Link className="app-bar-brand" to="/" aria-label="ZenPort - Today">
+      {/* Like tapping the top of an iPhone app: back to the top of this page. */}
+      <button
+        type="button"
+        className="app-bar-brand"
+        aria-label="ZenPort - back to the top"
+        onClick={() => {
+          const s = pageScroller();
+          if (s) s.scrollTo({ top: 0, behavior: 'smooth' });
+          else window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      >
         <Lockup size={26} word={18} bloom={false} />
-      </Link>
+      </button>
       <nav className="app-bar-actions" aria-label="Account">
         <button type="button" className="app-bar-btn" aria-label="Search" onClick={openSearch}>
           <Icon name="search" size={20} />

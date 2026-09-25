@@ -25,6 +25,10 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.6',
+    items: [{ emoji: '⬆️', text: 'Tap the logo at the top to glide back to the top of the page.' }],
+  },
+  {
     version: '0.38.5',
     items: [
       {
