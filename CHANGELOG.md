@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.7] — 2026-09-25
+
+### Fixed
+
+- On a series card (the one drawn as a small stack), the Pack or Course badge and the heart sat on the cover's top edge. They were placed from the top of the stack, not the cover. They now sit inside the cover, where they sit on every other card.
+
 ## [0.38.6] — 2026-09-25
 
 ### Changed

@@ -6097,6 +6097,16 @@
   padding-block-start: 8px;
 }
 
+/* The badge and the heart sit on the cover, below the stack's 8px - where
+   they sit on any other card. */
+.series-card .card-badges {
+  inset-block-start: 16px;
+}
+
+.series-card .fav-btn {
+  inset-block-start: calc(var(--s2) + 8px);
+}
+
 .series-stack {
   position: absolute;
   inset-inline: 10px;
