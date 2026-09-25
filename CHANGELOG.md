@@ -5,6 +5,13 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.1] — 2026-09-25
+
+### Changed
+
+- **The Library reads like a creator's page:** Packs, Meditations, Courses, Talks and videos, Soundscapes, across every creator. Before, it was a "Series" and a "Single items" list. Both pages build these sections from the same code (`components/Sections.tsx`), so they stay alike.
+- **Every section heading has an icon and a count, and folds.** That includes Packs, a creator's shelves, and the Library's Continue and Creators. "Collapse" folds every section of the list at once. The Library and each creator's page remember what you folded.
+
 ## [0.38.0] — 2026-09-25
 
 ### Fixed

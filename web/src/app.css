@@ -4930,6 +4930,13 @@
   color: var(--text);
 }
 
+/* The Library's own actions (Offline, Folders, Rescan), above its list. */
+.lib-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block: var(--s6) var(--s3);
+}
+
 /* The bar's end: fold every section, and grid or list. */
 .fb-end {
   display: flex;

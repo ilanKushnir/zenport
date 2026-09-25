@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.1',
+    items: [
+      {
+        emoji: '📂',
+        text: "The Library is in sections like a creator's page - each with an icon, and each folds.",
+      },
+    ],
+  },
+  {
     version: '0.38.0',
     items: [
       {

@@ -8,22 +8,27 @@ import { api } from '../api.ts';
 import { useApi, useRefreshOn } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
 import { Cover, EmptyState, ErrorNote, Icon, SkeletonGrid, Switch } from '../components/ui.tsx';
+import { useCollapsed } from '../components/Collapse.tsx';
 import {
-  FilterBar,
-  sortableOf,
-  sortBy,
-  TYPE_CHOICE_LABEL,
-  type SortKey,
-} from '../components/FilterBar.tsx';
+  allEntries,
+  buildSections,
+  entrySortable,
+  FoldHead,
+  kindChoices,
+  matchesKind,
+  sectionKeys,
+  SectionList,
+  type Entry,
+  type KindFilter,
+} from '../components/Sections.tsx';
+import { FilterBar, sortableOf, sortBy, type SortKey } from '../components/FilterBar.tsx';
 import {
   continueSeriesKey,
   ContinueCard,
   CreatorBubble,
   FavButton,
-  MedRow,
   subtitle,
   Rail,
-  SeriesRow,
   type ContinueEntry,
 } from '../components/Shelves.tsx';
 import {
@@ -234,11 +239,11 @@ export function LibraryPage() {
   );
   const [sort, setSort] = useState<SortKey>('suggested');
   const [level, setLevel] = useState<ItemLevel | 'all-levels'>('all-levels');
-  const [type, setTypeState] = useState<'all' | ContentType>(() => {
+  const [type, setTypeState] = useState<KindFilter>(() => {
     const t = new URLSearchParams(window.location.search).get('type');
-    return (TYPES as readonly string[]).includes(t ?? '') ? (t as ContentType) : 'all';
+    return ['packs', 'in-order', ...TYPES].includes(t ?? '') ? (t as KindFilter) : 'all';
   });
-  const setType = (t: 'all' | ContentType) => {
+  const setType = (t: KindFilter) => {
     setTypeState(t);
     const u = new URL(window.location.href);
     if (t === 'all') u.searchParams.delete('type');
@@ -354,7 +359,6 @@ export function LibraryPage() {
 
   const filtered = useMemo(() => {
     let out = present;
-    if (type !== 'all') out = out.filter((i) => i.type === type);
     if (level !== 'all-levels') out = out.filter((i) => i.level === level);
     if (creator) out = out.filter((i) => i.creator === creator);
     if (root) out = out.filter((i) => String(i.rootId) === root);
@@ -370,7 +374,15 @@ export function LibraryPage() {
     out = sortBy(out, sort, sortableOf);
     return out;
   }, [present, type, level, creator, root, format, withDocs, onlyFavs, favorites, sort]);
-  const grouped = useMemo(() => groupSeries(filtered), [filtered]);
+  // In sections, the same as a creator's page (Packs, Meditations, Courses…).
+  const sections = useMemo(
+    () => buildSections(filtered, 'all-levels', lib.data?.seriesStructures, false),
+    [filtered, lib.data],
+  );
+  const folds = useCollapsed('zp-folded:library');
+  const sorted = (es: Entry[]) => sortBy(es, sort, entrySortable);
+  const keys = sectionKeys(sections, type);
+  const shownCount = allEntries(sections).filter((e) => matchesKind(e, type)).length;
 
   const missingCount = items.filter((i) => i.missing).length;
   const formats = useMemo(() => [...new Set(items.flatMap((i) => i.formats))].sort(), [items]);
@@ -479,9 +491,17 @@ export function LibraryPage() {
       ) : (
         <>
           {type === 'all' && !filtersActive && (continuing.length > 0 || lastHidden) && (
-            <section className="section shelf-continue" aria-labelledby="sec-continue">
-              <div className="section-head">
-                <h2 id="sec-continue">Continue</h2>
+            <section
+              className={`section shelf-continue${folds.collapsed.has('continue') ? ' folded' : ''}`}
+              aria-label="Continue"
+            >
+              <FoldHead
+                title="Continue"
+                icon="play"
+                count={continuing.length}
+                folded={folds.collapsed.has('continue')}
+                onFold={() => folds.toggle('continue')}
+              >
                 {lastHidden && (
                   <span className="rail-undo" role="status">
                     Hid <strong>{lastHidden.title}</strong>
@@ -490,8 +510,8 @@ export function LibraryPage() {
                     </button>
                   </span>
                 )}
-              </div>
-              {continuing.length > 0 ? (
+              </FoldHead>
+              {folds.collapsed.has('continue') ? null : continuing.length > 0 ? (
                 <Rail label="Continue">
                   {continuing.map((c) => (
                     <ContinueCard key={c.key} entry={c} onHide={hideContinue} />
@@ -504,24 +524,33 @@ export function LibraryPage() {
           )}
 
           {type === 'all' && lib.data!.creators.length > 0 && (
-            <section className="section shelf-creators" aria-labelledby="sec-creators">
-              <div className="section-head">
-                <h2 id="sec-creators">Creators</h2>
+            <section
+              className={`section shelf-creators${folds.collapsed.has('creators') ? ' folded' : ''}`}
+              aria-label="Creators"
+            >
+              <FoldHead
+                title="Creators"
+                icon="friends"
+                count={lib.data!.creators.length}
+                folded={folds.collapsed.has('creators')}
+                onFold={() => folds.toggle('creators')}
+              >
                 <Link className="see-all" to="/creators">
-                  See all {lib.data!.creators.length} <Icon name="chevron-right" size={14} />
+                  See all <Icon name="chevron-right" size={14} />
                 </Link>
-              </div>
-              <Rail label="Creators">
-                {lib.data!.creators.map((c) => (
-                  <CreatorBubble key={c.name} creator={c} />
-                ))}
-              </Rail>
+              </FoldHead>
+              {!folds.collapsed.has('creators') && (
+                <Rail label="Creators">
+                  {lib.data!.creators.map((c) => (
+                    <CreatorBubble key={c.name} creator={c} />
+                  ))}
+                </Rail>
+              )}
             </section>
           )}
 
-          <section className="section" aria-labelledby="sec-all">
-            <div className="section-head">
-              <h2 id="sec-all">{type === 'all' ? 'Everything' : TYPE_META[type].plural}</h2>
+          <section className="lib-all" aria-label="Everything">
+            <div className="lib-actions">
               <div className="section-actions">
                 <Link className="btn btn-sm btn-quiet" to="/downloads">
                   <Icon name="on-device" size={15} />
@@ -553,15 +582,8 @@ export function LibraryPage() {
                   key: 'type',
                   label: 'Type',
                   value: type,
-                  choices: [
-                    { value: 'all', label: 'All types' },
-                    ...TYPES.filter((t) => typeCounts.get(t)).map((t) => ({
-                      value: t,
-                      label: TYPE_CHOICE_LABEL[t],
-                      n: typeCounts.get(t),
-                    })),
-                  ],
-                  onChange: (v) => setType(v as 'all' | ContentType),
+                  choices: kindChoices(sections),
+                  onChange: (v) => setType(v as KindFilter),
                 },
                 {
                   key: 'level',
@@ -643,6 +665,15 @@ export function LibraryPage() {
               onClear={clearFilters}
               view={view}
               onView={setView}
+              collapse={
+                keys.length > 1
+                  ? {
+                      allFolded: keys.every((k) => folds.collapsed.has(k)),
+                      onToggle: () =>
+                        folds.setAll(keys, !keys.every((k) => folds.collapsed.has(k))),
+                    }
+                  : undefined
+              }
             />
 
             {filtered.length === 0 ? (
@@ -670,55 +701,21 @@ export function LibraryPage() {
                     </button>
                   </p>
                 )}
-                {grouped.series.length > 0 && (
-                  <>
-                    <h3 className="shelf-title">
-                      {type === 'course' ? 'Courses in parts' : 'Series'}
-                      <span>{grouped.series.length}</span>
-                    </h3>
-                    {view === 'grid' ? (
-                      <div className="card-grid shelf">
-                        {grouped.series.map((sr) => (
-                          <SeriesCard
-                            key={sr.key}
-                            series={sr}
-                            structure={seriesStructure(sr, lib.data?.seriesStructures)}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="med-rows shelf">
-                        {grouped.series.map((sr) => (
-                          <SeriesRow
-                            key={sr.key}
-                            series={sr}
-                            structure={seriesStructure(sr, lib.data?.seriesStructures)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {grouped.singles.length > 0 && (
-                      <h3 className="shelf-title">
-                        {type === 'all'
-                          ? 'Single items'
-                          : `Single ${TYPE_META[type].plural.toLowerCase()}`}
-                        <span>{grouped.singles.length}</span>
-                      </h3>
-                    )}
-                  </>
-                )}
-                {view === 'grid' ? (
-                  <div className="card-grid">
-                    {grouped.singles.map((item) => (
-                      <MedCard key={item.id} item={item} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="med-rows">
-                    {grouped.singles.map((item) => (
-                      <MedRow key={item.id} item={item} />
-                    ))}
-                  </div>
+                <SectionList
+                  view={sections}
+                  kind={type}
+                  sorted={sorted}
+                  mode={view}
+                  folded={(k) => folds.collapsed.has(k)}
+                  onFold={folds.toggle}
+                  inCreator={false}
+                />
+                {type !== 'all' && shownCount === 0 && (
+                  <EmptyState title="Nothing of this kind here">
+                    <button className="linkish" onClick={() => setType('all')}>
+                      Show everything
+                    </button>
+                  </EmptyState>
                 )}
               </>
             )}
