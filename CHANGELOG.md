@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.4] — 2026-09-25
+
+### Fixed
+
+- **A course in parts is one choice when building a plan.** "Believing Behaving and Becoming Abundance" showed as three bare entries, "Week 1", "Week 2" and "Week 3", because the picker listed single recordings. A series is now one entry with its name and "3 parts". Picking it adds its parts in their order; unpicking removes them all. A study plan numbers what you picked, 1, 2, 3.
+
+### Added
+
+- **Choose by creator when building a plan.** A row of creator chips above the picker, each with how many of that kind they have, narrows it to one creator's recordings. "All creators" goes back.
+
 ## [0.38.3] — 2026-09-25
 
 ### Changed

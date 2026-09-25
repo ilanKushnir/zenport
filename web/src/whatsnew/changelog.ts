@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.4',
+    items: [
+      {
+        emoji: '🗓️',
+        text: 'Building a plan: a course in parts is one choice, and you can narrow the choices to one creator.',
+      },
+    ],
+  },
+  {
     version: '0.38.3',
     items: [{ emoji: '🍃', text: 'Parts simply come in the right order - no labels about it.' }],
   },

@@ -4937,6 +4937,19 @@
   margin-block: var(--s6) var(--s3);
 }
 
+/* A plan's picker: which creator's recordings to choose from (scrolls). */
+.pick-creators {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin-block: var(--s2) var(--s3);
+  padding-block-end: 2px;
+  scrollbar-width: none;
+}
+
+.pick-creators .chip {
+  flex: none;
+}
+
 /* The bar's end: fold every section, and grid or list. */
 .fb-end {
   display: flex;

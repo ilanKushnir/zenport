@@ -31,7 +31,7 @@ import { Cover, EmptyState, ErrorNote, Icon, Sheet } from '../components/ui.tsx'
 import { AiPlanSheet, type AdjustTarget } from '../components/AiPlanSheet.tsx';
 import { PickTag } from '../components/PickTag.tsx';
 import { PlanGuideView } from '../components/PlanGuide.tsx';
-import { itemLabel, TYPE_META } from '../content.ts';
+import { inOrder, itemLabel, TYPE_META } from '../content.ts';
 import { isPracticeType } from '@zenport/shared';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -825,13 +825,13 @@ function PlanSheet({
   const [focus, setFocus] = useState<PlanDto['focus']>(plan?.focus ?? 'practice');
   const learning = focus === 'learning';
   const [medQuery, setMedQuery] = useState('');
+  // Optionally, only one creator's recordings to choose from.
+  const [pickCreator, setPickCreator] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
-  const toggleMed = (id: string) =>
-    setMeds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const applyTemplate = (t: Template) => {
     setDays(t.days);
@@ -886,7 +886,9 @@ function PlanSheet({
 
   const filteredItems = useMemo(() => {
     const q = medQuery.trim().toLowerCase();
-    const ofFocus = items.filter((i) => isPracticeType(i.type) !== learning);
+    const ofFocus = items.filter(
+      (i) => isPracticeType(i.type) !== learning && (!pickCreator || i.creator === pickCreator),
+    );
     const list = (
       q
         ? ofFocus.filter(
@@ -908,7 +910,84 @@ function PlanSheet({
         Number(meds.includes(b.id)) - Number(meds.includes(a.id)) ||
         rank[standing(a)] - rank[standing(b)],
     );
-  }, [items, medQuery, meds, learning, hideUsed, elsewhere]);
+  }, [items, medQuery, meds, learning, hideUsed, elsewhere, pickCreator]);
+  // The creators who have something of this kind, and how much.
+  const pickCreators = useMemo(() => {
+    // Counted as the picker shows them: a series once, not by its parts.
+    const n = new Map<string, Set<string>>();
+    for (const i of items) {
+      // Only what this plan's focus picks from (practice, or study).
+      if (isPracticeType(i.type) === learning) continue;
+      const set = n.get(i.creator) ?? new Set<string>();
+      set.add(i.collection ? `s:${i.collection}` : i.id);
+      n.set(i.creator, set);
+    }
+    return [...n.entries()]
+      .map(([c, set]) => [c, set.size] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]));
+  }, [items, learning]);
+  // A series (a course in weeks, a pack of parts) is one choice, not its
+  // parts: picking it takes all its parts, in their order.
+  const pickEntries = useMemo(() => {
+    const seriesOf = (i: MeditationSummaryDto) =>
+      i.collection ? `${i.creator}\u0000${i.collection}` : null;
+    const members = new Map<string, MeditationSummaryDto[]>();
+    for (const i of items) {
+      const k = seriesOf(i);
+      if (k && isPracticeType(i.type) !== learning) members.set(k, [...(members.get(k) ?? []), i]);
+    }
+    const seen = new Set<string>();
+    const out: {
+      key: string;
+      title: string;
+      lead: MeditationSummaryDto;
+      ids: string[];
+      parts: number;
+      durationSec: number;
+    }[] = [];
+    for (const i of filteredItems) {
+      const k = seriesOf(i);
+      const group = k ? members.get(k) : undefined;
+      if (k && group && group.length > 1) {
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const ordered = inOrder(group);
+        out.push({
+          key: `s:${k}`,
+          title: i.collection!,
+          lead: ordered[0]!,
+          ids: ordered.map((x) => x.id),
+          parts: ordered.length,
+          durationSec: ordered.reduce((t, x) => t + (x.totalDurationSec ?? 0), 0),
+        });
+      } else {
+        out.push({
+          key: i.id,
+          title: i.title,
+          lead: i,
+          ids: [i.id],
+          parts: 0,
+          durationSec: i.totalDurationSec ?? 0,
+        });
+      }
+    }
+    return out;
+  }, [items, filteredItems, learning]);
+  const togglePick = (ids: string[]) =>
+    setMeds((prev) =>
+      ids.every((id) => prev.includes(id))
+        ? prev.filter((x) => !ids.includes(x))
+        : [...prev, ...ids.filter((id) => !prev.includes(id))],
+    );
+  // Its place in a study plan: the order its first part was chosen in.
+  const pickedOrder = pickEntries
+    .filter((e) => e.ids.some((id) => meds.includes(id)))
+    .map((e) => ({
+      key: e.key,
+      at: Math.min(...e.ids.map((id) => meds.indexOf(id)).filter((n) => n >= 0)),
+    }))
+    .sort((a, b) => a.at - b.at)
+    .map((x) => x.key);
   const usedCount = items.filter(
     (i) =>
       isPracticeType(i.type) !== learning &&
@@ -1277,6 +1356,30 @@ function PlanSheet({
                 : `Hide done or already planned (${usedCount})`}
             </button>
           )}
+          {pickCreators.length > 1 && (
+            <div className="chip-row pick-creators" role="group" aria-label="Creator">
+              <button
+                type="button"
+                className="chip"
+                aria-pressed={pickCreator === ''}
+                onClick={() => setPickCreator('')}
+              >
+                All creators
+              </button>
+              {pickCreators.map(([c, n]) => (
+                <button
+                  key={c}
+                  type="button"
+                  className="chip"
+                  aria-pressed={pickCreator === c}
+                  onClick={() => setPickCreator(pickCreator === c ? '' : c)}
+                >
+                  {c}
+                  <span className="chip-n">{n}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {items.length > 6 && (
             <input
               id="pl-meds-q"
@@ -1288,26 +1391,28 @@ function PlanSheet({
             />
           )}
           <div className="med-picker">
-            {filteredItems.slice(0, 40).map((i) => {
-              const on = meds.includes(i.id);
+            {pickEntries.slice(0, 40).map((e) => {
+              const i = e.lead;
+              const on = e.ids.every((id) => meds.includes(id));
               return (
                 <button
-                  key={i.id}
+                  key={e.key}
                   type="button"
                   className="med-pick"
                   aria-pressed={on}
-                  onClick={() => toggleMed(i.id)}
+                  onClick={() => togglePick(e.ids)}
                 >
-                  <Cover coverId={i.coverId} title={i.title} creator={i.creator} />
-                  <span className="med-pick__t">{i.title}</span>
+                  <Cover coverId={i.coverId} title={e.title} creator={i.creator} />
+                  <span className="med-pick__t">{e.title}</span>
                   <span className="med-pick__c">
                     <PickTag item={i} standing={standing(i)} plans={elsewhere.get(i.id)} />
                     {TYPE_META[i.type].label} · {i.creator}
-                    {i.totalDurationSec ? ` · ${formatDuration(i.totalDurationSec)}` : ''}
+                    {e.parts > 1 ? ` · ${e.parts} parts` : ''}
+                    {e.durationSec ? ` · ${formatDuration(e.durationSec)}` : ''}
                   </span>
                   {on && (
                     <span className="med-pick__check" aria-hidden="true">
-                      {learning ? meds.indexOf(i.id) + 1 : <Icon name="check" size={13} />}
+                      {learning ? pickedOrder.indexOf(e.key) + 1 : <Icon name="check" size={13} />}
                     </span>
                   )}
                 </button>
