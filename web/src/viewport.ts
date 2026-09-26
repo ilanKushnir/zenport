@@ -11,10 +11,11 @@
  * the screen however the toolbar moves.
  *
  * Never taller than innerHeight, though: that is how much iOS actually
- * shows. As a Home Screen app on iOS 26 it can be less than the screen (by
- * the status bar's height, after a sheet or on launch), and a frame sized to
- * the screen then ran off the bottom - the tab bar cut, and the page, taller
- * than its view, panned instead of scrolling.
+ * shows. As a Home Screen app on iOS 26 under a translucent status bar, the
+ * page was one status bar short of the screen's bottom, and nothing could be
+ * painted there - a frame sized to the screen ran off the bottom (the tab
+ * bar cut, the page panning instead of scrolling). So the status bar is a
+ * plain one (index.html), and the page below it reaches the bottom edge.
  *
  * The keyboard can also pan the page up to reach a field; the document
  * itself never scrolls here, so once the field lets go it is set back.

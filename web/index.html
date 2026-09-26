@@ -15,7 +15,13 @@
     <link rel="icon" href="/icons/favicon-64.png" type="image/png" sizes="64x64" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-180.png" sizes="180x180" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!--
+      "black", not "black-translucent": on iOS 26 a Home Screen app drawn under
+      a translucent status bar is sized one status bar short of the screen's
+      bottom, and that strip cannot be painted - the tab bar floats above an
+      empty band. Below a plain status bar the page reaches the bottom edge.
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="ZenPort" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>ZenPort</title>

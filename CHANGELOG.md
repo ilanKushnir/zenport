@@ -5,6 +5,13 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.9] — 2026-09-26
+
+### Fixed
+
+- **The tab bar sits at the bottom of the screen in the Home Screen app.** On iOS 26, a Home Screen app drawn under a see-through status bar is sized one status bar short of the screen, and that strip at the bottom cannot be drawn on, so the tab bar floated above an empty band. The status bar is now a plain dark one, and the app below it reaches the bottom edge. If the band is still there, close the app fully and open it again (twice: once to fetch the update, once to use it). If it is still there after that, remove it from the Home Screen and add it back.
+- **A new plan counts a course in weeks as one thing.** Picking a course in weeks for a study plan already added all its weeks in order as one choice, but the "What to follow" row still counted and showed each week (3, with three copies of the same cover). It now counts the course once and shows its cover once.
+
 ## [0.38.8] — 2026-09-25
 
 ### Fixed

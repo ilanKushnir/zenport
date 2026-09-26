@@ -25,6 +25,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.9',
+    items: [
+      {
+        emoji: '📱',
+        text: 'On the Home Screen, the tab bar sits at the bottom of the screen again.',
+      },
+      { emoji: '🗓️', text: 'A course in weeks counts as one choice in a new plan.' },
+    ],
+  },
+  {
     version: '0.38.8',
     items: [{ emoji: '📐', text: 'Series and single covers line up, row by row.' }],
   },

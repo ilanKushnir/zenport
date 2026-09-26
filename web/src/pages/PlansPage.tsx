@@ -1064,6 +1064,13 @@ function PlanSheet({
   const chosen = meds
     .map((id) => items.find((i) => i.id === id))
     .filter((i): i is MeditationSummaryDto => !!i);
+  // Chosen as the picker shows them: a course in weeks counts once, with the
+  // covers of different things rather than three of the same course.
+  const chosenOnce = chosen.filter(
+    (c, n) =>
+      !c.collection ||
+      chosen.findIndex((x) => x.creator === c.creator && x.collection === c.collection) === n,
+  );
   const [open, setOpen] = useState<RowKey | null>(null);
   const toggle = (k: RowKey) => setOpen((o) => (o === k ? null : k));
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1323,12 +1330,12 @@ function PlanSheet({
               ? learning
                 ? 'Choose'
                 : 'Any - just the habit'
-              : String(chosen.length)
+              : String(chosenOnce.length)
           }
           preview={
             chosen.length > 0 ? (
               <span className="prow-covers" aria-hidden="true">
-                {chosen.slice(0, 3).map((c) => (
+                {chosenOnce.slice(0, 3).map((c) => (
                   <span key={c.id} className="prow-cover">
                     <Cover coverId={c.coverId} title={c.title} creator={c.creator} />
                   </span>
