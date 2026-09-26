@@ -1,6 +1,6 @@
 /**
  * Search everything - the search button in the top bar, or ⌘K / Ctrl-K:
- * recordings, series and packs, creators, kinds and levels, pages, each
+ * recordings (a series once, by its name), creators, kinds and levels, pages, each
  * setting, and a few actions, in one place.
  *
  * It exists because the library can be large and the nav cannot grow with it.
@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { LibraryDto } from '@zenport/shared';
 import { formatDuration, type ContentType } from '@zenport/shared';
-import { groupSeries, LEVEL_SHORT, seriesPath, TYPE_META } from '../content.ts';
+import { groupSeries, LEVEL_SHORT, seriesPath, titleInSeries, TYPE_META } from '../content.ts';
 import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { usePrefs } from '../prefs.tsx';
@@ -27,17 +27,18 @@ interface Command {
   group: Group | LegacyGroup;
   /** More to match on than the label and hint: synonyms, where it lives. */
   keywords?: string;
+  /** Shown only when something typed is in this - a part of a series turns
+      up by its own name, not for its creator's or its series' name. */
+  own?: string;
   run: () => void;
 }
 
-type Group =
-  'Recordings' | 'Series and packs' | 'Creators' | 'Browse' | 'Pages' | 'Settings' | 'Actions';
+type Group = 'Recordings' | 'Creators' | 'Browse' | 'Pages' | 'Settings' | 'Actions';
 type LegacyGroup = 'Go' | 'Do';
 const GROUP: Record<LegacyGroup, Group> = { Go: 'Pages', Do: 'Actions' };
 /** How many of each kind a search shows. */
 const CAP: Partial<Record<Group, number>> = {
-  Recordings: 8,
-  'Series and packs': 5,
+  Recordings: 10,
   Creators: 4,
 };
 
@@ -320,14 +321,13 @@ export function CommandPalette() {
     ];
 
     const present = (lib.data?.items ?? []).filter((i) => !i.missing);
-    const recordings: Command[] = present.map((i) => ({
+    // A course in weeks (or any series) is one result, by its own name; a
+    // part of it turns up only when what is typed is in the part's name.
+    const { series: allSeries, singles } = groupSeries(present);
+    const recordings: Command[] = singles.map((i) => ({
       id: `m-${i.id}`,
       label: i.title,
-      hint: [
-        i.creator,
-        i.collection ?? '',
-        i.totalDurationSec ? formatDuration(i.totalDurationSec) : '',
-      ]
+      hint: [i.creator, i.totalDurationSec ? formatDuration(i.totalDurationSec) : '']
         .filter(Boolean)
         .join(' · '),
       icon: TYPE_META[i.type].icon,
@@ -335,15 +335,29 @@ export function CommandPalette() {
       keywords: `${TYPE_META[i.type].label} ${i.level ? LEVEL_SHORT[i.level] : ''}`,
       run: go(`/m/${i.id}`),
     }));
-    const series: Command[] = groupSeries(present).series.map((sr) => ({
+    const series: Command[] = allSeries.map((sr) => ({
       id: `s-${sr.key}`,
       label: sr.name,
-      hint: `${sr.creator} · ${sr.items.length} ${sr.type === 'course' ? 'modules' : 'parts'}`,
-      icon: sr.type === 'course' ? 'book' : 'grid',
-      group: 'Series and packs',
+      hint: `${sr.creator} · ${sr.items.length} parts`,
+      icon: TYPE_META[sr.type].icon,
+      group: 'Recordings',
       keywords: `${TYPE_META[sr.type].label} pack series`,
       run: go(seriesPath(sr.creator, sr.name)),
     }));
+    const parts: Command[] = allSeries.flatMap((sr) =>
+      sr.items.map((i) => {
+        const own = titleInSeries(i.title, sr.name);
+        return {
+          id: `m-${i.id}`,
+          label: own,
+          hint: `${sr.name} · ${sr.creator}`,
+          icon: TYPE_META[i.type].icon,
+          group: 'Recordings' as const,
+          own,
+          run: go(`/m/${i.id}`),
+        };
+      }),
+    );
     const creators: Command[] = (lib.data?.creators ?? []).map((c) => ({
       id: `c-${c.name}`,
       label: c.name,
@@ -401,6 +415,7 @@ export function CommandPalette() {
       ...series,
       ...creators,
       ...recordings,
+      ...parts,
     ];
   }, [lib.data, navigate, prefs.bellEnabled, prefs.calmMotion, save, isAdmin]);
 
@@ -412,6 +427,10 @@ export function CommandPalette() {
     }
     const scored = commands
       .map((c) => {
+        if (c.own !== undefined) {
+          const own = fold(c.own);
+          if (!words.some((w) => own.includes(w))) return null;
+        }
         const label = fold(c.label);
         const hay = `${label} ${fold(c.hint ?? '')} ${fold(c.keywords ?? '')}`;
         let score = 0;

@@ -25,6 +25,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.38.10',
+    items: [
+      {
+        emoji: '🔎',
+        text: 'Search shows a course once, by its name - and still finds a part by its own name.',
+      },
+    ],
+  },
+  {
     version: '0.38.9',
     items: [
       {

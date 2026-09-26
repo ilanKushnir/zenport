@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.10] — 2026-09-26
+
+### Changed
+
+- **Search shows a course or pack once, by its name.** Searching a creator used to list the parts of a course one by one ("Week 1", "Week 2", "Week 3"), while the course itself sat in its own group further down. A course, pack or series is now one result, in the same list as single recordings. A part still turns up when what you type is in its own name ("week 2"), and says which course it belongs to.
+
 ## [0.38.9] — 2026-09-26
 
 ### Fixed
