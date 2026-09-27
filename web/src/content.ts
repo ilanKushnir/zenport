@@ -235,3 +235,10 @@ export function compareItems(a: MeditationSummaryDto, b: MeditationSummaryDto): 
 /** Every part of it done. */
 export const isFinished = (x: { trackCount: number; completedCount: number }) =>
   x.trackCount > 0 && x.completedCount >= x.trackCount;
+
+/**
+ * What to call a part of a meditation that is not a sit (see scannedRoles on
+ * the server): an intro, or else guidance - instructions, an explanation.
+ */
+export const notASitLabel = (title: string): string =>
+  /\b(intro|introduction|welcome|overview|prepar\w*|opening)\b/i.test(title) ? 'Intro' : 'Guidance';

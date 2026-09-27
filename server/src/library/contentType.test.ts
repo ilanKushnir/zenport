@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inferContentType, inferTrackRole } from './contentType.js';
+import { framingParts, inferContentType, inferTrackRole, scannedRoles } from './contentType.js';
 
 const t = (...names: string[]) =>
   names.map((n) => ({ name: n, ext: n.split('.').at(-1)!.toLowerCase() }));
@@ -108,5 +108,83 @@ describe('the owner’s filing comes first', () => {
   it('a folder that only mentions a kind is still just a name', () => {
     expect(guess('Mira Solen/Talks and Meditations/Rest').type).toBe('talk');
     expect(guess('Mira Solen/Evening Lecture').type).toBe('talk');
+  });
+});
+
+describe('framingParts: what in a meditation is not a sit', () => {
+  const a = (title: string, durationSec = 1300) => ({ title, ext: 'mp3', durationSec });
+  const v = (title: string, durationSec = 60) => ({ title, ext: 'mp4', durationSec });
+  const set = (...n: number[]) => new Set(n);
+
+  it('an intro video before the sessions', () => {
+    expect(framingParts([v('Quiet Series Intro', 53), a('Session 1'), a('Session 2')])).toEqual(
+      set(0),
+    );
+  });
+
+  it('instructions and a welcome by name, audio or video', () => {
+    expect(framingParts([a('Welcome', 200), a('Instructions', 400), a('The practice')])).toEqual(
+      set(0, 1),
+    );
+    expect(framingParts([a('Intro to the meditation', 180), a('Meditation')])).toEqual(set(0));
+  });
+
+  it('an introduction to a state is an exercise, not an intro', () => {
+    expect(
+      framingParts([a('Wave #1 - Orientation'), a('Wave #2 - Introduction to Focus 10')]),
+    ).toEqual(set());
+    expect(framingParts([a('Introduction to the series', 300), a('Day 1')])).toEqual(set(0));
+  });
+
+  it('a part that says it holds the meditation too is a sit', () => {
+    expect(framingParts([a('Instructions and guided meditation'), a('Guided meditation')])).toEqual(
+      set(),
+    );
+    expect(framingParts([v('Introduction & breathwork', 900), a('Session 2')])).toEqual(set());
+  });
+
+  it('a short video among audio sits, whatever its name', () => {
+    expect(framingParts([v('Opening', 240), a('Part 1'), a('Part 2')])).toEqual(set(0));
+  });
+
+  it('short videos through a pack of audio sits', () => {
+    expect(
+      framingParts([v('Day 1.1', 86), v('Day 1.2', 92), a('Day 1'), a('Day 2'), a('Day 3')]),
+    ).toEqual(set(0, 1));
+  });
+
+  it('a long video is a video meditation, not an intro', () => {
+    expect(framingParts([v('Opening', 1800), a('Part 1'), a('Part 2')])).toEqual(set());
+  });
+
+  it('a set of videos is not "a video among audio"', () => {
+    expect(framingParts([v('One', 120), v('Two', 120), a('Part 1')])).toEqual(set());
+  });
+
+  it('never a single part, and never all of them', () => {
+    expect(framingParts([v('Intro', 60)])).toEqual(set());
+    expect(framingParts([a('Intro'), a('Instructions')])).toEqual(set());
+  });
+});
+
+describe('scannedRoles', () => {
+  const t = (title: string, inferredRole: string, ext = 'mp3', durationSec = 1300) => ({
+    title,
+    ext,
+    durationSec,
+    inferredRole,
+  });
+
+  it('a meditation: every part a sit but its intro', () => {
+    expect(
+      scannedRoles('meditation', [t('Intro', 'lesson', 'mp4', 50), t('Session 1', 'lesson')]),
+    ).toEqual(['lesson', 'practice']);
+  });
+
+  it('a course: the guess by name made at scan time', () => {
+    expect(scannedRoles('course', [t('Lecture', 'lesson'), t('Meditation', 'practice')])).toEqual([
+      'lesson',
+      'practice',
+    ]);
   });
 });

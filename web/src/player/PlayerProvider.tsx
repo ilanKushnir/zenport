@@ -88,6 +88,8 @@ export function usePlayer(): PlayerApi {
 }
 
 const SETTINGS_KEY = 'zenport-player-settings';
+/** Less than this of actual sitting (an intro alone) asks for no reflection. */
+const MIN_SIT_SEC = 60;
 
 function loadSettings(): PlayerSettings {
   const fallback: PlayerSettings = {
@@ -183,6 +185,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const listenedRef = useRef(0); // unsent listened seconds
   const lastTickRef = useRef<number | null>(null);
   const lastBellMinRef = useRef(0);
+  /** Seconds of this session spent on sits (not an intro or instructions). */
+  const satRef = useRef(0);
   const startedAtRef = useRef<number | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
   // What the person asked for, as opposed to what the element happens to be
@@ -273,10 +277,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  /** Where a track should start: its saved place in a course or talk, else the top. */
+  /**
+   * Where a track should start: its saved place in a course or talk, or in a
+   * meditation's intro or instructions (not a sit); a sit starts at the top.
+   */
   const placeFor = useCallback((it: MeditationDetailDto, index: number): number => {
-    if (it.type !== 'course' && it.type !== 'talk') return 0;
     const tr = it.tracks[index];
+    if (it.type !== 'course' && it.type !== 'talk' && tr?.role !== 'lesson') return 0;
     if (!tr || completedRef.current.has(tr.id)) return 0;
     const at = placesRef.current.get(tr.id) ?? 0;
     const d = tr.durationSec;
@@ -366,6 +373,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       const sid = sessionRef.current;
       const it = itemRef.current;
+      const sat = satRef.current;
+      satRef.current = 0;
       const minutes = startedAtRef.current
         ? Math.max(1, Math.round((Date.now() - startedAtRef.current) / 60000))
         : undefined;
@@ -373,8 +382,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         void api
           .post(`/api/practice/${sid}/finish`, { status, reason })
           .then(() => {
-            // A reflection is for a sit, not a lesson: after studying, no prompt.
-            if (status === 'completed' && it.type !== 'course' && it.type !== 'talk') {
+            // A reflection is for a sit, not a lesson: after studying, or
+            // after only a meditation's intro or instructions, no prompt.
+            if (
+              status === 'completed' &&
+              it.type !== 'course' &&
+              it.type !== 'talk' &&
+              sat >= MIN_SIT_SEC
+            ) {
               setReflect({
                 sessionId: sid,
                 meditationId: it.id,
@@ -429,6 +444,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setFocus(true);
       lastBellMinRef.current = 0;
       listenedRef.current = 0;
+      satRef.current = 0;
       lastTickRef.current = null;
       setPracticeElapsed(0);
       startedAtRef.current = Date.now();
@@ -634,7 +650,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const now = performance.now();
         if (!el.paused && lastTickRef.current !== null) {
           const dt = (now - lastTickRef.current) / 1000;
-          if (dt > 0 && dt < 2.5) listenedRef.current += dt;
+          if (dt > 0 && dt < 2.5) {
+            listenedRef.current += dt;
+            const now = itemRef.current?.tracks[trackIndexRef.current];
+            if (now?.role === 'practice') satRef.current += dt;
+          }
         }
         lastTickRef.current = now;
         setPosition(el.currentTime);
@@ -778,8 +798,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
         setPracticeElapsed(elapsed);
 
-        // Interval bells, relative to practice start.
-        if (settings.bellsEveryMin > 0 && playing) {
+        // Interval bells, relative to practice start - during a sit, not
+        // over someone speaking an intro or instructions.
+        const now = itemRef.current?.tracks[trackIndexRef.current];
+        if (settings.bellsEveryMin > 0 && playing && now?.role !== 'lesson') {
           const min = Math.floor(elapsed / 60);
           if (min > 0 && min % settings.bellsEveryMin === 0 && lastBellMinRef.current !== min) {
             lastBellMinRef.current = min;

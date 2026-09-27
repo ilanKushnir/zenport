@@ -263,8 +263,8 @@ export function FocusMode() {
   // Bells and the end timer are practice tools; a lesson does not need them in reach.
   const learning = it.type === 'course' || it.type === 'talk';
   // Practice tools belong to a practice: a meditation, or a meditation that
-  // is part of a course. A lesson gets none of them.
-  const practiceNow = !learning || p.track?.role === 'practice';
+  // is part of a course. A lesson - or a meditation's intro - gets none.
+  const practiceNow = p.track ? p.track.role === 'practice' : !learning;
   const part = it.type === 'course' ? 'Lesson' : 'Track';
 
   return (

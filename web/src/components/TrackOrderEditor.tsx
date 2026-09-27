@@ -104,7 +104,9 @@ export function TrackOrderEditor({
                       <Icon name="video" size={12} /> video
                     </>
                   ) : (
-                    `.${t.ext}`
+                    <>
+                      <Icon name="volume" size={12} /> audio
+                    </>
                   )}
                   {t.durationSec ? ` · ${formatClock(t.durationSec)}` : ''}
                 </span>

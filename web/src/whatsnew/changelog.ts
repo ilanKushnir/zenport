@@ -25,6 +25,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.39.0',
+    items: [
+      {
+        emoji: '🎬',
+        text: 'Intro and instruction parts are told apart from the meditation: they keep your place and ask for no reflection.',
+      },
+      { emoji: '🔈', text: 'Parts say “audio” or “video”, not a file format.' },
+    ],
+  },
+  {
     version: '0.38.10',
     items: [
       {

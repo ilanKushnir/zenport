@@ -22,6 +22,7 @@ import { isVideoExt, naturalCompare } from '@zenport/shared';
 import type { Config } from '../config.js';
 import type { Db } from '../db/index.js';
 import { applyEdits, loadExclusions, underAny } from '../scanner/scan.js';
+import { scannedRoles, type TrackRole } from './contentType.js';
 import { asType, summarize, TRACK_ORDER_BY, TRACK_ORDER_JOIN, type ItemRow } from './queries.js';
 
 const UNKNOWN_CREATOR = 'Unknown creator';
@@ -178,6 +179,7 @@ export function reviewDetail(db: Db, config: Config, id: string): ReviewDetailDt
     inferred_role: string;
     manual_role: string | null;
   }[];
+  const scannedRole = partRoles(db, id, asType(manual?.type ?? row.inferred_type));
   const live = tracks.filter((t) => t.missing === 0);
   const suggestions = tidyTitles(live.map((t) => t.inferred_title ?? t.title));
   const cover = db
@@ -240,11 +242,38 @@ export function reviewDetail(db: Db, config: Config, id: string): ReviewDetailDt
       video: isVideoExt(t.ext),
       ext: t.ext,
       durationSec: t.duration_sec,
-      role: (t.manual_role ?? t.inferred_role) === 'practice' ? 'practice' : 'lesson',
-      scannedRole: t.inferred_role === 'practice' ? 'practice' : 'lesson',
+      role: (t.manual_role ?? scannedRole.get(t.id)) === 'practice' ? 'practice' : 'lesson',
+      scannedRole: scannedRole.get(t.id) ?? 'lesson',
       missing: false,
     })),
   };
+}
+
+/** Each part's role as scanned, by track id, for an item of this type. */
+function partRoles(db: Db, itemId: string, type: ContentType): Map<string, TrackRole> {
+  const rows = db
+    .prepare(
+      `SELECT t.id, t.title, t.ext, t.duration_sec, t.inferred_role FROM tracks t
+       ${TRACK_ORDER_JOIN}
+       WHERE t.item_id = ? ORDER BY ${TRACK_ORDER_BY}`,
+    )
+    .all(itemId) as {
+    id: string;
+    title: string;
+    ext: string;
+    duration_sec: number | null;
+    inferred_role: string;
+  }[];
+  const roles = scannedRoles(
+    type,
+    rows.map((t) => ({
+      title: t.title,
+      ext: t.ext,
+      durationSec: t.duration_sec,
+      inferredRole: t.inferred_role,
+    })),
+  );
+  return new Map(rows.map((t, n) => [t.id, roles[n]!]));
 }
 
 export class ReviewError extends Error {
@@ -362,6 +391,13 @@ export function saveReview(
     );
 
     if (body.tracks) {
+      // Compared with the role as scanned for the item's type now in force.
+      const typeNow = db.prepare('SELECT type FROM item_types WHERE item_id = ?').get(id) as
+        { type: string } | undefined;
+      const inferredType = db.prepare('SELECT inferred_type FROM items WHERE id = ?').get(id) as {
+        inferred_type: string;
+      };
+      const scannedRole = partRoles(db, id, asType(typeNow?.type ?? inferredType.inferred_type));
       const own = db.prepare(
         'SELECT id, inferred_title, title, inferred_role FROM tracks WHERE id = ? AND item_id = ?',
       );
@@ -382,7 +418,7 @@ export function saveReview(
           }
         }
         if (t.role !== undefined) {
-          if (t.role === tr.inferred_role) {
+          if (t.role === scannedRole.get(t.id)) {
             db.prepare('DELETE FROM track_roles WHERE track_id = ?').run(t.id);
           } else {
             db.prepare(

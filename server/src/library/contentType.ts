@@ -19,7 +19,7 @@
  * choice is stored apart from this so a rescan never undoes it.
  */
 import type { ContentType } from '@zenport/shared';
-import { isVideoExt } from '@zenport/shared';
+import { isFramingPart, isVideoExt } from '@zenport/shared';
 
 export interface TypeEvidence {
   /** Path segments from the root down to the item (a file item includes its file name). */
@@ -113,4 +113,68 @@ const TEACHING_WORDS =
  */
 export function inferTrackRole(title: string): TrackRole {
   return PRACTICE_WORDS.test(title) && !TEACHING_WORDS.test(title) ? 'practice' : 'lesson';
+}
+
+/**
+ * "Introduction to Focus 10" is an exercise that brings someone into a state;
+ * "Intro to the meditation" introduces the practice around it.
+ */
+const INTRO_TO_A_SKILL =
+  /\bintro(?:duction)?\s+to\s+(?!(?:the |this |your |our )?(?:meditations?|practices?|series|course|program(?:me)?|pack|sessions?|journey|day)\b)/i;
+
+/** A video short enough to be an introduction rather than a sit. */
+const SHORT_VIDEO_SEC = 8 * 60;
+
+/**
+ * Inside a meditation, which parts are not themselves a meditation: an
+ * introduction, instructions, a welcome - by name, unless it says it holds a
+ * meditation too ("Instructions and guided meditation" is a sit, "Intro to
+ * the meditation" is not). Or a
+ * short video among audio sits, which is nearly always someone introducing
+ * them. Short videos among mostly audio sits, too: a pack's day-by-day
+ * animations explain the practice rather than being one. Such a part keeps
+ * its place when stopped and asks for no reflection.
+ *
+ * Only among several parts, and never all of them - a meditation is at least
+ * one sit.
+ */
+export function framingParts(
+  tracks: { title: string; ext: string; durationSec: number | null }[],
+): Set<number> {
+  const out = new Set<number>();
+  if (tracks.length < 2) return out;
+  const audio = tracks.filter((t) => !isVideoExt(t.ext)).length;
+  tracks.forEach((t, n) => {
+    // "… and meditation", "… with guided practice": the sit is in it.
+    if (
+      PRACTICE_WORDS.test(t.title) &&
+      /(^|[^\p{L}])(and|with|then|plus)([^\p{L}]|$)|[&+]/iu.test(t.title)
+    )
+      return;
+    const named = isFramingPart(t.title) && !INTRO_TO_A_SKILL.test(t.title);
+    if (!named && PRACTICE_WORDS.test(t.title)) return;
+    const shortVideo =
+      isVideoExt(t.ext) &&
+      audio > tracks.length - audio &&
+      t.durationSec !== null &&
+      t.durationSec <= SHORT_VIDEO_SEC;
+    if (named || shortVideo) out.add(n);
+  });
+  return out.size === tracks.length ? new Set() : out;
+}
+
+/**
+ * Each part's role as scanned, before the owner says otherwise: in a
+ * meditation or soundscape every part is a sit but its intro or
+ * instructions; in a course or talk, the guess by name made at scan time.
+ */
+export function scannedRoles(
+  type: ContentType,
+  tracks: { title: string; ext: string; durationSec: number | null; inferredRole: string }[],
+): TrackRole[] {
+  if (type === 'meditation' || type === 'soundscape') {
+    const framing = framingParts(tracks);
+    return tracks.map((_, n) => (framing.has(n) ? 'lesson' : 'practice'));
+  }
+  return tracks.map((t) => (t.inferredRole === 'practice' ? 'practice' : 'lesson'));
 }

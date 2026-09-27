@@ -25,7 +25,7 @@ import { api } from '../api.ts';
 import { useApi } from '../hooks.ts';
 import { Cover, EmptyState, ErrorNote, Icon, Sheet, Switch } from '../components/ui.tsx';
 import { useReorder } from '../components/useReorder.ts';
-import { TYPE_META } from '../content.ts';
+import { notASitLabel, TYPE_META } from '../content.ts';
 import { AdminCrumb, AdminOnly } from './AdminPage.tsx';
 import { CreatorsAdmin } from '../components/CreatorsAdmin.tsx';
 
@@ -764,7 +764,9 @@ function EditorForm({
                           <Icon name="video" size={11} /> video
                         </>
                       ) : (
-                        `.${t.ext}`
+                        <>
+                          <Icon name="volume" size={11} /> audio
+                        </>
                       )}
                       {t.durationSec ? ` · ${formatClock(t.durationSec)}` : ''}
                       {name.trim() !== t.title ? (
@@ -789,7 +791,7 @@ function EditorForm({
                       )}
                     </span>
                   </span>
-                  {learning && (
+                  {(learning || d.tracks.length > 1) && (
                     <button
                       type="button"
                       className={`role-chip${roles[t.id] === 'practice' ? ' practice' : ''}`}
@@ -799,10 +801,18 @@ function EditorForm({
                           [t.id]: r[t.id] === 'practice' ? 'lesson' : 'practice',
                         }))
                       }
-                      title="A lesson to study, or a meditation to do - tap to switch"
+                      title={
+                        learning
+                          ? 'A lesson to study, or a meditation to do - tap to switch'
+                          : 'A meditation, or an intro or guidance (keeps its place, no reflection) - tap to switch'
+                      }
                     >
                       <Icon name={roles[t.id] === 'practice' ? 'lotus' : 'book'} size={12} />
-                      {roles[t.id] === 'practice' ? 'Meditation' : 'Lesson'}
+                      {roles[t.id] === 'practice'
+                        ? 'Meditation'
+                        : learning
+                          ? 'Lesson'
+                          : notASitLabel(t.title)}
                     </button>
                   )}
                 </li>

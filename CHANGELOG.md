@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.39.0] — 2026-09-27
+
+### Added
+
+- **A meditation's intro or instructions are recognised as not a sit.** A part that introduces or explains the practice (an _Introduction_, _Meditation Instructions_, a _Welcome_, _Closing_, "Dr. … explains …"), or a short video (8 minutes or less) in a meditation that is otherwise audio, such as a series' intro video or a pack's day-by-day animations, is no longer treated as a meditation. It shows an _Intro_ or _Guidance_ chip, keeps your place when you stop it partway, and plays without the interval bell or practice settings. A session that was only an intro asks for no reflection. A part whose name says it holds the meditation too ("Instructions and guided meditation") stays a meditation, and so does an "Introduction to Focus 10" style exercise. The admin can switch any part from its page or from Review.
+
+### Changed
+
+- **Parts say "audio" instead of their file format.** Track lists showed ".mp3" beside audio parts while video parts said "video"; audio parts now say "audio", with a speaker icon.
+
 ## [0.38.10] — 2026-09-26
 
 ### Changed

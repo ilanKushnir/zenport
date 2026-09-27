@@ -19,6 +19,7 @@ import type { Db } from '../db/index.js';
 import type { Config } from '../config.js';
 import { documentKind } from '../scanner/classify.js';
 import { readScanState } from '../scanner/scan.js';
+import { scannedRoles } from './contentType.js';
 import { levelOf, structureOf } from './levels.js';
 
 /**
@@ -280,29 +281,38 @@ export function itemDetail(
       }[]
     ).map((r) => [r.track_id, r.position_sec]),
   );
-  const tracks = (
-    db
-      .prepare(
-        `SELECT t.id, t.ord, t.title, t.name, t.ext, t.duration_sec, t.missing, t.inferred_role,
+  const rows = db
+    .prepare(
+      `SELECT t.id, t.ord, t.title, t.name, t.ext, t.duration_sec, t.missing, t.inferred_role,
                 t.size_bytes, r.role AS manual_role, o.pos AS custom_pos
          FROM tracks t LEFT JOIN track_roles r ON r.track_id = t.id
          ${TRACK_ORDER_JOIN}
          WHERE t.item_id = ? ORDER BY ${TRACK_ORDER_BY}`,
-      )
-      .all(itemId) as {
-      id: string;
-      ord: number;
-      title: string;
-      name: string;
-      ext: string;
-      duration_sec: number | null;
-      missing: number;
-      inferred_role: string;
-      size_bytes: number;
-      manual_role: string | null;
-      custom_pos: number | null;
-    }[]
-  ).map((t, i) => ({
+    )
+    .all(itemId) as {
+    id: string;
+    ord: number;
+    title: string;
+    name: string;
+    ext: string;
+    duration_sec: number | null;
+    missing: number;
+    inferred_role: string;
+    size_bytes: number;
+    manual_role: string | null;
+    custom_pos: number | null;
+  }[];
+  // In a meditation, an intro or instructions among the sits is not one.
+  const scanned = scannedRoles(
+    summary.type,
+    rows.map((t) => ({
+      title: t.title,
+      ext: t.ext,
+      durationSec: t.duration_sec,
+      inferredRole: t.inferred_role,
+    })),
+  );
+  const tracks = rows.map((t, i) => ({
     id: t.id,
     // Its place as it plays - the owner's order where there is one.
     ord: i + 1,
@@ -313,14 +323,9 @@ export function itemDetail(
     missing: t.missing === 1,
     video: isVideoExt(t.ext),
     completed: done.has(t.id),
-    // A meditation item's tracks are all practice; a course's are what the
-    // owner said, else the scanner's guess.
+    // What the owner said, else as scanned (scannedRoles).
     role:
-      summary.type === 'meditation' || summary.type === 'soundscape'
-        ? ('practice' as const)
-        : (t.manual_role ?? t.inferred_role) === 'practice'
-          ? ('practice' as const)
-          : ('lesson' as const),
+      (t.manual_role ?? scanned[i]) === 'practice' ? ('practice' as const) : ('lesson' as const),
     roleSource: t.manual_role ? ('manual' as const) : ('auto' as const),
     sizeBytes: t.size_bytes,
     positionSec:

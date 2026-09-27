@@ -16,7 +16,7 @@ import { ActionTile } from '../components/ActionTile.tsx';
 import { OfflineTile } from '../components/OfflineButton.tsx';
 import { SitTogetherSheet, ago } from '../social.tsx';
 import { TimesPractised } from '../components/TimesPractised.tsx';
-import { LEVEL_LABEL, progressLabel, seriesPath, TYPE_META } from '../content.ts';
+import { LEVEL_LABEL, notASitLabel, progressLabel, seriesPath, TYPE_META } from '../content.ts';
 import { ItemAbout } from '../components/ItemAbout.tsx';
 
 export function ItemPage() {
@@ -317,6 +317,31 @@ export function ItemPage() {
                               <Icon name="lotus" size={12} /> Meditation
                             </span>
                           ) : null)}
+                        {/* In a meditation, the part that is not a sit: an intro, instructions. */}
+                        {!learning &&
+                          item.tracks.length > 1 &&
+                          (t.role === 'lesson' || t.roleSource === 'manual') &&
+                          (user?.role === 'admin' ? (
+                            <button
+                              type="button"
+                              className={`role-chip${t.role === 'practice' ? ' practice' : ''}`}
+                              onClick={() =>
+                                void setRole(t.id, t.role === 'practice' ? 'lesson' : 'practice')
+                              }
+                              title={
+                                t.role === 'practice'
+                                  ? 'A meditation - tap to mark it an intro or guidance'
+                                  : 'Not a meditation: it keeps your place and asks for no reflection - tap to mark it a meditation'
+                              }
+                            >
+                              <Icon name={t.role === 'practice' ? 'lotus' : 'book'} size={12} />
+                              {t.role === 'practice' ? 'Meditation' : notASitLabel(t.title)}
+                            </button>
+                          ) : t.role === 'lesson' ? (
+                            <span className="role-chip">
+                              <Icon name="book" size={12} /> {notASitLabel(t.title)}
+                            </span>
+                          ) : null)}
                       </div>
                       <div className="sub">
                         {t.completed && (
@@ -332,7 +357,9 @@ export function ItemPage() {
                             <Icon name="video" size={12} /> video
                           </>
                         ) : (
-                          `.${t.ext}`
+                          <>
+                            <Icon name="volume" size={12} /> audio
+                          </>
                         )}
                         {t.durationSec ? ` · ${formatClock(t.durationSec)}` : ''}
                         {t.missing ? ' · missing' : ''}
