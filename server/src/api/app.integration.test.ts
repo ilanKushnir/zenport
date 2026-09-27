@@ -3242,8 +3242,6 @@ describe('Keeping it organized', () => {
       payload: { apiKey: 'sk-good-0000000000abcd' },
     });
     const cfg = { ...makeConfig(), libraryRoots: [{ id: 0, path: libRoot, label: 'Meditations' }] };
-    await startScan(db, cfg);
-    await settle();
     const level = (title: string) =>
       (
         db
@@ -3252,6 +3250,14 @@ describe('Keeping it organized', () => {
           )
           .get(title) as { level: string } | undefined
       )?.level ?? null;
+    await startScan(db, cfg);
+    await settle();
+    // The job starts just after the scan has ended - on a slow machine, after
+    // settle() has already seen nothing running. Wait for what it does.
+    for (let i = 0; i < 500 && level('Morning Ritual') === null; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    await settle();
     expect(level('Morning Ritual')).toBe('intermediate');
 
     // Off: a new recording waits for someone to ask.

@@ -5,6 +5,12 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.39.2] — 2026-09-27
+
+### Fixed
+
+- **Release of 0.39.1.** Its build stopped on a test that checked for automatic levels a moment before the step giving them had run. The test now waits for the level itself, and 0.39.1's changes ship in this release.
+
 ## [0.39.1] — 2026-09-27
 
 ### Changed
