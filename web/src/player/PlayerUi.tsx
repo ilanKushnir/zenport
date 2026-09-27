@@ -13,7 +13,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { formatClock } from '@zenport/shared';
-import { DonePill, DoneTick } from '../components/DoneTick.tsx';
+import { DoneChip, DoneTick } from '../components/DoneTick.tsx';
 import { usePlayer } from './PlayerProvider.tsx';
 import { playBell } from './bell.ts';
 import { Cover, Icon, Sheet, Slider, Switch } from '../components/ui.tsx';
@@ -338,19 +338,7 @@ export function FocusMode() {
             )}
           </p>
           {multi && p.track && <p className="fp-track">{p.track.title}</p>}
-          {p.learning && p.track && (
-            <CourseProgress>
-              <DonePill
-                key={p.track.id}
-                track={p.track}
-                done={p.completedIds.has(p.track.id)}
-                onToggle={() => {
-                  const t = p.track!;
-                  void p.setTrackDone(t.id, !p.completedIds.has(t.id)).catch(() => {});
-                }}
-              />
-            </CourseProgress>
-          )}
+          {p.learning && multi && <CourseProgress />}
         </div>
 
         {settling ? (
@@ -415,6 +403,17 @@ export function FocusMode() {
         </div>
 
         <div className="fp-chips">
+          {p.learning && p.track && (
+            <DoneChip
+              key={p.track.id}
+              track={p.track}
+              done={p.completedIds.has(p.track.id)}
+              onToggle={() => {
+                const t = p.track!;
+                void p.setTrackDone(t.id, !p.completedIds.has(t.id)).catch(() => {});
+              }}
+            />
+          )}
           <button
             className="fp-chip"
             onClick={() => {
@@ -501,105 +500,34 @@ function VideoStage({ el }: { el: HTMLVideoElement }) {
   return <div className="fp-video" ref={ref} />;
 }
 
-type WebkitVideo = HTMLVideoElement & {
-  webkitEnterFullscreen?: () => void;
-  webkitSupportsPresentationMode?: (mode: string) => boolean;
-  webkitSetPresentationMode?: (mode: string) => void;
-  webkitPresentationMode?: string;
-};
-
-const PIP_OFF_KEY = 'zenport-pip-unavailable';
-
-/** Where floating video can work at all: the standard API, or Safari's own. */
-function pipSupported(v: WebkitVideo): boolean {
-  try {
-    if (localStorage.getItem(PIP_OFF_KEY) === '1') return false;
-  } catch {
-    /* private mode */
-  }
-  const standard = 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
-  const webkit =
-    typeof v.webkitSupportsPresentationMode === 'function' &&
-    v.webkitSupportsPresentationMode('picture-in-picture');
-  return Boolean(standard || webkit) && !v.disablePictureInPicture;
-}
+type WebkitVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void };
 
 function FullscreenChip({ el }: { el: HTMLVideoElement }) {
   const v = el as WebkitVideo;
-  const [pip, setPip] = useState(() => pipSupported(v));
-  const [note, setNote] = useState<string | null>(null);
-
-  // Float the video. The standard call first; Safari's presentation mode if
-  // that is missing or refused. An installed iPhone app may still decline
-  // both - if nothing floated a moment later, say so and stop offering it.
-  const float = () => {
-    const floating = () =>
-      Boolean(document.pictureInPictureElement) ||
-      v.webkitPresentationMode === 'picture-in-picture';
-    if (floating()) {
-      if (document.pictureInPictureElement) void document.exitPictureInPicture().catch(() => {});
-      else v.webkitSetPresentationMode?.('inline');
-      return;
-    }
-    const webkitTry = () => {
-      if (typeof v.webkitSetPresentationMode === 'function')
-        v.webkitSetPresentationMode('picture-in-picture');
-    };
-    if (typeof el.requestPictureInPicture === 'function' && document.pictureInPictureEnabled) {
-      void el.requestPictureInPicture().catch(webkitTry);
-    } else {
-      webkitTry();
-    }
-    window.setTimeout(() => {
-      if (floating()) return;
-      setPip(false);
-      setNote('Floating video is not available here - Full screen works.');
-      try {
-        localStorage.setItem(PIP_OFF_KEY, '1');
-      } catch {
-        /* private mode */
-      }
-    }, 1200);
-  };
-
   return (
-    <>
-      <button
-        className="fp-chip"
-        onClick={() => {
-          if (el.requestFullscreen)
-            void el.requestFullscreen().catch(() => v.webkitEnterFullscreen?.());
-          else v.webkitEnterFullscreen?.();
-        }}
-        aria-label="Full screen"
-      >
-        <Icon name="expand" size={18} />
-        Full screen
-      </button>
-      {pip && (
-        <button className="fp-chip" onClick={float} aria-label="Float the video over other apps">
-          <Icon name="video" size={18} />
-          Float
-        </button>
-      )}
-      {note && (
-        <span className="fp-chip-note" role="status">
-          {note}
-        </span>
-      )}
-    </>
+    <button
+      className="fp-chip"
+      onClick={() => {
+        if (el.requestFullscreen)
+          void el.requestFullscreen().catch(() => v.webkitEnterFullscreen?.());
+        else v.webkitEnterFullscreen?.();
+      }}
+      aria-label="Full screen"
+    >
+      <Icon name="expand" size={18} />
+      Full screen
+    </button>
   );
 }
 
 /**
- * A course's lessons as a row of segments - done, current, still ahead - with
- * the tick for the one playing now beside it. A single lesson is just the tick.
+ * A course's lessons as a row of segments - done, current, still ahead. The
+ * tick for the one playing now is with the buttons below (DoneChip).
  */
-function CourseProgress({ children }: { children: React.ReactNode }) {
+function CourseProgress() {
   const p = usePlayer();
   if (!p.item) return null;
   const tracks = p.item.tracks;
-  if (tracks.length < 2) return <div className="fp-course solo">{children}</div>;
   const done = tracks.filter((t) => p.completedIds.has(t.id)).length;
   return (
     <div className="fp-course" aria-label={`${done} of ${tracks.length} lessons done`}>
@@ -618,7 +546,6 @@ function CourseProgress({ children }: { children: React.ReactNode }) {
           />
         )}
       </div>
-      {children}
     </div>
   );
 }

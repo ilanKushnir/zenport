@@ -25,6 +25,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.39.1',
+    items: [
+      {
+        emoji: '✅',
+        text: '“Watched” is now one of the player’s buttons, and stays put when you tap it.',
+      },
+      { emoji: '🧹', text: 'The Float button, which never worked, is gone.' },
+    ],
+  },
+  {
     version: '0.39.0',
     items: [
       {

@@ -5,6 +5,16 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.39.1] — 2026-09-27
+
+### Changed
+
+- **The player's "Watched" tick sits with its buttons and never changes size.** The tick for the lesson playing now sat beside the row of lesson dots and changed width between "Mark as watched" and "Watched", so the dots shrank and jumped with every tap. It is now the first of the player's buttons (Watched · speed · Full screen · Lessons). It always reads "Watched" (or "Done" for audio); the ring fills and the button lights up when it is. The lesson dots have the row to themselves.
+
+### Removed
+
+- **The video player's Float button.** Floating video did not work in the Home Screen app, so the button is gone; Full screen stays.
+
 ## [0.39.0] — 2026-09-27
 
 ### Added

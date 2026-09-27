@@ -67,8 +67,13 @@ export function DoneTick({
   );
 }
 
-/** A labelled tick, for the part that is playing now. */
-export function DonePill({
+/**
+ * The player's tick for the part playing now, one of its row of buttons. It
+ * always reads the same ("Watched", "Done") - the ring fills and the button
+ * lights when it is - so tapping it never changes its size or moves what is
+ * beside it.
+ */
+export function DoneChip({
   track,
   done,
   onToggle,
@@ -81,13 +86,14 @@ export function DonePill({
   return (
     <button
       type="button"
-      className={`done-pill${done ? ' is-done' : ''}`}
+      className={`fp-chip done-chip${done ? ' on' : ''}`}
       aria-pressed={done}
-      title={done ? 'Tap to mark it not done' : undefined}
+      aria-label={done ? `${w.done} - tap to undo` : w.mark}
+      title={done ? 'Tap to mark it not done' : w.mark}
       onClick={onToggle}
     >
       <Ring done={done} size={18} />
-      <span>{done ? w.done : w.mark}</span>
+      {w.done}
     </button>
   );
 }
