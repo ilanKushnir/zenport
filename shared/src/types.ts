@@ -1368,3 +1368,31 @@ export interface LibraryCountsDto {
   counts: Record<string, number>;
   capped: boolean;
 }
+
+// --- Agents ---
+
+/** An AI agent that acts for its owner through /api/agent. The key is never shown. */
+export interface AgentDto {
+  id: number;
+  name: string;
+  /** Whether it may read and write the owner's journal. */
+  journal: boolean;
+  /** It has fetched a key and that key works. */
+  connected: boolean;
+  /** How the key ends ("…a1b2"), for telling keys apart. */
+  keyHint: string | null;
+  connectedAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+  /** When the connect code handed out last stops working; null when none is waiting. */
+  codeExpiresAt: string | null;
+}
+
+/** A fresh one-time connect code, and the message that carries it to the agent. */
+export interface AgentConnectDto {
+  agent: AgentDto;
+  code: string;
+  expiresAt: string;
+  /** The whole message to paste into the agent's chat. */
+  brief: string;
+}

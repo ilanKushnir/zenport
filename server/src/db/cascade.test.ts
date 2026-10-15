@@ -38,6 +38,12 @@ function seedUserData(db: Db, userId: number, tag: string): void {
     `INSERT INTO voice_notes (id, entry_id, user_id, file_name, mime, size_bytes, created_at)
      VALUES (?, ?, ?, ?, 'audio/webm', 1024, ?)`,
   ).run(`vn-${tag}`, entry.lastInsertRowid, userId, `${tag}.webm`, T);
+  db.prepare(`INSERT INTO agents (user_id, name, key_hash, created_at) VALUES (?, ?, ?, ?)`).run(
+    userId,
+    `agent-${tag}`,
+    `key-${tag}`,
+    T,
+  );
   db.prepare(
     `INSERT INTO yt_sources (video_id, url, title, added_by, added_at)
      VALUES (?, ?, ?, ?, ?)`,
@@ -51,6 +57,7 @@ const PRIVATE_TABLES = [
   'plans',
   'journal_entries',
   'voice_notes',
+  'agents',
 ] as const;
 
 describe('user deletion cascade', () => {

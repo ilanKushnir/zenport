@@ -5,6 +5,14 @@ All notable changes to ZenPort are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.40.0] — 2026-10-15
+
+### Added
+
+- **Connect your AI agent (Settings → Agents).** Give your assistant (Hermes, Claude, Codex) a name and ZenPort hands you one message to paste into its chat. The message holds a one-time code, not a key: the agent trades it for a key of its own (`POST /api/agent/connect`), keeps it in its own secret store, and installs the ZenPort skill from `/api/agent/skill.md` (`hermes skills install <url>`). No key ever passes through a chat, a screen or a clipboard. The code works once and for 24 hours; the screen turns to _connected_ the moment the agent has its key. Reconnect hands out a new code (the running key keeps working until it is used); Remove cuts the agent off at once.
+- **An API made for agents** (`/api/agent`): today at a glance (what is planned, what was missed, minutes sat, streak), library search with links that open a meditation in ZenPort, one meditation's parts, history, statistics and plans; logging a sit done elsewhere (and marking the plan it belonged to), and marking a plan done or skipped. The journal is off for each agent until you allow it. The skill documents all of it for this server's own addresses, and tells the agent to stay gentle: invite, never nag.
+- `ZP_PUBLIC_URL` (the address people open ZenPort at) and `ZP_AGENT_URL` (a direct LAN address for agents, past CDN bot filters that turn away non-browser clients).
+
 ## [0.39.2] — 2026-09-27
 
 ### Fixed

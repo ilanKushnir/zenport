@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { PlanDto, PlanFocus, PlanGuide, PlanOccurrenceDto, PlanShift } from '@zenport/shared';
 import type { AppContext } from '../../context.js';
+import type { Db } from '../../db/index.js';
 import { dayKey } from '../../stats/compute.js';
 import {
   expandOccurrences,
@@ -39,7 +40,7 @@ const planSchema = z.object({
     .nullish(),
 });
 
-interface PlanRow {
+export interface PlanRow {
   id: number;
   name: string;
   intention: string | null;
@@ -84,7 +85,7 @@ function parseGuide(raw: string | null): PlanGuide | null {
   }
 }
 
-function toDto(row: PlanRow): PlanDto {
+export function toDto(row: PlanRow): PlanDto {
   return {
     id: row.id,
     name: row.name,
@@ -103,6 +104,51 @@ function toDto(row: PlanRow): PlanDto {
     guide: parseGuide(row.guide),
     createdAt: row.created_at,
   };
+}
+
+/** A person's planned sessions from today through `horizon` days ahead (and any missed before). */
+export function planOccurrences(
+  db: Db,
+  userId: number,
+  timezone: string,
+  horizon: number,
+): { today: string; occurrences: PlanOccurrenceDto[] } {
+  const today = dayKey(new Date().toISOString(), timezone);
+  const rows = db
+    .prepare('SELECT * FROM plans WHERE user_id = ?')
+    .all(userId) as unknown as PlanRow[];
+  const all: PlanOccurrenceDto[] = [];
+  for (const row of rows) {
+    const plan: PlanForExpansion = {
+      id: row.id,
+      name: row.name,
+      status: row.status as PlanForExpansion['status'],
+      startDate: row.start_date,
+      endDate: row.end_date,
+      daysOfWeek: JSON.parse(row.days_of_week),
+      meditationIds: JSON.parse(row.meditation_ids),
+      shifts: parseShifts(row.shifts),
+    };
+    const entries = (
+      db.prepare('SELECT * FROM plan_entries WHERE plan_id = ?').all(row.id) as {
+        date: string;
+        status: 'completed' | 'skipped' | null;
+        moved_to: string | null;
+        moved_from: string | null;
+        session_id: number | null;
+      }[]
+    ).map((e): PlanEntryRow => ({
+      date: e.date,
+      status: e.status,
+      movedTo: e.moved_to,
+      movedFrom: e.moved_from,
+      sessionId: e.session_id,
+    }));
+    const focus: PlanFocus = row.focus === 'learning' ? 'learning' : 'practice';
+    all.push(...expandOccurrences(plan, entries, today, horizon).map((o) => ({ ...o, focus })));
+  }
+  all.sort((a, b) => a.date.localeCompare(b.date) || a.planName.localeCompare(b.planName));
+  return { today, occurrences: all };
 }
 
 export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -196,42 +242,7 @@ export function registerPlanRoutes(app: FastifyInstance, ctx: AppContext): void 
   app.get('/api/plans/occurrences', async (req) => {
     const q = req.query as { days?: string };
     const horizon = Math.min(Number(q.days ?? 21) || 21, 60);
-    const today = dayKey(new Date().toISOString(), req.user!.timezone);
-    const rows = db
-      .prepare('SELECT * FROM plans WHERE user_id = ?')
-      .all(req.user!.id) as unknown as PlanRow[];
-    const all: PlanOccurrenceDto[] = [];
-    for (const row of rows) {
-      const plan: PlanForExpansion = {
-        id: row.id,
-        name: row.name,
-        status: row.status as PlanForExpansion['status'],
-        startDate: row.start_date,
-        endDate: row.end_date,
-        daysOfWeek: JSON.parse(row.days_of_week),
-        meditationIds: JSON.parse(row.meditation_ids),
-        shifts: parseShifts(row.shifts),
-      };
-      const entries = (
-        db.prepare('SELECT * FROM plan_entries WHERE plan_id = ?').all(row.id) as {
-          date: string;
-          status: 'completed' | 'skipped' | null;
-          moved_to: string | null;
-          moved_from: string | null;
-          session_id: number | null;
-        }[]
-      ).map((e): PlanEntryRow => ({
-        date: e.date,
-        status: e.status,
-        movedTo: e.moved_to,
-        movedFrom: e.moved_from,
-        sessionId: e.session_id,
-      }));
-      const focus: PlanFocus = row.focus === 'learning' ? 'learning' : 'practice';
-      all.push(...expandOccurrences(plan, entries, today, horizon).map((o) => ({ ...o, focus })));
-    }
-    all.sort((a, b) => a.date.localeCompare(b.date) || a.planName.localeCompare(b.planName));
-    return { today, occurrences: all };
+    return planOccurrences(db, req.user!.id, req.user!.timezone, horizon);
   });
 
   const entryAction = z.object({ date: z.string().regex(DATE) });

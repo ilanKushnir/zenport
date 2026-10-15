@@ -1,4 +1,5 @@
 import type { ServerCapabilitiesDto } from '@zenport/shared';
+import { Link } from 'react-router-dom';
 import { useApi } from '../hooks.ts';
 import { Icon } from '../components/ui.tsx';
 import { AdminCrumb } from './AdminPage.tsx';
@@ -30,6 +31,19 @@ export function IntegrationsPage() {
           className="card-grid"
           style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
         >
+          <Link className="card agents-integration" to="/settings#s-agents">
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="plug" /> AI agents
+            </h3>
+            <p style={{ color: 'var(--muted)', marginTop: 8, fontSize: 14 }}>
+              Each person can connect their own assistant (Hermes, Claude, Codex) from Settings -
+              Agents. It gets its own key through a one-time code and installs the ZenPort skill
+              itself.
+            </p>
+            <p style={{ marginTop: 12 }}>
+              <span className="badge badge-accent">per person · Settings</span>
+            </p>
+          </Link>
           <div className="card">
             <h3>yt-dlp metadata listing</h3>
             <p style={{ color: 'var(--muted)', marginTop: 8, fontSize: 14 }}>

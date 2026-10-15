@@ -9,6 +9,7 @@ import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { REPO_URL, openWhatsNew } from '../whatsnew/WhatsNew.tsx';
 import { playBell } from '../player/bell.ts';
 import { Avatar, Icon, Slider, Switch } from '../components/ui.tsx';
+import { AgentsSection } from '../components/Agents.tsx';
 import { formatBytes, offlineSupported, useOffline } from '../offline.ts';
 
 const COMMON_TIMEZONES = [
@@ -80,6 +81,7 @@ export function SettingsPage() {
       />
       <PreferencesSection />
       <AiSection />
+      <AgentsSection />
       <OfflineSection />
 
       <section className="section" aria-labelledby="s-about">

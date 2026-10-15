@@ -121,6 +121,12 @@ const SETTINGS: { label: string; where: string; icon: string; keywords: string }
     icon: 'on-device',
     keywords: 'downloads space device',
   },
+  {
+    label: 'Agents',
+    where: 's-agents',
+    icon: 'plug',
+    keywords: 'ai assistant agent hermes claude codex connect key skill telegram',
+  },
 ];
 
 export function CommandPalette() {

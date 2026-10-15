@@ -15676,3 +15676,127 @@ textarea.review-part-name {
     animation: none;
   }
 }
+
+/* Settings → Agents. */
+.agents-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+}
+
+.agents-lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.agents-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.agent-row .set-switch {
+  margin-block-start: 0;
+  padding-block: var(--s3) 0;
+}
+
+.agent-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.agent-head .grow {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.agent-head .sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.agent-dot {
+  flex: none;
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.5;
+}
+
+.agent-dot.on {
+  background: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.agent-remove {
+  justify-self: start;
+  padding-inline: 0;
+  color: var(--muted);
+}
+
+.agents-add {
+  justify-self: start;
+}
+
+.agent-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+}
+
+.agent-brief {
+  display: block;
+  resize: none;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin-block-end: var(--s4);
+}
+
+.agent-art-on {
+  animation: agent-on 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes agent-on {
+  from {
+    transform: scale(0.8);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-art-on {
+    animation: none;
+  }
+}
+
+.agent-wait {
+  margin-block-start: var(--s3);
+  text-align: center;
+}
+
+.agents-integration {
+  color: var(--text);
+  text-decoration: none;
+}

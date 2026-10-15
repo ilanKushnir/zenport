@@ -28,6 +28,10 @@ export interface Config {
   transcribeModel: string;
   logLevel: string;
   webDistDir: string | null;
+  /** The address people open ZenPort at (ZP_PUBLIC_URL); else read from each request. */
+  publicUrl?: string | null;
+  /** A direct (LAN) address for AI agents (ZP_AGENT_URL), past CDN bot filters. */
+  agentUrl?: string | null;
 }
 
 /** Read ZP_FOO or the ZP_FOO_FILE variant (for Docker secrets). */
@@ -42,6 +46,21 @@ function envValue(env: NodeJS.ProcessEnv, key: string): string | undefined {
   }
   const v = env[key];
   return v === undefined || v === '' ? undefined : v;
+}
+
+/** An http(s) origin without a trailing slash, or null when unset. */
+function origin(v: string | undefined, key: string): string | null {
+  if (!v) return null;
+  let u: URL;
+  try {
+    u = new URL(v);
+  } catch {
+    throw new Error(`${key} must be an http(s) address`);
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error(`${key} must be an http(s) address`);
+  }
+  return `${u.origin}${u.pathname.replace(/\/+$/, '')}`;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -76,5 +95,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     transcribeModel: envValue(env, 'ZP_TRANSCRIBE_MODEL') ?? 'whisper-1',
     logLevel: envValue(env, 'ZP_LOG_LEVEL') ?? 'info',
     webDistDir: envValue(env, 'ZP_WEB_DIST') ?? null,
+    publicUrl: origin(envValue(env, 'ZP_PUBLIC_URL'), 'ZP_PUBLIC_URL'),
+    agentUrl: origin(envValue(env, 'ZP_AGENT_URL'), 'ZP_AGENT_URL'),
   };
 }

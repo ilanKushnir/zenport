@@ -855,6 +855,26 @@ export const MIGRATIONS: string[] = [
   UPDATE assets SET root_id = -1000000
   WHERE root_id = -1 AND kind = 'cover' AND instr(rel_path, '/') = 0 AND name LIKE 'cover.%';
   `,
+  // v31: a person's AI agents. An agent acts for its owner through
+  // /api/agent with a key it fetched itself: the owner hands it a one-time
+  // connect code, never the key. Only hashes of both are kept.
+  `
+  CREATE TABLE agents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    journal INTEGER NOT NULL DEFAULT 0,
+    key_hash TEXT UNIQUE,
+    key_hint TEXT,
+    connect_hash TEXT UNIQUE,
+    connect_expires_at TEXT,
+    connect_redeemed_at TEXT,
+    created_at TEXT NOT NULL,
+    connected_at TEXT,
+    last_seen_at TEXT
+  );
+  CREATE INDEX idx_agents_user ON agents(user_id);
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

@@ -18,6 +18,8 @@ All configuration is environment variables. Every `ZP_*` variable also accepts a
 | `ZP_TRANSCRIBE_URL`        | _(empty = disabled)_           | Whisper-compatible `POST /v1/audio/transcriptions` endpoint for voice notes |
 | `ZP_TRANSCRIBE_API_KEY`    | _(empty)_                      | bearer token for that endpoint                                              |
 | `ZP_TRANSCRIBE_MODEL`      | `whisper-1`                    | model name sent to the endpoint                                             |
+| `ZP_PUBLIC_URL`            | _(from each request)_          | the address people open ZenPort at; agents' links to meditations use it     |
+| `ZP_AGENT_URL`             | _(empty)_                      | a direct (LAN) address handed to AI agents, past CDN bot filters            |
 | `ZP_LOG_LEVEL`             | `info`                         | fastify/pino level                                                          |
 | `ZP_WEB_DIST`              | _(auto-detected)_              | explicit path to the built frontend                                         |
 | `PUID` / `PGID` / `TZ`     | `1000`/`1000`/`Etc/UTC`        | container entrypoint: run-as user and timezone                              |
